@@ -1,0 +1,41 @@
+# Globals of the PPC build (Harry 1.0.1). "@slot" = the address the TOC
+# slot points to. Names are ours; see NOTES.md for meanings.
+1006856a   gComfort:short               meter 0..144, death below 1
+1006856c   gSurfaceResistance:short     meter 0..144, display only (5 * friction - 1150, min 8)
+1006856e   gCorporateFavor:short        meter 0..144, death below 1
+10068570   gComfortShown:short          displayed comfort, moves 1 per frame toward gComfort
+10068572   gSurfaceShown:short
+10068574   gFavorShown:short
+10068576   gShotKind:short              kind of the last player shot
+10068578   gFloorKind:short             floor under the player: 1 carpet, 2 ?, 3 slippery
+1006857a   gCurInvSlot:short            selected inventory slot, -1 none
+10068a96   gImpulse:short               thrust of the current scoot/kick/inch frame
+@10065e84  gScootTimer:short            21 on key, counts down; DoScoot phases
+@10065e80  gKickTimer:short             21 on key
+@10065e7c  gInchTimer:short             17 on key
+@10065e78  gPoseOffset:short            0, 36, 72, 108: which 36-frame pose set
+@10065e8c  gDrag:short                  0..256, weakens scoot and friction (?)
+@10065e4c  gInvSwitchDelay:short
+@10065e48  gFireDelay:short
+@10065e3c  gItemUseDelay:short
+@10065e38  gRecoil:short                ?
+@10065e6c  gComfortDelta:short          added to gComfort once (unless caffeine)
+@10065e34  gCheat1Timer:short           key sequence window
+@10065e30  gCheat2Timer:short
+@10065e2c  gWavyTimer:short             WAVYGRAVY sequence window
+@10065e70  gWavyOn:short
+@10065e90  gPlayerDir:short             copy of the player's direction (0..35)
+@10065e18  gPlayerSpeed:short           copy of the player's speed (v, h)
+10065ac4   gInventory                   pointer: 12 x {short id, short count}
+@10065ad4  gCaffeineTimer:short         270 frames after a caffeine pill
+@10065aec  gStapleAmmo:short
+@10065ae8  gBadassAmmo:short
+@10065ae4  gShrapnelAmmo:short
+@10065ea4  gFireHold:short              frames the fire key is held
+@100659d8  gPhysics:short               5 shorts: scoot 50, kick 70, friction 245, slippery 252, 150
+@100659a0  gPrefs:char                  prefs: [0] reduce frame rate, [5] background tasks, keys at +0x10..+0x1c
+@10065b64  gLevelH                      handle to the current Hlvl
+@100659b4  gPlayerH:short
+@100659b0  gPlayerV:short
+@10065e1c gKickContact:short       firmness touched this frame: wall 256, cooler 192/256, 128, 64
+@10065e0c gKickPower:short         contact firmness kept for the kick frames 12, 11

@@ -120,12 +120,174 @@ tests against Basilisk II.
   InterfaceLib, QuickTimeLib, SoundLib, MathLib). Globals are reached via
   TOC entries (`_DAT_10065b64` = pointer to the level handle, ...); name
   them as they become clear.
-- Reproduce: `re/ghidra/` scripts, headless:
-  `analyzeHeadless re/work/ghidra-proj harry-ppc -import Harry.pef
-  -processor PowerPC:BE:32:default -postScript ApplyNames.java
-  traceback.txt -postScript ExportFunctions.java functions.txt
-  -postScript DecompileAll.java harry.c` → `re/work/ppc/` (1043
-  functions, 49 500 lines of C).
+- **Reproduce: `re/ghidra/run.sh`** (import, all scripts below, decompile
+  → `re/work/ppc/harry.c`, 1043 functions). The scripts, in order:
+  - `ApplyNames.java`: functions and names from `traceback.txt`.
+  - `NopTOCRestore.java`: CodeWarrior reloads r2 after every call
+    through glue (`lwz r2,0x14(r1)`, 2522 times); Ghidra then loses the
+    TOC and shows `unaff_r2 + -0x78cc`. The script replaces these loads by
+    nops *in the Ghidra database only*.
+  - `SetTOC.java`: r2 = TOC = **0x1006d390** over the whole code block.
+  - `NameTOC.java`: TOC slots pointing to a TVector {code, TOC} become
+    `TV_<function>` (154), so dispatch tables read `TV_SetupRobotSprite`.
+  - `ApplyLabels.java` + `re/ghidra/globals.txt`: our names for globals
+    (`gComfort`, `gImpulse`, ...); `@slot` lines name the target of a TOC
+    slot and the slot itself `p_<name>`.
+  - `ApplyStruct.java` + `re/ghidra/sprite.txt`: the `Sprite` record
+    (0xa2 bytes) as type of the first parameter of 153 sprite routines
+    (`sp->dir`, `sp->speedH`, ...).
+  - `DumpData.java`: the unpacked data section → `data.bin` (constants).
+- Decompiler artefact: in `switch` cases that store through a pointer
+  register set before the jump table (`DoScoot`, `DoKick`, `DoInch`),
+  stores appear as `unique0x…` / `register0x…`. They all go to the same
+  global (there: `gImpulse`, r31 = r2 − 0x48fa); check with
+  `re/tools/ppcdis.py`.
+- The hand-written blitters (`BlitEncFace…`, `DoubleBlit…`) use r2 as a
+  normal register; their `unaff_r2` is genuine.
+
+### Main loop and timing (`GameLoop`)
+
+- Level start: `SetupLevelSprites`, player created via SAT (`FUN_10060f20`
+  = SATNewSprite: kind, h, v, setup TVector), story picture scrolled if
+  the level's info #6 is set (`ScrollPlot`), `IntroLevel`, music from
+  level offset 0x120fa.
+- One pass: `HandleIdleSprites`, `HandleSprites` (SAT run: each sprite's
+  task), view position (`FindUpperLeftCorner`), `CheckTileCollisions`,
+  erase / draw behind tiles / foreground tiles / draw above tiles, ripple
+  counter += level 0x1208c, scroll + dirty rect redraw, `UpdateText`,
+  `UpdateMeters`, `UpdateAmmo`, `CheckGameEvents`, `CheckGameLoopKeys`,
+  `UpdateDynamicSounds`, `UpdateTrackMap`, `SystemTask` if prefs[5].
+- **Timing:** the pass waits until `TickCount() − 2 ≥ start` → at most
+  **30 passes per second** (2 ticks of 1/60 s). Slower Macs simply ran
+  slower (no catch-up). "Reduce Frame Rate" (prefs[0]): logic every pass,
+  drawing every second pass, waits 4 ticks after a drawn pass → logic
+  still 30 Hz, picture 15 Hz.
+- Ends when the "level done" flag is set; then `EndLevelEffect` if comfort
+  or corporate favor dropped below 1.
+
+### Meters (`UpdateMeters`, panel x 473–620)
+
+| Meter | value | shown | y |
+|---|---|---|---|
+| COMFORT | `gComfort` 0x1006856a | `gComfortShown` | 386 |
+| SURFACE RESISTANCE | `gSurfaceResistance` | `gSurfaceShown` | 416 (drawn inverted: 144 − x) |
+| CORPORATE FAVOR | `gCorporateFavor` | `gFavorShown` | 446 |
+
+Range 0–144 (0x90, clamped). The shown value moves 1 per frame toward the
+value. Death (`HandlePlayerSprite`: task becomes
+`HandlePlayerSpriteDeath`) is tested on the **shown** values
+(`gComfortShown < 1 || gFavorShown < 1`), so it happens up to 144 frames
+after the real value hit 0. Surface resistance is only a display of the
+floor friction: 5 · f − 1150 (min 8), f = 245 → 75.
+
+### Player movement (CODE 3 / PPC `HandlePlayerSprite` and helpers)
+
+Harry sits in a swivel chair. Units: position as 24.8 fixed point
+(`fixH`, `fixV`), speed in 1/256 pixel per frame (`speedH`, `speedV`),
+direction `dir` 0–35 in 10° steps.
+
+- **Keys** (`HandleKeys`, `GetKeys`; key codes in the prefs at +0x10…):
+  +0x10 turn (dir + 1), +0x12 turn (dir − 1), +0x14 scoot (`gScootTimer`
+  = 21), +0x16 inch (`gInchTimer` = 17), +0x18 kick (`gKickTimer` = 21) -
+  a new move only when no timer runs; +0x1a weapon off, +0x1c fire.
+  dir wraps 36 → 0, −1 → 35 (in `HandlePlayerSprite`).
+- **Moves** (`MoveChair`, every frame unless `sp->hurt ≥ 23`): base thrust
+  p = physics[0] (50); × 2.5 while caffeine (`gCaffeineTimer > 0`, 270
+  frames after a pill; the multiplication is done in double); × (256 −
+  gDrag) / 256. `DoScoot(p)`, `DoKick(physics[1] = 70)`, `DoInch(p)` set
+  `gImpulse` and the pose (`gPoseOffset` 0/36/72/108 = one of 4 sets of
+  36 frames, 144 faces from PICT 200 in Harry Graphics); then
+  `ApplyModedImpulse(sp, sp->dir, gImpulse)`.
+  - Scoot, by `gScootTimer` (set to 21 by the key, decremented in
+    `HandlePlayerSprite` before `MoveChair`, so the first frame sees 20;
+    read from the jump table at TOC − 0x13b8 - Ghidra's case labels for
+    this switch are wrong, always check jump tables with `ppcdis.py`):
+
+    | timer | 20–18 | 17 | 16 | 15 | 14 | 13 | 12 | 11 | 10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 |
+    |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+    | pose | 36 | 36 | 0 | | | 72 | | | 108 | | | | 72 | | | 0 |
+    | gImpulse | | p | 2p | 3p | 4p | 4p | 4p | 3p | 2p | p + p/2 | p | p/2 | 0 | 0 | | |
+
+    Empty = unchanged. p/2 is an arithmetic shift. Timer 17 also plays the
+    scoot sound by floor kind (and one by `gDrag`).
+  - Inch, by `gInchTimer` (key sets 17, first frame sees 16; table TOC −
+    0x132c):
+
+    | timer | 16 | 15 | 14 | 13 | 12 | 11 | 10 | 9 | 8 | 7–6 | 5–3 |
+    |---|---|---|---|---|---|---|---|---|---|---|---|
+    | pose | 72 | | 72 | | | 0 | | | 36 | | 0 |
+    | gImpulse | −p/2 | −p | −(p + p/2) | −2p | −2p | −(p + p/2) | −p | −p/2 | +2p | (+2p stays) | 0 |
+
+  - Kick, by `gKickTimer` (key sets 21, first frame sees 20; k =
+    physics[1] = 70; table TOC − 0x1370). `gKickContact` is the firmness
+    of whatever the player touches this frame (reset every frame; wall 256
+    in `HitPlayerTileSprite`, water cooler 192/256, barrel / chair / plant
+    / robot 128, blob / boss 64):
+
+    | timer | action |
+    |---|---|
+    | 20 | pose 72, **timer := 16** (cases 19–17 never run) |
+    | 15 | pose 72 |
+    | 14 | pose 108, `hotRect` := (0, 0, 64, 64) for this frame (the kick's reach) |
+    | 13 | contact c ≠ 0: `gKickPower` := c, gImpulse = (10 · k · c) >> 8, sound; no contact: **timer := 11, gImpulse = 50** |
+    | 12 | gImpulse = (9 · k · gKickPower) >> 8 |
+    | 11 | gImpulse = (7 · k · gKickPower) >> 8 |
+    | 10 | pose 72 |
+    | 8 | pose 0, gImpulse 0 |
+    | 7 | gImpulse 0 |
+    | 6 | pose 36 |
+    | 4 | pose 0 |
+
+    gImpulse keeps its value between the listed frames, so a kick against
+    a wall pushes on frames 13–9 with 10, 9, 7, 7, 7 · k · c / 256, and a
+    missed kick still pushes 50 on frames 13, 10 and 9 (explicitly coded,
+    so probably intended).
+  - All thrust goes in `sp->dir`; negative thrust (inch) backwards.
+- **`ApplyModedImpulse(sp, mode, p)`**: mode 0 → speedH −= p, 9 → speedV
+  += p, 18 → speedH += p, 27 → speedV −= p; the other 32 directions use
+  `speed = (short)(int)((double)speed ± k · (double)p)` with k from a
+  table of **hand-typed sines**: 0.174, 0.342, 0.5, 0.643, 0.766, 0.866,
+  0.94, 0.985 (data 0x100667f0–0x10066828). Truncation toward zero.
+- **Friction** (`HandlePlayerGlide`, by `gFloorKind` under the player):
+  1 → f = physics[2] (245), 3 → f = physics[3] (252), 2 → f = 236; f is
+  raised toward 256 by `gDrag` (f + (256 − f) · drag / 256) and becomes
+  (f + 256) / 2 while `sp+0x9c`/glide counter ≥ 88; per axis: |speed| <
+  25 → 0 (unless gliding), else speed = (f · speed) >> 8.
+- `EnforceMaxSpeed(sp, 2500)`: if |speedH| > 2500, speedV is scaled by
+  2500 / |speedH| (integer division) and speedH = ±2500; then the same for
+  speedV.
+- Then `fixH += speedH`, `fixV += speedV`, `posH = fixH >> 8`, `posV =
+  fixV >> 8`. A shake timer adds random −3…+2 to the drawn position.
+- `InverseMode(dir)` = dir ± 18 (opposite direction), e.g. for the recoil
+  of a shot (`ApplyModedImpulse(shot, InverseMode(dir), 2000)`).
+
+### Inventory and items (from `HandleKeys`)
+
+`gInventory`: 12 slots of {short object id, short count}. Item ids are
+the editor's: 11299 staple gun (`gStapleAmmo`), 11499 caffeine pill
+(sets `gCaffeineTimer` 270), 11599 B.A.D.A.S.S. (`gBadassAmmo`, charged by
+holding fire: < 34 frames weak shot −2 ammo, else strong −6), 11699
+mystery vial (random of 6: comfort 100, ..., all ammo/comfort 100, all −25
+...), 11799 shrapnel gun (`gShrapnelAmmo`, charge levels 8/16/24), 11899
+soda can, 11999 power of the swivel (charged; fires a player shot costing
+2 comfort, needs comfort ≥ 10).
+
+### Cheats / Easter eggs found in `HandleKeys`
+
+- With a debug flag (`*_DAT_10065b74`) keys give comfort 144 / 0, staple
+  gun + 100 ammo, explosions, items.
+- Shift (0x38) + `=` (0x18) + key code 0x74 held together, with a sound:
+  player scale 1.0 ↔ 2.0 (`scale0/1` = 0x200) - the README's "Command
+  Shift +" Easter egg. 0x74 is not Command (0x37); open question (check in
+  the emulator).
+- Key sequences (KeyMap: code c = bit c & 7 of byte c >> 3, confirmed by
+  these words), each step must come within a window of 200/200/250
+  frames: **P-A-R-G-H-Z** → random balloon of 52 messages (data
+  0x10068ba8, 256 bytes each), **B-E-N** → a fixed balloon (0x10068aa8),
+  **W-A-V-Y-G-R-A-V-Y** → toggles the ripple effect (level 0x12088 = 100,
+  0x1208a = 16, 0x1208c = 0x300 and `BuildSineTable`).
+- Keys 1–4 (codes 0x12–0x15) select staple gun / B.A.D.A.S.S. / shrapnel
+  gun / power of the swivel if carried.
 
 ### Sprite kinds (CODE 3)
 

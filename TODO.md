@@ -17,11 +17,17 @@
 - [x] Python venv with capstone + unicorn (`re/work/venv`, PPC32 works)
 - [ ] Name the SAT routines in the PPC build (SAT source, 68k CODE 7 names)
 - [ ] Name the tile scroll routines (68k CODE 6: WRAPCOPY, SCROLLTO, ...)
-- [ ] Name globals (TOC entries) and the sprite record struct
+- [x] Ghidra pipeline `re/ghidra/run.sh`: TOC fix, TOC/TVector names, globals list, Sprite struct
+- [ ] Keep naming globals (`re/ghidra/globals.txt`) and sprite fields (`re/ghidra/sprite.txt`)
 - [ ] Unicorn harness for PPC routines (TOC, TVector glue stubs by import name)
 - [ ] Later: CodeWarrior 68k far-model loader for differential tests against Basilisk II
-- [ ] Main loop (`GameLoop`), timing (frame rate, Reduce Frame Rate mode)
-- [ ] Player physics (chair: scoot, kick, inch, glide)
+- [x] Main loop (`GameLoop`), timing: 30 Hz logic
+- [x] Player movement: keys, scoot/inch/kick tables, impulse by direction, friction, max speed
+- [ ] Player collisions: `HitPlayerTileSprite` (walls, tile kinds), `HitPlayerSprite`, `CheckTileCollisions`
+- [ ] Tile kinds (`LoadTileDefinitions`, `LookupBGTileKind` / `LookupFGTileKind`), ramps, stairs, half pipes
+- [ ] Meters: what changes comfort / favor; death and respawn (`HandlePlayerSpriteDeath`, copier saves)
+- [ ] SAT run order (`HandleSprites`, idle sprites) - which sprite moves first
+- [ ] Random generator (`FUN_10062dc8(n)`) - SAT's or Toolbox `Random`?
 - [ ] Sprite kinds one by one
 
 ## Phase 3: emulator

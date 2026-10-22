@@ -1,0 +1,34 @@
+# The sprite record (0xa2 bytes, SATSetSpriteRecSize(0xa2) in InitSAT).
+# 0x00-0x4d follow SAT's Sprite record; the rest is Harry's own.
+# offset type name comment
+0x00 short kind          SAT: kind (> 0 friend, < 0 foe)
+0x02 short posV          SAT: position.v (pixels)
+0x04 short posH          SAT: position.h
+0x06 Rect  hotRect       SAT: collision rect, relative to position
+0x0e Rect  hotRect2      SAT
+0x16 ptr   face          SAT: face to draw
+0x1a ptr   task          SAT: per-frame routine (TVector)
+0x1e ptr   hitTask       SAT: collision routine (TVector)
+0x22 ptr   destructTask  SAT
+0x26 ptr   clip          SAT
+0x4c short layer         SAT: drawing order (player 10)
+0x4e short speedV        1/256 pixel per frame
+0x50 short speedH
+0x52 short scale0        0x100 = 1.0
+0x54 short scale1
+0x56 short scale2
+0x58 short scale3
+0x5a short centerV
+0x5c short centerH
+0x5e int   fixH          position.h << 8
+0x62 int   fixV          position.v << 8
+0x66 short dir           direction 0..35 (10 degree steps), ApplyModedImpulse mode
+0x68 short levelIndex    index in the level's sprite list, -1 none
+0x72 short state
+0x74 short timer
+0x76 short target
+0x7e ptr   faceEntry     current face (face set + frame * 0x1c)
+0x8e short hurt          player: >= 23 cannot move
+0x92 char  frozen        task does nothing while set
+0x9c short slide
+0x9e ptr   hitTileTask   collision with tiles (TVector), e.g. HitPlayerTileSprite
