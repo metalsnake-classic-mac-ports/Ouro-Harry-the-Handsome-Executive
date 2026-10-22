@@ -12,13 +12,20 @@
 - [ ] `Tune` format (QTMA) and `ssai` instruments; plan for the music
 - [ ] Compare with 1.0.0 (older installer format) - worth it?
 
-## Phase 2: code
-- [ ] CodeWarrior far model: read CODE 1 startup, relocation + DATA decompression, build a loader (68k) - or decide for the PPC PEF
-- [ ] Disassembler/decompiler setup for this layout (capstone/unicorn venv, Ghidra)
+## Phase 2: code (PPC is the reference)
+- [x] Ghidra: PEF import (PowerPC:BE:32), names from traceback tables, decompile all (`re/work/ppc/harry.c`)
+- [x] Python venv with capstone + unicorn (`re/work/venv`, PPC32 works)
+- [ ] Name the SAT routines in the PPC build (SAT source, 68k CODE 7 names)
+- [ ] Name the tile scroll routines (68k CODE 6: WRAPCOPY, SCROLLTO, ...)
+- [ ] Name globals (TOC entries) and the sprite record struct
+- [ ] Unicorn harness for PPC routines (TOC, TVector glue stubs by import name)
+- [ ] Later: CodeWarrior 68k far-model loader for differential tests against Basilisk II
 - [ ] Main loop (`GameLoop`), timing (frame rate, Reduce Frame Rate mode)
 - [ ] Player physics (chair: scoot, kick, inch, glide)
 - [ ] Sprite kinds one by one
 
 ## Phase 3: emulator
+- [x] SheepShaver built (`re/work/emu-ppc/src`), Mac OS ROM (newworld86.rom) from the user
+- [ ] Mac OS 8.6/9 boot disk for SheepShaver (from the user)
 - [ ] QuickTime 2.5 + Musical Instruments on the boot disk, run the game
 - [ ] Screenshots: menu, level 1, palette

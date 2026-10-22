@@ -92,6 +92,41 @@ registration resources (TEXT/STR#/ALRT 900–902).
   `GenerateSprite` 0x3304, `LoadLevelPhysics` 0x3c5e, `SetupLevelSprites`
   0x40d8.
 
+### PowerPC code: the reference
+
+Decision (2026-10-22): the **PPC build is read as the reference**; the 68k
+build serves for cross-checks and (later, with a loader) for differential
+tests against Basilisk II.
+
+- `Harry.pef` (data fork): 3 sections - code 414 604 bytes, data 35 168
+  (packed 17 167), loader 5 504. Ghidra's PEF loader with **processor
+  `PowerPC:BE:32:default`** (auto-detection picks a 64-bit VLE variant -
+  wrong). Code loads at 0x10000000. Ghidra's `PefDebugAnalyzer` aborts
+  (read at 0x1006538c), so it creates only the functions reached by
+  direct calls.
+- **Traceback tables** (AIX style, after every routine: zero word, fixed
+  part, `tb_offset` = routine length, name) give exact starts and names:
+  `re/tools/pef_traceback.py` → 505 routines. `re/ghidra/ApplyNames.java`
+  creates and names them (142 were missing, among them every routine only
+  called through a pointer, e.g. `SetupPlayerSprite`,
+  `HandlePlayerSprite`).
+- All game routines are named. Unnamed (no traceback): the **SAT** library
+  (68k CODE 7 names: `SATNEWSPRITE`, `SATRUN`, ...; SAT's source is
+  public), and the tile scrolling routines of 68k CODE 6 (`WRAPCOPY`,
+  `TILESCROLLSYNCH`, `SCROLLTO`, `REDRAWWHOLEGRID`, ...), probably a
+  separately compiled module. E.g. `FUN_10024750` (called by `GameLoop`
+  with the view position) is one of them.
+- Toolbox calls appear as `.glue::TickCount` etc. (imports from
+  InterfaceLib, QuickTimeLib, SoundLib, MathLib). Globals are reached via
+  TOC entries (`_DAT_10065b64` = pointer to the level handle, ...); name
+  them as they become clear.
+- Reproduce: `re/ghidra/` scripts, headless:
+  `analyzeHeadless re/work/ghidra-proj harry-ppc -import Harry.pef
+  -processor PowerPC:BE:32:default -postScript ApplyNames.java
+  traceback.txt -postScript ExportFunctions.java functions.txt
+  -postScript DecompileAll.java harry.c` → `re/work/ppc/` (1043
+  functions, 49 500 lines of C).
+
 ### Sprite kinds (CODE 3)
 
 Player (`HandlePlayerGlide`, `DoScoot`, `DoKick`, `DoInch`, `MoveChair`,
@@ -113,12 +148,24 @@ turret. Each kind has `Init…` (once), `SETUP…` (per sprite), `HANDLE…`
 - 0x8000–0xffff: **foreground grid**, 128 × 128 words. 60–63 fill the
   area outside the level, 0xffff = no tile, 0–59 walls etc.
 - Tiles are 32 × 32 → the world is 4096 × 4096 pixels.
-- 0x10000-: **sprite list**, 16-byte records: word flags (0x0100 / 0),
-  word **object id** (the editor's ids: 0x0385 = 901 door up, 0x0259 =
-  601 plant, 0x23f0 = 9200 copier, 0x01f4 = 500 water cooler, 0x2707 =
-  9991 fade exit, 0x5208 = 21000 ?), four words of info fields, word x,
-  word y (pixels). Followed by more tables (to be decoded; level info
-  fields, see below).
+- 0x10000–0x10fff: **sprite list**, 256 records of 16 bytes
+  (`SetupLevelSprites`): byte 0 = present, word +2 = **object id** (the
+  editor's ids: 0x0385 = 901 door up, 0x0259 = 601 plant, 0x23f0 = 9200
+  copier, 0x01f4 = 500 water cooler, 0x2707 = 9991 fade exit, 0x5208 =
+  21000 ?), words +4…+a = info fields, +c and +e = position (pixels);
+  the sprite is generated at (+e − 6, +c − 6) with its record index.
+- 0x11000, 0x11340: tables (to be decoded).
+- 0x114c0: **level name**, Pascal string ("Welcome to ScumCo"); also
+  compared against fixed strings somewhere (cheat/special levels?).
+- 0x12032/0x12034: ?
+- 0x12074: **level info fields #0–#15**, words (see list below). Level 1:
+  #6 = 200 (story picture scrolled before the level), #8 = 301 (picture
+  shown before). Level 3: #5 = 201.
+- 0x1209c–0x120b1: nibble arrays (`1111 1111 1111 1111 2222 2333`, `6666`).
+- 0x120f4/0x120f6: two coordinates (level 1: 2082/2087) - start position?
+- 0x120f8: ?; 0x120fa: **music id** (601, 603, ...); 0x120fc–0x120fe: ?
+- 0x12100: physics override flag; 0x12102–0x1210a: five physics values
+  (defaults when the flag is 0: 50, 70, 245, 252, 150; `LoadLevelPhysics`).
 - Level −1: unknown purpose (test level? level select was disabled).
 
 ### World `Hwld` 0 (70 668 bytes) - to be decoded.
