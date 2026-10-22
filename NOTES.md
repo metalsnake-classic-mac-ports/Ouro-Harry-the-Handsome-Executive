@@ -194,7 +194,7 @@ direction `dir` 0–35 in 10° steps.
 - **Moves** (`MoveChair`, every frame unless `sp->hurt ≥ 23`): base thrust
   p = physics[0] (50); × 2.5 while caffeine (`gCaffeineTimer > 0`, 270
   frames after a pill; the multiplication is done in double); × (256 −
-  gDrag) / 256. `DoScoot(p)`, `DoKick(physics[1] = 70)`, `DoInch(p)` set
+  gWet) / 256. `DoScoot(p)`, `DoKick(physics[1] = 70)`, `DoInch(p)` set
   `gImpulse` and the pose (`gPoseOffset` 0/36/72/108 = one of 4 sets of
   36 frames, 144 faces from PICT 200 in Harry Graphics); then
   `ApplyModedImpulse(sp, sp->dir, gImpulse)`.
@@ -209,7 +209,7 @@ direction `dir` 0–35 in 10° steps.
     | gImpulse | | p | 2p | 3p | 4p | 4p | 4p | 3p | 2p | p + p/2 | p | p/2 | 0 | 0 | | |
 
     Empty = unchanged. p/2 is an arithmetic shift. Timer 17 also plays the
-    scoot sound by floor kind (and one by `gDrag`).
+    scoot sound by floor kind (and one by `gWet`).
   - Inch, by `gInchTimer` (key sets 17, first frame sees 16; table TOC −
     0x132c):
 
@@ -250,7 +250,7 @@ direction `dir` 0–35 in 10° steps.
   0.94, 0.985 (data 0x100667f0–0x10066828). Truncation toward zero.
 - **Friction** (`HandlePlayerGlide`, by `gFloorKind` under the player):
   1 → f = physics[2] (245), 3 → f = physics[3] (252), 2 → f = 236; f is
-  raised toward 256 by `gDrag` (f + (256 − f) · drag / 256) and becomes
+  raised toward 256 by `gWet` (f + (256 − f) · drag / 256) and becomes
   (f + 256) / 2 while `sp+0x9c`/glide counter ≥ 88; per axis: |speed| <
   25 → 0 (unless gliding), else speed = (f · speed) >> 8.
 - `EnforceMaxSpeed(sp, 2500)`: if |speedH| > 2500, speedV is scaled by
@@ -260,6 +260,61 @@ direction `dir` 0–35 in 10° steps.
   fixV >> 8`. A shake timer adds random −3…+2 to the drawn position.
 - `InverseMode(dir)` = dir ± 18 (opposite direction), e.g. for the recoil
   of a shot (`ApplyModedImpulse(shot, InverseMode(dir), 2000)`).
+
+### Tiles and collisions
+
+- **Grid layout: column major.** `GetBGTile(x, y)` / `GetFGTile(x, y)`
+  (tile coordinates, clamped to 0–127) read the word at (x · 128 + y) · 2
+  of the background (0x0000) / foreground (0x8000) grid.
+- **Tile kinds** come from the level's info fields (`LoadTileDefinitions`):
+  #16–#39 (0x12094–0x120c3) hold 96 nibbles = the kind of background
+  tiles 0–95 (`LookupBGTileKind`; other values pass through);
+  #40–#51 (0x120c4–0x120db) hold 24 bytes = the kind of foreground tiles
+  32–55 (`LookupFGTileKind`; tiles < 32 and ≥ 56 are their own kind,
+  0xffff = no tile).
+- **Shapes** (`InitTileHotRects`, captured by running it in Unicorn:
+  `re/tools/emu_tables.py` → `re/work/tables/tile_rects.txt`; rect =
+  top, left, bottom, right): foreground kinds 0–3 half tiles (left, top,
+  right, bottom), 4–7 quarters (bottom-left, top-left, top-right,
+  bottom-right), 8–50 full, 51/52/53 shrinking squares (4–28, 8–24,
+  12–20), 54–63 full; the second rect (redraw) is the same except 51–53
+  (full). Background kinds: 3–5 (6, 6, 26, 26), all others (2, 2, 30, 30).
+- **`CheckTileCollisions`** (each frame, after `HandleSprites`): for every
+  sprite in SAT's list (`next` at +0x2e) with a `hitTileTask`, the 3 × 3
+  tiles around the centre of its face, in the order (0,0), (−1,−1),
+  (0,−1), (+1,−1), (−1,0), (+1,0), (−1,+1), (0,+1), (+1,+1): if the
+  sprite's hot rect meets the tile kind's rect, call
+  `hitTileTask(sp, tile position, kind, isForeground)` - foreground
+  first, then background (background kind 0 is skipped). Sprites with
+  byte +0x8b set also get the foreground redrawn over them.
+- **Player against tiles** (`HitPlayerTileSprite`):
+  - Foreground, normal: kind < 32 → `WallBounce(…, physics[4] = 150, …)`;
+    32–55 → `RectBounceFake` with the background rect table (sic).
+    While kicking (`hotRect.left == 0`): pixel-exact mask test
+    (`FUN_10054124` with the tile's mask) → `gKickContact` = 256 and the
+    position is put back.
+  - Background, only while `sp->hurt == 0`: **1** obstacle
+    (`BGTileBounce`, kickable), **2** slippery floor (`gFloorKind` = 3,
+    friction 252; reset to 1 every frame in `HandlePlayerSprite`), **3**
+    comfort −7, **4** comfort −12 (both: "Ouch", 15 frames of immunity,
+    only when not kicking), **5** comfort +1 per frame, **6** water
+    (`gWet` += 25 up to 200, scoot sound pitched; `gWet` weakens thrust
+    and friction, drops by 2 per frame while |speed| > 200).
+  - Debug: with the debug flag and key 0x32 (`` ` ``) held, tile
+    collisions are off.
+- Comfort changes are collected in `gComfortDelta` and applied once per
+  frame in `HandlePlayerSprite` - **but not while caffeine works**
+  (`gCaffeineTimer > 0`): caffeine makes Harry immune to comfort loss and
+  gain.
+
+### Random numbers
+
+`FUN_10062dc8(n)` (SAT's `SATRand`, 176 callers): `r = Random(); if (r <
+0) r = −r; return r % n` (short arithmetic). `Random` is the QuickDraw
+Toolbox generator (Park–Miller on `qd.randSeed`; never returns −32768);
+`Randomize` seeds it with `GetDateTime(&qd.randSeed)` - every game differs.
+A port can use the same generator (seed from the clock, or fixed for
+tests); `scripts/machine.py` of the skill already implements `Random`.
 
 ### Inventory and items (from `HandleKeys`)
 
@@ -304,9 +359,10 @@ turret. Each kind has `Init…` (once), `SETUP…` (per sprite), `HANDLE…`
 
 ### Level `Hlvl` (Episode 1: ids −1, 1–15; 76 168 bytes each, fixed size)
 
-- 0x0000–0x7fff: **background grid**, 128 × 128 big-endian words, row
-  major. Values 0–14 are the random floor variants; higher values are
-  special floor tiles.
+- 0x0000–0x7fff: **background grid**, 128 × 128 big-endian words,
+  **column major**: tile (x, y) at (x · 128 + y) · 2 (`GetBGTile`).
+  Values 0–14 are the random floor variants; higher values are special
+  floor tiles (kinds: see "Tiles and collisions").
 - 0x8000–0xffff: **foreground grid**, 128 × 128 words. 60–63 fill the
   area outside the level, 0xffff = no tile, 0–59 walls etc.
 - Tiles are 32 × 32 → the world is 4096 × 4096 pixels.

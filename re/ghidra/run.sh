@@ -19,6 +19,7 @@ cp "$W/app/pef.bin" "$W/ppc/Harry.pef"
     -processor PowerPC:BE:32:default -cspec default \
     -scriptPath "$R/re/ghidra" \
     -postScript ApplyNames.java "$W/ppc/traceback.txt" \
+    -postScript ApplyNames.java "$R/re/ghidra/names.txt" \
     -postScript NopTOCRestore.java \
     -postScript SetTOC.java \
     -postScript NameTOC.java "$W/ppc/toc_functions.txt" \
@@ -26,5 +27,6 @@ cp "$W/app/pef.bin" "$W/ppc/Harry.pef"
     -postScript ApplyStruct.java "$R/re/ghidra/sprite.txt" 0xa2 \
     -postScript ExportFunctions.java "$W/ppc/functions.txt" \
     -postScript DumpData.java "$W/ppc/data.bin" \
+    -postScript ExportImports.java "$W/ppc/imports.txt" \
     -postScript DecompileAll.java "$W/ppc/harry.c" > "$W/ppc/ghidra.log" 2>&1
-grep -E "ApplyNames|NopTOC|SetTOC|NameTOC|ApplyLabels|ApplyStruct|DumpData|ERROR" "$W/ppc/ghidra.log"
+grep -E "ApplyNames|NopTOC|SetTOC|NameTOC|ApplyLabels|ApplyStruct|DumpData|ExportImports|ERROR" "$W/ppc/ghidra.log"

@@ -14,7 +14,7 @@
 @10065e80  gKickTimer:short             21 on key
 @10065e7c  gInchTimer:short             17 on key
 @10065e78  gPoseOffset:short            0, 36, 72, 108: which 36-frame pose set
-@10065e8c  gDrag:short                  0..256, weakens scoot and friction (?)
+@10065e8c  gWet:short                   0..200: +25 per frame in water (BG kind 6), -2 per frame at speed > 200; weakens thrust and friction
 @10065e4c  gInvSwitchDelay:short
 @10065e48  gFireDelay:short
 @10065e3c  gItemUseDelay:short

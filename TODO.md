@@ -19,15 +19,18 @@
 - [ ] Name the tile scroll routines (68k CODE 6: WRAPCOPY, SCROLLTO, ...)
 - [x] Ghidra pipeline `re/ghidra/run.sh`: TOC fix, TOC/TVector names, globals list, Sprite struct
 - [ ] Keep naming globals (`re/ghidra/globals.txt`) and sprite fields (`re/ghidra/sprite.txt`)
-- [ ] Unicorn harness for PPC routines (TOC, TVector glue stubs by import name)
+- [x] Unicorn harness for PPC routines (`re/tools/ppcmachine.py`: imports → Python stubs)
+- [x] Tile shape tables captured from `InitTileHotRects` (`re/tools/emu_tables.py`)
 - [ ] Later: CodeWarrior 68k far-model loader for differential tests against Basilisk II
 - [x] Main loop (`GameLoop`), timing: 30 Hz logic
 - [x] Player movement: keys, scoot/inch/kick tables, impulse by direction, friction, max speed
 - [ ] Player collisions: `HitPlayerTileSprite` (walls, tile kinds), `HitPlayerSprite`, `CheckTileCollisions`
-- [ ] Tile kinds (`LoadTileDefinitions`, `LookupBGTileKind` / `LookupFGTileKind`), ramps, stairs, half pipes
+- [x] Tile kinds and `CheckTileCollisions` order; player's reaction per background kind
+- [ ] `WallBounce`, `BGTileBounce`, `RectBounceFake` (the bounce maths), mask test `FUN_10054124`
+- [ ] Ramps, stairs, half pipes (`HandleRampCollision`, `HandleStairsCollision`, `HandleHalfPipe`, `JumpScale`)
 - [ ] Meters: what changes comfort / favor; death and respawn (`HandlePlayerSpriteDeath`, copier saves)
 - [ ] SAT run order (`HandleSprites`, idle sprites) - which sprite moves first
-- [ ] Random generator (`FUN_10062dc8(n)`) - SAT's or Toolbox `Random`?
+- [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one
 
 ## Phase 3: emulator

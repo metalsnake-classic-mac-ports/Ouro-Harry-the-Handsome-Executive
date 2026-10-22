@@ -15,6 +15,7 @@ public class ApplyNames extends GhidraScript {
     public void run() throws Exception {
         int created = 0, renamed = 0;
         for (String line : Files.readAllLines(Paths.get(getScriptArgs()[0]))) {
+            if (line.trim().startsWith("#")) continue;
             String[] p = line.trim().split("\\s+");
             if (p.length < 3) continue;
             Address a = toAddr(Long.parseLong(p[0], 16));

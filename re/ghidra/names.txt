@@ -1,0 +1,4 @@
+# Names for routines without a traceback name (SAT library, tile scroller).
+# Format as traceback.txt: address size name (size is ignored).
+10062dc8 0 SATRand
+10060f20 0 SATNewSprite
