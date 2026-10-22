@@ -35,6 +35,8 @@
 
 ## Phase 3: emulator
 - [x] SheepShaver built (`re/work/emu-ppc/src`), Mac OS ROM (newworld86.rom) from the user
-- [ ] Mac OS 8.6/9 boot disk for SheepShaver (from the user)
-- [ ] QuickTime 2.5 + Musical Instruments on the boot disk, run the game
-- [ ] Screenshots: menu, level 1, palette
+- [x] Mac OS 9.0.4 installed in SheepShaver, Harry installed there
+- [ ] SheepShaver: "Couldn't open Sound Tool!" (SndNewChannel / SndPlayDoubleBuffer fails) - find out why
+- [x] 68k original runs in Basilisk II: menu, prefs, level 1 (screenshots in re/work/screens)
+- [ ] Music in Basilisk: QuickTime 2.5 + Musical Instruments on the System 7.5 disk
+- [ ] Screen palette from a screenshot; Harry-big Easter egg key (0x74?)

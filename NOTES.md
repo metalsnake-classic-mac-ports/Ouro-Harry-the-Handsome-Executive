@@ -186,10 +186,14 @@ Harry sits in a swivel chair. Units: position as 24.8 fixed point
 (`fixH`, `fixV`), speed in 1/256 pixel per frame (`speedH`, `speedV`),
 direction `dir` 0–35 in 10° steps.
 
-- **Keys** (`HandleKeys`, `GetKeys`; key codes in the prefs at +0x10…):
-  +0x10 turn (dir + 1), +0x12 turn (dir − 1), +0x14 scoot (`gScootTimer`
-  = 21), +0x16 inch (`gInchTimer` = 17), +0x18 kick (`gKickTimer` = 21) -
-  a new move only when no timer runs; +0x1a weapon off, +0x1c fire.
+- **Keys** (`HandleKeys`, `GetKeys`; key codes in the prefs at +0x10…;
+  defaults from the Key Controls panel of the running original):
+  +0x10 Rotate Left (← , dir + 1), +0x12 Rotate Right (→, dir − 1), +0x14
+  Scoot (↓, `gScootTimer` = 21), +0x16 Inch (↑, `gInchTimer` = 17), +0x18
+  Power Kick (Space, `gKickTimer` = 21) - a new move only when no timer
+  runs; +0x1a Select Item (Control), +0x1c Use Item (Option); Toggle Map
+  (Tab). Fixed: Pause = Caps Lock, Abort Game = Escape. Scoot moves Harry
+  in the direction he faces (start: facing up, dir 27).
   dir wraps 36 → 0, −1 → 35 (in `HandlePlayerSprite`).
 - **Moves** (`MoveChair`, every frame unless `sp->hurt ≥ 23`): base thrust
   p = physics[0] (50); × 2.5 while caffeine (`gCaffeineTimer > 0`, 270
@@ -457,6 +461,39 @@ RESISTANCE, CORPORATE FAVOR), 130 Menu Screen, 131 Ambrosia Logo, 132
 Instructions, 4803–4921 messages/buttons.
 
 ## Emulator
+
+**Status (2026-10-23):** the 68k build runs in Basilisk II (System 7.5 +
+Sound Manager 3.1): shareware notice, main menu, preferences, level 1,
+scoot, memo balloons. Screenshots in `re/work/screens/`. The PPC build
+starts in SheepShaver (Mac OS 9.0.4) but quits with "Couldn't open Sound
+Tool!": its mixer (`FUN_10056590(8 voices, stereo, 22050 Hz)`: Gestalt
+'snd ', `SndNewChannel(sampledSynth, initStereo)`, `SndPlayDoubleBuffer`)
+gets an error from SheepShaver's Sound Manager although SDL/CoreAudio
+output is open. Open question; for watching the game Basilisk is enough.
+
+Preferences seen in the original: Game Options (Allow system tasks, More
+compatible drawing, Reduce frame rate, Line-skipping + Interlace skipped
+lines, Save between levels, Camera Mode: Constant Catch-up / Constant
+Anticipate / Step-Scroll Smoother (default) / Step-Scroll Faster), Key
+Controls, Sound & Music. Start-up: Ambrosia logo, shareware notice ("Not
+Yet" / "Register..."), main menu (New Game, Continue Game, Instructions,
+Options, Credits, Quit) over the wire-frame chair; New Game scrolls the
+story (PICT 200) in the play area, a click skips it. A memo balloon dims
+the play area.
+
+### SheepShaver (PPC)
+
+`re/work/emu-ppc`: SheepShaver built from kanjitalk755/macemu (`src/`,
+`--disable-jit`, SDL2), ROM `newworld86.rom` (user), Mac OS 9.0.4 CD
+(user, `691-2684-A`, linked as `macos904.iso`) installed onto
+`macos9.dsk` (2 GB, Mac OS Extended; "Update Apple Hard Disk Drivers"
+switched off; clean copy `macos9-clean.dsk`), Harry installed by running
+the installer again under OS 9 (puts Harry Instruments into its System
+Folder), `harry.dsk` = copy of the Basilisk disk. `sheepshaver.prefs`:
+256 MB, 640 × 480, `bootdrive 0` (−62 for the CD). The interpreter is
+slow: input is processed seconds later - wait before screenshots.
+
+### Basilisk II (68k)
 
 `re/work/emu`: Basilisk II from the S.C.Out work folder (binary used in
 place), Performa ROM, a copy of the System 7.5 + Sound Manager 3.1 boot
