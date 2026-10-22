@@ -302,6 +302,28 @@ direction `dir` 0–35 in 10° steps.
     and friction, drops by 2 per frame while |speed| > 200).
   - Debug: with the debug flag and key 0x32 (`` ` ``) held, tile
     collisions are off.
+- **`WallBounce(sp, kind, tile pos, 32, bounce, hot rect, mask, first)`**
+  (foreground kinds 0–31; bounce = physics[4] = 150, i.e. speed × 150/256
+  per hit). Reflection: the speed component into the wall becomes
+  `−((bounce · s) >> 8)`, the other `(bounce · s) >> 8`, only if the
+  sprite moves into the wall; then the sprite is put against the wall and
+  `fix = centre << 8`.
+  - 0–3: half tiles (left, top, right, bottom). Kind 0 bounces only on the
+    first wall contact of the frame (`first`); 1–3 do not check it.
+  - 4–7: quarter tiles, tested pixel-exact (`FUN_10054124` with the tile
+    mask); the axis is chosen by the penetration depth (< 9 px → push
+    out, else treated as a 45° corner: kind 12–15).
+  - 8–11: L-shaped (two rects), axis by distance to the corner.
+  - 12–15: 45° diagonals: swap speedH/speedV (13, 15) or swap and negate
+    (12, 14), then both × −bounce/256.
+  - 16–31: curved/mixed pieces: pixel-exact test, then by which half of
+    the tile the centre is in: plain H or V reflection or one of the
+    diagonals 12–15.
+- **`RectBounceFake`** (foreground kinds 32–55): rect vs rect, axis by the
+  centre's distance to the rect's centre; reflection written as
+  `(−(bounce · s)) >> 8` - **rounds differently** from `WallBounce`
+  (−((b · s) >> 8)): for small speeds the result differs by 1. Port 1:1
+  and test differentially.
 - Comfort changes are collected in `gComfortDelta` and applied once per
   frame in `HandlePlayerSprite` - **but not while caffeine works**
   (`gCaffeineTimer > 0`): caffeine makes Harry immune to comfort loss and
