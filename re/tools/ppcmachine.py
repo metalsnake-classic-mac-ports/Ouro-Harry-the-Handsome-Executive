@@ -89,7 +89,7 @@ class Machine:
         self.ticks = 0
         self.trace_calls = False
         for n, f in (("SetRect", self.tb_setrect), ("Random", self.tb_random),
-                     ("TickCount", self.tb_tickcount), ("OffsetRect", self.tb_offsetrect),
+                     ("TickCount", self.tb_tickcount), ("SectRect", self.tb_sectrect), ("OffsetRect", self.tb_offsetrect),
                      ("NewPtr", self.tb_newptr), ("NewPtrClear", self.tb_newptr),
                      ("NewHandle", self.tb_newhandle), ("NewHandleClear", self.tb_newhandle),
                      ("HLock", self.tb_nop), ("HUnlock", self.tb_nop), ("MoveHHi", self.tb_nop),
@@ -131,7 +131,8 @@ class Machine:
         return self.r32(slot)
 
     def stub_routine(self, f, result=0, log=None):
-        """Make a routine of the game return at once with r3 = result.
+        """Make a routine of the game return at once with r3 = result
+        (a value, or a function of the machine returning one).
         log: a list that receives (name, r3, r4, r5, r6) for every call."""
         a = self.addr(f)
         name = f if isinstance(f, str) else hex(f)
@@ -139,7 +140,7 @@ class Machine:
         def hook(uc, address, size, _):
             if log is not None:
                 log.append((name,) + tuple(self.get(i) for i in range(3, 7)))
-            self.set(3, result)
+            self.set(3, result(self) if callable(result) else result)
             uc.reg_write(UC_PPC_REG_PC, uc.reg_read(UC_PPC_REG_LR))
 
         self.uc.hook_add(UC_HOOK_CODE, hook, begin=a, end=a)
@@ -181,6 +182,16 @@ class Machine:
         dh = (dh & 0xffff) - (0x10000 if dh & 0x8000 else 0)
         dv = (dv & 0xffff) - (0x10000 if dv & 0x8000 else 0)
         self.write(r, struct.pack(">hhhh", t + dv, l + dh, b + dv, rr + dh))
+
+    def tb_sectrect(self):
+        a = struct.unpack(">hhhh", self.read(self.get(3), 8))
+        b = struct.unpack(">hhhh", self.read(self.get(4), 8))
+        r = (max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3]))
+        if r[2] <= r[0] or r[3] <= r[1]:
+            self.write(self.get(5), bytes(8))
+            return 0
+        self.write(self.get(5), struct.pack(">hhhh", *r))
+        return 1
 
     def tb_random(self):
         # QuickDraw Random: Park-Miller (16807, 2^31 - 1) on randSeed; -32768 -> 0

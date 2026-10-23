@@ -1,0 +1,67 @@
+"""Record WallBounce of the original for differential tests.
+
+The pixel-exact mask test (FUN_10054124, regions) is stubbed: its result
+is an input of the case, and it does not move the sprite. One line per
+case: kind first tileV tileH centerV centerH posV posH speedH speedV
+bounce mask -> return centerV centerH posV posH speedH speedV fixH fixV
+calls(mask). hot rect (22, 22, 42, 42), half size 32 as the player uses.
+
+Usage: python3 -I emu_bounce.py [re/work/ppc] [out dir]
+"""
+import os
+import random
+import struct
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ppcmachine import Machine  # noqa: E402
+
+POS_V, POS_H, CEN_V, CEN_H, FIX_H, FIX_V, SPEED_V, SPEED_H = 0x02, 0x04, 0x5A, 0x5C, 0x5E, 0x62, 0x4E, 0x50
+HOT = (22, 22, 42, 42)
+CASES = 12000
+
+
+def main():
+    ppc = sys.argv[1] if len(sys.argv) > 1 else "re/work/ppc"
+    out_dir = sys.argv[2] if len(sys.argv) > 2 else "re/work/diff"
+    m = Machine(ppc)
+    rnd = random.Random("wallbounce")
+    state = {"mask": 0}
+    calls = []
+    m.stub_routine(0x10054124, lambda mm: state["mask"], calls)
+    # tile mask faces (64 x 0x2e bytes, *_DAT_100658d4): only passed on to
+    # the stubbed mask test, so a zeroed table will do
+    m.w32(m.glob(0x100658D4), m.alloc(64 * 0x2E))
+    sp = m.alloc(0xA2)
+    tile = m.alloc(4)
+    hot = m.alloc(8)
+    m.write(hot, struct.pack(">hhhh", *HOT))
+    with open(os.path.join(out_dir, "wallbounce.txt"), "w") as out:
+        out.write("# WallBounce (PPC 0x10019dac), mask test stubbed; " + __doc__.splitlines()[3].strip() + "\n")
+        for k in range(CASES):
+            kind = k % 34 if k % 50 else rnd.choice([-1, 40, 56, 60])
+            first = rnd.randint(0, 1)
+            tv, th = rnd.randint(10, 100) * 32, rnd.randint(10, 100) * 32
+            cv, ch = tv - 32 + rnd.randint(-40, 40), th - 32 + rnd.randint(-40, 40)
+            pv, ph = cv + rnd.choice([0, 0, rnd.randint(-5, 5)]), ch + rnd.choice([0, 0, rnd.randint(-5, 5)])
+            sh, sv = rnd.choice([rnd.randint(-2500, 2500), rnd.randint(-30, 30), 0]), rnd.choice([rnd.randint(-2500, 2500), rnd.randint(-30, 30), 0])
+            bounce = rnd.choice([150, 150, rnd.randint(0, 300)])
+            state["mask"] = rnd.randint(0, 1)
+            for off, v in ((POS_V, pv), (POS_H, ph), (CEN_V, cv), (CEN_H, ch), (SPEED_H, sh), (SPEED_V, sv)):
+                m.w16(sp + off, v)
+            m.w32(sp + FIX_H, 0x7777)
+            m.w32(sp + FIX_V, 0x7777)
+            m.write(tile, struct.pack(">hh", tv, th))
+            calls.clear()
+            r = m.call("WallBounce", sp, kind & 0xFFFF, tile, 32, bounce, hot, 0x1234, first)
+            r = (r & 0xFF) if (r & 0xFF) < 0x80 else (r & 0xFF) - 0x100
+            outs = [r, m.r16(sp + CEN_V), m.r16(sp + CEN_H), m.r16(sp + POS_V), m.r16(sp + POS_H),
+                    m.r16(sp + SPEED_H), m.r16(sp + SPEED_V),
+                    struct.unpack(">i", m.read(sp + FIX_H, 4))[0], struct.unpack(">i", m.read(sp + FIX_V, 4))[0], len(calls)]
+            ins = [kind, first, tv, th, cv, ch, pv, ph, sh, sv, bounce, state["mask"]]
+            out.write(f"{' '.join(map(str, ins))} -> {' '.join(map(str, outs))}\n")
+    print(f"wallbounce: {CASES} cases")
+
+
+if __name__ == "__main__":
+    main()

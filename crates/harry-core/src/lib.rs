@@ -5,6 +5,7 @@
 //! to it; see NOTES.md). One game frame is one pass of the original's main
 //! loop, 30 per second.
 
+pub mod bounce;
 pub mod moves;
 pub mod physics;
 

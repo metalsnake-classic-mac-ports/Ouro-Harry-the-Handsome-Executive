@@ -538,7 +538,9 @@ Folder), `harry.dsk` = copy of the Basilisk disk. `sheepshaver.prefs`:
 repository root: `cd re/work/emu-ppc && src/SheepShaver/src/Unix/SheepShaver
 --config "$PWD/sheepshaver.prefs"`. It runs at full speed for the user;
 the slow input during my installation was the installer / first boot
-(or my automation), not the emulator in general.
+(or my automation), not the emulator in general. Once (2026-10-23) it
+quit silently during play (no crash report, no log message) - right
+after test key events (Shift + = + Page Up via Quartz); cause unknown.
 
 ### Basilisk II (68k)
 
@@ -566,6 +568,20 @@ QuickTime Musical Instruments.
   the missed-kick push, a dropped sound, an inch value) are all caught;
   two surviving mutations were equivalent (`max <= h`, `p * 5 / 2` for
   the caffeine factor).
+- `re/tools/emu_bounce.py`: `WallBounce` on 12 000 cases (all kinds,
+  first-contact flag, bounce factors; the region mask test `FUN_10054124`
+  stubbed with its result as an input). `harry_core::bounce::wall_bounce`
+  matches all; 11 planted bugs (corner swap, diagonal choices, clamps, the
+  9 px threshold, kind 0's first-contact rule, ...) are all caught.
+- Sprite record: +0x5a/+0x5c (`atV`, `atH`) are not centres but a working
+  copy of the position (top-left of the 64 × 64 face) that the collision
+  code moves; the centre is at + 32 (`half`).
+- The region mask test (`FUN_10054124`): mask regions of sprite face and
+  tile, offset to their positions, `SectRgn` / `EmptyRgn`; on overlap
+  `FUN_10053eac` (68k `REGIONSEPARATE`) moves `pos` one pixel at a time
+  along a Bresenham line from the intersection's bounding-box centre to
+  the sprite region's centre until the regions no longer overlap. To port
+  with pixel sets once the masks are in the data model.
 - Harness notes: Unicorn's PPC needs a CPU model with FPU
   (`UC_CPU_PPC32_750…`) and MSR[FP] set, else the first float instruction
   raises an exception. The physics array is bss, filled by

@@ -18,8 +18,8 @@
 0x54 short scale1
 0x56 short scale2
 0x58 short scale3
-0x5a short centerV
-0x5c short centerH
+0x5a short atV           working copy of posV (top-left), moved by the collision code
+0x5c short atH           working copy of posH
 0x5e int   fixH          position.h << 8
 0x62 int   fixV          position.v << 8
 0x66 short dir           direction 0..35 (10 degree steps), ApplyModedImpulse mode
