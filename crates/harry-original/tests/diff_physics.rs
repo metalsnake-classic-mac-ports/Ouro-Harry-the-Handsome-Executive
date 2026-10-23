@@ -1,0 +1,106 @@
+//! The player physics against the original's PPC routines, recorded in
+//! Unicorn by `re/tools/emu_physics.py` (re/work/diff/*.txt, one case per
+//! line: inputs -> outputs). Without the recordings the tests are skipped.
+
+use std::path::PathBuf;
+
+use harry_core::moves::{Chair, MoveInput, Moves, move_chair};
+use harry_core::physics::{Floor, Physics, Speed, apply_moded_impulse, enforce_max_speed, player_glide};
+
+fn cases(name: &str) -> Option<Vec<(Vec<i32>, Vec<i32>)>> {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff").join(format!("{name}.txt"));
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        eprintln!("skipped: {} not found (run re/tools/emu_physics.py)", path.display());
+        return None;
+    };
+    let parse = |s: &str| s.split_whitespace().map(|n| n.parse().unwrap()).collect();
+    Some(
+        text.lines()
+            .filter(|l| !l.starts_with('#'))
+            .map(|l| {
+                let (a, b) = l.split_once("->").unwrap();
+                (parse(a), parse(b))
+            })
+            .collect(),
+    )
+}
+
+fn check(name: &str, f: impl Fn(&[i32]) -> Vec<i32>) {
+    let Some(cases) = cases(name) else { return };
+    let mut bad = 0;
+    for (i, (input, want)) in cases.iter().enumerate() {
+        let got = f(input);
+        if &got != want {
+            bad += 1;
+            if bad <= 10 {
+                eprintln!("{name} case {i}: in {input:?}\n  original {want:?}\n  port     {got:?}");
+            }
+        }
+    }
+    assert_eq!(bad, 0, "{bad} of {} {name} cases differ", cases.len());
+}
+
+fn physics(v: &[i32]) -> Physics {
+    Physics { scoot: v[0] as i16, kick: v[1] as i16, friction: v[2] as i16, slippery: v[3] as i16, bounce: v[4] as i16 }
+}
+
+#[test]
+fn moded_impulse_matches() {
+    check("impulse", |v| {
+        let mut s = Speed { h: v[2] as i16, v: v[3] as i16 };
+        apply_moded_impulse(&mut s, v[0] as i16, v[1] as i16);
+        vec![s.h.into(), s.v.into()]
+    });
+}
+
+#[test]
+fn max_speed_matches() {
+    check("maxspeed", |v| {
+        let mut s = Speed { h: v[1] as i16, v: v[2] as i16 };
+        enforce_max_speed(&mut s, v[0]);
+        vec![s.h.into(), s.v.into()]
+    });
+}
+
+#[test]
+fn glide_matches() {
+    check("glide", |v| {
+        let ph = physics(v);
+        let floor = Floor { hurt: v[5] as i16, kind: v[6] as i16, wet: v[7] as i16, glide: v[8] as i16 };
+        let mut s = Speed { h: v[10] as i16, v: v[11] as i16 };
+        let surface = player_glide(&mut s, floor, &ph).unwrap_or(v[9] as i16);
+        vec![s.h.into(), s.v.into(), surface.into()]
+    });
+}
+
+#[test]
+fn move_chair_matches() {
+    check("movechair", |v| {
+        let ph = physics(v);
+        let v = &v[5..];
+        let mut chair = Chair {
+            speed: Speed { h: v[12] as i16, v: v[13] as i16 },
+            dir: v[10] as i16,
+            hurt: v[0] as i16,
+            hot_rect: [22, 22, 42, 42],
+        };
+        let mut m = Moves {
+            scoot: v[1] as i16,
+            kick: v[2] as i16,
+            inch: v[3] as i16,
+            pose: v[4] as i16,
+            impulse: v[5] as i16,
+            kick_power: v[9] as i16,
+        };
+        let input = MoveInput { caffeine: v[6] as i16, wet: v[7] as i16, floor_kind: v[11] as i16, kick_contact: v[8] as i16 };
+        let mut sounds = Vec::new();
+        move_chair(&mut chair, &mut m, &ph, &input, &mut sounds);
+        let mut out: Vec<i32> = [m.scoot, m.kick, m.inch, m.pose, m.impulse, m.kick_power, chair.speed.h, chair.speed.v]
+            .iter()
+            .map(|&x| x.into())
+            .collect();
+        out.extend(chair.hot_rect.iter().map(|&x| i32::from(x)));
+        out.push(sounds.len() as i32);
+        out
+    });
+}

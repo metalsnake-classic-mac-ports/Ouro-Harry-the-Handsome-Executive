@@ -34,6 +34,16 @@
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one
 
+## Phase 5: port (Rust)
+- [x] Workspace: `harry-core` (no I/O), `harry-original` (tests against the original)
+- [x] Physics: impulse by direction, max speed, floor friction; moves (scoot, kick, inch) -
+      differential tests against the PPC routines (`re/tools/emu_physics.py`, 16 000 cases, planted bugs caught)
+- [ ] Wall and rect bounce (`WallBounce`, `RectBounceFake`, `BGTileBounce`), mask test
+- [ ] Tile collision pass (`CheckTileCollisions`) and the player's tile reactions
+- [ ] Whole player frame (`HandlePlayerSprite`): timers, comfort delta, position update
+- [ ] `harry-data`: level / world model and the data pack; extract tool in `harry-original`
+- [ ] Frontend (SDL3)
+
 ## Phase 3: emulator
 - [x] SheepShaver built (`re/work/emu-ppc/src`), Mac OS ROM (newworld86.rom) from the user
 - [x] Mac OS 9.0.4 installed in SheepShaver, Harry installed there

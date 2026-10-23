@@ -1,0 +1,10 @@
+[package]
+name = "harry-original"
+description = "Reads the original Harry the Handsome Executive Mac data (1997) and tests the port against it"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+harry-core.workspace = true

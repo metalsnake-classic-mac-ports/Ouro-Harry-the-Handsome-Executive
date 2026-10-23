@@ -550,3 +550,26 @@ HFS) with the installer, `harry-installed.dsk` = after installation.
 (cliclick `dd`/`du` with 100–150 ms), instant clicks are ignored.
 The boot disk has no QuickTime yet: music needs QuickTime 2.5+ with
 QuickTime Musical Instruments.
+
+## Port and differential tests
+
+- Rust workspace: `crates/harry-core` (game logic, no I/O; doc comments
+  name the original routine), `crates/harry-original` (tests against the
+  original). `cargo test` runs them; tests that need recordings skip when
+  `re/work/diff/` is missing.
+- `re/tools/emu_physics.py` runs `ApplyModedImpulse`, `EnforceMaxSpeed`,
+  `HandlePlayerGlide` and `MoveChair` (with `DoScoot`, `DoKick`,
+  `DoInch`; `STPlayRegSound` stubbed and counted) of the PPC build in
+  Unicorn on 4000 random states each (fixed seeds) → `re/work/diff/*.txt`.
+  The port matches all 16 000 cases. Planted bugs (a sine digit, 236 →
+  235, rounding instead of truncation, the 25 threshold, kick factors,
+  the missed-kick push, a dropped sound, an inch value) are all caught;
+  two surviving mutations were equivalent (`max <= h`, `p * 5 / 2` for
+  the caffeine factor).
+- Harness notes: Unicorn's PPC needs a CPU model with FPU
+  (`UC_CPU_PPC32_750…`) and MSR[FP] set, else the first float instruction
+  raises an exception. The physics array is bss, filled by
+  `LoadLevelPhysics` at level start - tests must set it.
+- The PPC code computes `speed ± k · p` with separate `fmul` and
+  `fadd`/`fsub` (no fused multiply-add) in double, then `fctiwz`: Rust
+  `f64` arithmetic and `as i32` give the same results.

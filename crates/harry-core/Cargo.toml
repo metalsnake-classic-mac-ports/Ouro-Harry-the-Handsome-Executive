@@ -1,0 +1,9 @@
+[package]
+name = "harry-core"
+description = "Game model and simulation of Harry the Handsome Executive, without any I/O"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]

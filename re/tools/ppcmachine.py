@@ -54,6 +54,8 @@ class Machine:
         dbase = struct.unpack(">I", raw[:4])[0]
         data = raw[4:]
         self.uc = uc = Uc(UC_ARCH_PPC, UC_MODE_PPC32 | UC_MODE_BIG_ENDIAN)
+        from unicorn import ppc_const
+        uc.ctl_set_cpu_model(ppc_const.UC_CPU_PPC32_750_V3_1)   # a G3, with FPU
         uc.mem_map(BASE, 0x00090000)                    # code + data + bss + imports
         uc.mem_write(BASE, code)
         uc.mem_write(dbase, data)
@@ -123,6 +125,24 @@ class Machine:
         if clear:
             self.write(a, bytes(n))
         return a
+
+    def glob(self, slot):
+        """Address a TOC slot points to (the slots of re/ghidra/globals.txt)."""
+        return self.r32(slot)
+
+    def stub_routine(self, f, result=0, log=None):
+        """Make a routine of the game return at once with r3 = result.
+        log: a list that receives (name, r3, r4, r5, r6) for every call."""
+        a = self.addr(f)
+        name = f if isinstance(f, str) else hex(f)
+
+        def hook(uc, address, size, _):
+            if log is not None:
+                log.append((name,) + tuple(self.get(i) for i in range(3, 7)))
+            self.set(3, result)
+            uc.reg_write(UC_PPC_REG_PC, uc.reg_read(UC_PPC_REG_LR))
+
+        self.uc.hook_add(UC_HOOK_CODE, hook, begin=a, end=a)
 
     # --- registers ---
     def get(self, i):
@@ -196,6 +216,8 @@ class Machine:
         for i, a in enumerate(args):
             self.set(3 + i, a)
         self.uc.reg_write(UC_PPC_REG_LR, RETURN)
+        from unicorn.ppc_const import UC_PPC_REG_MSR
+        self.uc.reg_write(UC_PPC_REG_MSR, self.uc.reg_read(UC_PPC_REG_MSR) | 0x2000)  # MSR[FP]
         try:
             self.uc.emu_start(self.addr(f), RETURN, count=limit)
         except UcError as e:
