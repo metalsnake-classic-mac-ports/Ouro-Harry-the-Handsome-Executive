@@ -409,11 +409,28 @@ turret. Each kind has `Init…` (once), `SETUP…` (per sprite), `HANDLE…`
   #6 = 200 (story picture scrolled before the level), #8 = 301 (picture
   shown before). Level 3: #5 = 201.
 - 0x1209c–0x120b1: nibble arrays (`1111 1111 1111 1111 2222 2333`, `6666`).
-- 0x120f4/0x120f6: two coordinates (level 1: 2082/2087) - start position?
-- 0x120f8: ?; 0x120fa: **music id** (601, 603, ...); 0x120fc–0x120fe: ?
+- 0x120f4/0x120f6: **start position** h, v in pixels (level 1: 2082,
+  2087 - confirmed by the rendered level and the emulator screenshot).
+- 0x120f8: start direction? (27 = up in levels 1 and 12, else 0).
+- 0x120fa: **music id** (601, 603, ...).
+- 0x120fc: **foreground tile set** PICT id (its 1-bit mask is id + 1),
+  0x120fe: **background tile set** PICT id; 0 = the defaults 181 (+182) /
+  180 in Harry Graphics (`LoadLevelTilesets`; ids ≠ 0 are loaded from the
+  world file).
 - 0x12100: physics override flag; 0x12102–0x1210a: five physics values
   (defaults when the flag is 0: 50, 70, 245, 252, 150; `LoadLevelPhysics`).
-- Level −1: unknown purpose (test level? level select was disabled).
+- Level −1 is named **"Secret Level"** (default tile sets).
+- Level names / tile sets (fg, bg): 1 Welcome to ScumCo (default), 2 To
+  The Incinerator (128, 130), 3 Seekers of the Sun, 4 Robot Rebellion
+  (default), 5 Below the Earth, 6 Depths of the Basement, 7 Forgotten
+  Catacombs (131, 133), 8 Toil and Trouble, 9 Black Lab (134, 136), 10
+  It's Cooler Here (137, 139), 11 Temple of the Swivel Chair (143, 145),
+  12 Corporate Ruins (146, 148), 13 Military-Industrial Complex, 14 Armed
+  to the Teeth (149, 151), 15 Confrontation (152, 154).
+- `re/tools/render_level.py res <id> out.png [scale]` renders a level
+  (both grids, tile sets with mask, sprite list as marked ids, start
+  position); all 16 render plausibly (`re/work/png/levels/`). Object ids
+  ≥ 21000 are memos (`21000` on the desk in level 1 = the first memo).
 
 ### World `Hwld` 0 (70 668 bytes) - to be decoded.
 
@@ -454,10 +471,13 @@ foreground and background set ("Level Info" in the editor).
 
 ### Sprites `HrSp` (Harry Graphics, ids 1001–6054, 929 faces)
 
-Named "Harry Sprite Face". Header: rect (0, 0, 44, 44) twice, then
-encoded rows: opcode words like `0100 0030` (row start, length) and `0200
-002c` (copy 44 pixels) followed by 8-bit pixels - an RLE "encoded face"
-drawn by `BLITENCFACE…` (CODE 2). Ids in groups of ten/hundred per
+Named "Harry Sprite Face". Header: two Rects (top, left, bottom, right),
+e.g. (0, 0, 44, 44) twice; then 32-bit commands (high byte opcode, low 24
+bits n), as `BlitEncFaceNoClip` reads them: 0 end, 1 next row (n = the
+row's encoded length, unused), 2 copy n pixels (data padded to 4 bytes),
+3 skip n pixels (transparent). Pixels are clut 8 indices.
+`re/tools/hrsp.py` decodes all 929 to RGBA PNG (`re/work/png/hrsp/`):
+1001… inventory items, then objects in 36 rotations. Ids in groups per
 object kind (cf. editor object ids).
 
 ### Sound `snd ` (Harry Sounds 100, Episode 1: 200, 201, 203)

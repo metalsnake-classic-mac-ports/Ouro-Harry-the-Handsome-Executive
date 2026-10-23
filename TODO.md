@@ -5,10 +5,11 @@
 - [x] Unpack the application (`re/work/app`), list all resources (`re/work/res`)
 - [x] MacsBug symbols of the 68k code (`re/tools/macsbug_syms.py`)
 - [ ] Decode the rest of `Hlvl` (after the sprite list) and `Hwld`
-- [ ] Render all levels to PNG (tile sets + grids + sprites) as a format check
-- [ ] 1-bit PICT masks (tile set mask PICTs)
-- [ ] `HrSp` encoded faces → PNG (decoder from `BLITENCFACE…`)
-- [ ] Screen palette: screenshot of the running game
+- [x] Render all levels to PNG (`re/tools/render_level.py`), matches the emulator
+- [x] 1-bit PICT masks (in render_level.py)
+- [x] `HrSp` encoded faces → PNG (`re/tools/hrsp.py`)
+- [x] Screen palette: clut 8
+- [ ] Map object ids → sprite faces (which HrSp per kind) for a full level picture
 - [ ] `Tune` format (QTMA) and `ssai` instruments; plan for the music
 - [ ] Compare with 1.0.0 (older installer format) - worth it?
 
