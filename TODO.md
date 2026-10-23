@@ -39,4 +39,5 @@
 - [x] SheepShaver: "Couldn't open Sound Tool!" - fixed by selecting the output device in the Sound control panel; PPC build runs
 - [x] 68k original runs in Basilisk II: menu, prefs, level 1 (screenshots in re/work/screens)
 - [ ] Music in Basilisk: QuickTime 2.5 + Musical Instruments on the System 7.5 disk
-- [ ] Screen palette from a screenshot; Harry-big Easter egg key (0x74?)
+- [x] Screen palette: clut 8 (from the code; 66 of 68 PICTs already in clut 8)
+- [ ] Harry-big Easter egg key (0x74?): short press of Shift + = + Page Up

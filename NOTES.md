@@ -157,7 +157,8 @@ tests against Basilisk II.
   counter += level 0x1208c, scroll + dirty rect redraw, `UpdateText`,
   `UpdateMeters`, `UpdateAmmo`, `CheckGameEvents`, `CheckGameLoopKeys`,
   `UpdateDynamicSounds`, `UpdateTrackMap`, `SystemTask` if prefs[5].
-- **Timing:** the pass waits until `TickCount() − 2 ≥ start` → at most
+- **Timing** (confirmed in SheepShaver: holding ← for 300 ms turns Harry
+  by 9 steps = 90°): the pass waits until `TickCount() − 2 ≥ start` → at most
   **30 passes per second** (2 ticks of 1/60 s). Slower Macs simply ran
   slower (no catch-up). "Reduce Frame Rate" (prefs[0]): logic every pass,
   drawing every second pass, waits 4 ticks after a drawn pass → logic
@@ -359,8 +360,10 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   gun + 100 ammo, explosions, items.
 - Shift (0x38) + `=` (0x18) + key code 0x74 held together, with a sound:
   player scale 1.0 ↔ 2.0 (`scale0/1` = 0x200) - the README's "Command
-  Shift +" Easter egg. 0x74 is not Command (0x37); open question (check in
-  the emulator).
+  Shift +" Easter egg. 0x74 is not Command (0x37). Test in SheepShaver
+  (Shift + = + Page Up = 0x74, held 400 ms via Quartz key events): no
+  visible change - inconclusive (holding toggles the scale every frame the
+  sound is not playing); a short press could not be tried yet.
 - Key sequences (KeyMap: code c = bit c & 7 of byte c >> 3, confirmed by
   these words), each step must come within a window of 200/200/250
   frames: **P-A-R-G-H-Z** → random balloon of 52 messages (data
@@ -428,6 +431,26 @@ its 1-bit mask at id + 1 (the editor FAQ requires mask id = colour id + 1;
 8 × 12 tiles). Episode 1: 128–154 (9 sets), story/scroll pictures 200–209
 (400 × ~1000 text), 301–315 (per level), 400. Each level names its
 foreground and background set ("Level Info" in the editor).
+
+### Screen palette
+
+- The game installs **no palette of its own**: no `pltt`/`clut`
+  resources; `SetEntries` only in the gamma fade code. SAT builds its
+  offscreen GDevice with `GetCTable(8)` = the Mac's **standard 8-bit
+  colour table** and a 4-bit inverse table (`gdResPref` = 4,
+  `MakeITable`). So screen index i = clut 8 entry i
+  (`re/tools/macpal.py`: 0–214 the 6 × 6 × 6 cube from white, 215–254
+  red/green/blue/grey ramps EE…11, 255 black).
+- `macpal.py` over all PICTs: 66 of 68 8-bit pictures use clut 8 exactly
+  (pixel values are screen indices, nothing is mapped). Episode 1 PICT 145
+  (a background tile set) has its own, reordered table, but all its 80
+  colours exist in clut 8 → exact remap. Only Titles PICT 131 (Ambrosia
+  logo, grey shades 254, 253, ...) has colours outside clut 8; QuickDraw
+  maps them through the 4-bit inverse table (approximate). 11 PICTs are
+  1-bit masks.
+- Host screenshots cannot verify colours exactly (macOS scales them and
+  applies the display profile: > 20 000 colours in one screenshot).
+- Sprite faces (`HrSp`) and tiles are raw 8-bit indices → clut 8.
 
 ### Sprites `HrSp` (Harry Graphics, ids 1001–6054, 929 faces)
 
