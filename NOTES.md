@@ -465,11 +465,12 @@ Instructions, 4803–4921 messages/buttons.
 **Status (2026-10-23):** the 68k build runs in Basilisk II (System 7.5 +
 Sound Manager 3.1): shareware notice, main menu, preferences, level 1,
 scoot, memo balloons. Screenshots in `re/work/screens/`. The PPC build
-starts in SheepShaver (Mac OS 9.0.4) but quits with "Couldn't open Sound
-Tool!": its mixer (`FUN_10056590(8 voices, stereo, 22050 Hz)`: Gestalt
-'snd ', `SndNewChannel(sampledSynth, initStereo)`, `SndPlayDoubleBuffer`)
-gets an error from SheepShaver's Sound Manager although SDL/CoreAudio
-output is open. Open question; for watching the game Basilisk is enough.
+runs in SheepShaver (Mac OS 9.0.4) as well. At first it quit with
+"Couldn't open Sound Tool!" (its mixer `FUN_10056590(8 voices, stereo,
+22050 Hz)`: Gestalt 'snd ', `SndNewChannel`, `SndPlayDoubleBuffer`
+failed): after a fresh Mac OS 9 install **no sound output device is
+selected in the Sound control panel** - select it (the user did) and the
+game runs. Level 1 looks identical in both builds.
 
 Preferences seen in the original: Game Options (Allow system tasks, More
 compatible drawing, Reduce frame rate, Line-skipping + Interlace skipped
@@ -490,8 +491,11 @@ the play area.
 switched off; clean copy `macos9-clean.dsk`), Harry installed by running
 the installer again under OS 9 (puts Harry Instruments into its System
 Folder), `harry.dsk` = copy of the Basilisk disk. `sheepshaver.prefs`:
-256 MB, 640 × 480, `bootdrive 0` (−62 for the CD). The interpreter is
-slow: input is processed seconds later - wait before screenshots.
+256 MB, 640 × 480, `bootdrive 0` (−62 for the CD). Start from the
+repository root: `cd re/work/emu-ppc && src/SheepShaver/src/Unix/SheepShaver
+--config "$PWD/sheepshaver.prefs"`. It runs at full speed for the user;
+the slow input during my installation was the installer / first boot
+(or my automation), not the emulator in general.
 
 ### Basilisk II (68k)
 
