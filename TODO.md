@@ -33,7 +33,8 @@
 - [ ] Meters: what changes comfort / favor; death and respawn (`HandlePlayerSpriteDeath`, copier saves)
 - [x] SAT run order (`HandleSprites`): tasks, sort pass, collision pass, player collisions - 20 000 cases
 - [ ] Idle sprites (`HandleIdleSprites`) and level start (`SetupLevelSprites`, `GenerateSprite`) in the port
-- [ ] Level 1 complete: door, plant, cooler, collider, background props, dart enemy, exit, message, ramp, item; `HitPlayerSprite`
+- [x] Sprite record in the port (`sprite::Sprite`), faces by HrSp id; bonus, item, exit (9 000 cases)
+- [ ] Level 1 complete: door, plant, cooler, collider, background props, dart enemy, message, ramp; `HitPlayerSprite`
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one
 

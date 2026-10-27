@@ -449,6 +449,39 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   colliders 3100 / 9200 / 9600, background prop 1029, dart enemy 1021,
   exit 9991, messages, ramp 9703, item 11397.
 
+### Sprite kinds in the port
+
+- The port keeps the sprite record as one struct
+  (`harry_core::sprite::Sprite`) with the original's fields, since
+  `HitPlayerSprite`, the idle sprites and many kinds read other sprites'
+  fields. Faces are named by their `HrSp` id: the recorder
+  (`re/tools/sprites.py`) stubs `Load1EncFaceFromCicn` and
+  `LoadEncFaceSetFromPICT(pict, count, w, h, per row, first / last
+  region frame, first HrSp id)` and runs the kind's `Init…Sprite`, so
+  every face pointer maps back to its id.
+- `re/tools/emu_kinds.py`: per kind, setup on a zeroed record, 0–40
+  frames of the task (frozen set at a random frame), the hit task with
+  the player / another sprite / a frozen player; the whole record
+  dumped. `harry_core::kinds` matches all cases (3 000 per kind); all
+  planted mutations caught after widening the frame range and the exit
+  destinations.
+- **Bonus** (700–799, layer 1, hot rect (−6, −6, 22, 22)): faces 700 /
+  701 → 1501 (blinking 1501 / 1502 each frame), 702 → 1503 with hot rect
+  to 36, 703 → 1504, 711–713 → 1505–1507 with hot rect (−10, −10, 26,
+  26), others none. Hit task empty (Harry's side is in
+  `HitPlayerSprite`).
+- **Item** (11001–19999, layer 7, hot rect (−6, −6, 20, 20)): face
+  3601 + (id − 11199) / 100 (none for 11699 and 12099; ids outside
+  11199–12198 read past the table), 11397 → 3652, 11398 → 3651; the
+  mystery vial 11699 bubbles through 3661–3668, two frames each. No fix
+  position set.
+- **Exit** (9990–9999, layer 1): 9991–9994 with faces 3201–3204 and hot
+  rects beside them (9991 (96, 0, 100, 64), 9992 (−40, 0, −32, 64), 9993
+  (0, 40, 64, 100), 9994 (0, −32, 64, 0)), others no face, (0, 0, 32,
+  32). Its hit task, with the live player and its timer 0: previous level
+  = current, current = the exit's info #0 or current + 1, timer 69 (never
+  counted down - once only). The level end itself is noticed elsewhere.
+
 ### Sprite kinds (CODE 3)
 
 Player (`HandlePlayerGlide`, `DoScoot`, `DoKick`, `DoInch`, `MoveChair`,

@@ -10,6 +10,7 @@ pub mod bounce;
 pub mod frame;
 pub mod inventory;
 pub mod keys;
+pub mod kinds;
 pub mod level;
 pub mod mask;
 pub mod moves;
@@ -18,6 +19,7 @@ pub mod player;
 pub mod random;
 pub mod sat;
 pub mod shots;
+pub mod sprite;
 pub mod tiles;
 
 pub use level::Level;
