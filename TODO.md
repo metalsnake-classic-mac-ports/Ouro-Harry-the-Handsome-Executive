@@ -34,7 +34,8 @@
 - [x] SAT run order (`HandleSprites`): tasks, sort pass, collision pass, player collisions - 20 000 cases
 - [ ] Idle sprites (`HandleIdleSprites`) and level start (`SetupLevelSprites`, `GenerateSprite`) in the port
 - [x] Sprite record in the port (`sprite::Sprite`), faces by HrSp id; bonus, item, exit (9 000 cases)
-- [ ] Level 1 complete: door, plant, cooler, collider, background props, dart enemy, message, ramp; `HitPlayerSprite`
+- [x] `HitPlayerSprite` for bonus and item (12 000 cases)
+- [ ] Level 1 complete: door, plant, cooler, collider, background props, dart enemy, message, ramp (+ their `HitPlayerSprite` branches)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one
 

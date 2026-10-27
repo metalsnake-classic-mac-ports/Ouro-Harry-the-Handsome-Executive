@@ -482,6 +482,29 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   = current, current = the exit's info #0 or current + 1, timer 69 (never
   counted down - once only). The level end itself is noticed elsewhere.
 
+### Harry touches a sprite (`HitPlayerSprite`)
+
+- Called by `CheckPlayerCollision`; nothing when Harry or the other
+  sprite is frozen. One `else if` chain by the other sprite's task: ramp
+  (on the floor, not kicking), stairs, desk, grate, door, sliding door,
+  enemy shot, blob, robot, boss, reversor, mail guy, boulder, collider,
+  then - for anything but a hazard - bonus, item, custom, effect, ghost.
+  Ported with the kinds (`harry_core::touch`); `re/tools/emu_playerhit.py`
+  records it with the real setups of the other sprites.
+- **Bonus** (on the floor): 700–710 only while comfort < 144 - collected
+  (frozen); 700 / 701 comfort + 10 (voice 210), 702 + 20 (212), 703 + 8
+  (211), the voice only when none is playing; 704–710 vanish without
+  effect. 711 / 712 / 713: staple / B.A.D.A.S.S. / shrapnel ammo + 20
+  while below 100 (so up to 119), `HaltTalkingSounds` and sound 216.
+  Full (comfort ≥ 144 or ammo ≥ 100): the bonus stays, and at most every
+  200 frames (`t24`) a remark (218 comfort, 219 ammo).
+- **Item** (on the floor): the staple gun, B.A.D.A.S.S. or shrapnel gun
+  gives 50 ammo (up to 100) and vanishes, and goes into the inventory if
+  Harry does not have it yet; anything else goes into the inventory
+  (`GetInvItem`: a second one counts up) with sound 214 - and stays in
+  the level when the inventory is full.
+- 12 000 cases match; 12 of 12 mutations caught.
+
 ### Sprite kinds (CODE 3)
 
 Player (`HandlePlayerGlide`, `DoScoot`, `DoKick`, `DoInch`, `MoveChair`,

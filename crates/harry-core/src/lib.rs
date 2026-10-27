@@ -21,6 +21,7 @@ pub mod sat;
 pub mod shots;
 pub mod sprite;
 pub mod tiles;
+pub mod touch;
 
 pub use level::Level;
 pub use physics::{Physics, Speed};

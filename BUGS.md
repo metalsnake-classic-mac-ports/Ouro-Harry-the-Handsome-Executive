@@ -85,6 +85,10 @@ option) and why.
   handled, so its sound / soda explosion can come up to 4 times in one
   frame (seen in the recordings). Port: keep.
 
+- **Ammo bonuses go past 100.** `HitPlayerSprite` adds 20 to an ammo
+  counter while it is below 100, so it can reach 119; gun pickups clamp to
+  100. How the panel shows more than 100 is to be checked. Port: keep.
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not
