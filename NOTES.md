@@ -609,6 +609,9 @@ QuickTime Musical Instruments.
   tie, Bresenham comparisons - one of them loops forever); `>> 1` vs
   `/ 2` for the centres is equivalent for the game's positive
   coordinates.
+- Full chain `WallBounce` + mask test on the rebuilt mask tables (walls at
+  `*_DAT_100658d4` + 0x1a + kind · 0x2e, obstacle at `*_DAT_100658d0` +
+  0x1a): 12 000 cases for the mask kinds 4–31, all matching.
 - Harness notes: Unicorn's PPC needs a CPU model with FPU
   (`UC_CPU_PPC32_750…`) and MSR[FP] set, else the first float instruction
   raises an exception. The physics array is bss, filled by

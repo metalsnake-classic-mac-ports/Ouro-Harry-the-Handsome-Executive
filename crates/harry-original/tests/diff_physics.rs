@@ -208,3 +208,30 @@ fn mask_test_matches() {
     }
     assert_eq!(bad, 0, "{bad} of {n} mask cases differ");
 }
+
+#[test]
+fn wall_bounce_with_masks_matches() {
+    use harry_core::bounce::{Body, wall_bounce};
+    use harry_core::mask::mask_hit;
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff/masks/body.txt");
+    if !path.exists() {
+        eprintln!("skipped: masks not found (run re/tools/emu_mask.py)");
+        return;
+    }
+    let body_mask = load_mask("body");
+    let walls: Vec<_> = (0..32).map(|k| load_mask(&format!("wall{k}"))).collect();
+    check("wallchain", |v| {
+        let mut b = Body {
+            pos: (v[4] as i16, v[5] as i16),
+            at: (v[4] as i16, v[5] as i16),
+            fix: (0x7777, 0x7777),
+            speed: Speed { h: v[6] as i16, v: v[7] as i16 },
+        };
+        let tile = (v[2] as i16, v[3] as i16);
+        let wall = &walls[v[0] as usize];
+        let r = wall_bounce(&mut b, v[0] as i16, tile, 32, 150, [22, 22, 42, 42], v[1] != 0, &mut |body| {
+            mask_hit(&mut body.pos, &body_mask, tile, wall)
+        });
+        vec![r, b.at.0.into(), b.at.1.into(), b.pos.0.into(), b.pos.1.into(), b.speed.h.into(), b.speed.v.into(), b.fix.0, b.fix.1]
+    });
+}

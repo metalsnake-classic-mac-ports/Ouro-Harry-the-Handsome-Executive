@@ -72,5 +72,48 @@ def main():
     print(f"masktest: {CASES} cases, {len(ms)} masks")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and len(sys.argv) <= 2:
     main()
+
+
+def full_chain(work="re/work"):
+    """WallBounce and BGTileBounce with the real mask test: the game's mask
+    tables are rebuilt from the masks (region handles at +0x1a of each
+    0x2e-byte face, as InitFaces leaves them)."""
+    from emu_bounce import POS_V, POS_H, CEN_V, CEN_H, FIX_H, FIX_V, SPEED_V, SPEED_H, HOT
+    ms = masks(work)
+    m = Machine(f"{work}/ppc")
+    rnd = random.Random("fullchain")
+    walls = m.alloc(64 * 0x2E)
+    sp, tile, hot = m.alloc(0xA2), m.alloc(4), m.alloc(8)
+    m.write(hot, struct.pack(">hhhh", *HOT))
+    obstacle_face = m.alloc(0x40)
+    m.w32(m.glob(0x100658D4), walls)
+    m.w32(m.glob(0x100658D0), obstacle_face)
+    with open(f"{work}/diff/wallchain.txt", "w") as out:
+        out.write("# WallBounce + real mask test (body cicn 299, walls PICT 160): kind first tileV tileH "
+                  "posV posH speedH speedV -> return atV atH posV posH speedH speedV fixH fixV\n")
+        for k in range(CASES):
+            kind = 4 + k % 28                                  # the kinds that use the mask test
+            m.regions.clear()
+            body = m.make_region(ms["body"])
+            m.w32(walls + 0x1A + kind * 0x2E, m.make_region(ms[f"wall{kind}"]))
+            tv, th = rnd.randint(10, 100) * 32, rnd.randint(10, 100) * 32
+            pv, ph = tv - 32 + rnd.randint(-14, 46), th - 32 + rnd.randint(-14, 46)
+            sh, sv = rnd.randint(-2500, 2500), rnd.randint(-2500, 2500)
+            first = rnd.randint(0, 1)
+            for off, v in ((POS_V, pv), (POS_H, ph), (CEN_V, pv), (CEN_H, ph), (SPEED_H, sh), (SPEED_V, sv)):
+                m.w16(sp + off, v)
+            m.w32(sp + FIX_H, 0x7777)
+            m.w32(sp + FIX_V, 0x7777)
+            m.write(tile, struct.pack(">hh", tv, th))
+            r = m.call("WallBounce", sp, kind, tile, 32, 150, hot, body, first) & 0xFF
+            outs = [r, m.r16(sp + CEN_V), m.r16(sp + CEN_H), m.r16(sp + POS_V), m.r16(sp + POS_H),
+                    m.r16(sp + SPEED_H), m.r16(sp + SPEED_V),
+                    struct.unpack(">i", m.read(sp + FIX_H, 4))[0], struct.unpack(">i", m.read(sp + FIX_V, 4))[0]]
+            out.write(f"{kind} {first} {tv} {th} {pv} {ph} {sh} {sv} -> {' '.join(map(str, outs))}\n")
+    print(f"wallchain: {CASES} cases")
+
+
+if __name__ == "__main__" and len(sys.argv) > 2 and sys.argv[2] == "chain":
+    full_chain(sys.argv[1])
