@@ -238,3 +238,75 @@ pub fn wall_bounce(
     body.fix = (i32::from(body.at.1) << 8, i32::from(body.at.0) << 8);
     1
 }
+
+/// `RectBounceFake` (PPC 0x1001e954): bounce off a rectangular obstacle
+/// (`rect` relative to the tile at `tile` (v, h)); used for foreground kinds
+/// 32–55 with the background kind rects. The axis is chosen by the
+/// distance of the sprite's centre to the rect's centre.
+///
+/// Its reflection rounds differently from `wall_bounce`:
+/// `(−(b · s)) >> 8` instead of `−((b · s) >> 8)`.
+pub fn rect_bounce_fake(body: &mut Body, tile: (i16, i16), rect: Rect, half: i16, bounce: i32, hot: Rect) {
+    let (tv, th) = tile;
+    let top = tv.wrapping_add(rect[0]);
+    let left = th.wrapping_add(rect[1]);
+    let bottom = tv.wrapping_add(rect[2]);
+    let right = th.wrapping_add(rect[3]);
+    let (av, ah) = body.at;
+    let me = [av.wrapping_add(hot[0]), ah.wrapping_add(hot[1]), av.wrapping_add(hot[2]), ah.wrapping_add(hot[3])];
+    if !sect(me, [top, left, bottom, right]) {
+        return;
+    }
+    let ch = ah.wrapping_add(half);
+    let cv = av.wrapping_add(half);
+    let mid_h = th
+        .wrapping_add(rect[1])
+        .wrapping_add(((i32::from(rect[3]) - i32::from(rect[1])) >> 1) as i16);
+    let mid_v = tv
+        .wrapping_add(rect[0])
+        .wrapping_add(((i32::from(rect[2]) - i32::from(rect[0])) >> 1) as i16);
+    let s = &mut body.speed;
+    let rh = |s: &mut Speed| {
+        s.h = ((-(bounce * i32::from(s.h))) >> 8) as i16;
+        s.v = ((bounce * i32::from(s.v)) >> 8) as i16;
+    };
+    let rv = |s: &mut Speed| {
+        s.h = ((bounce * i32::from(s.h)) >> 8) as i16;
+        s.v = ((-(bounce * i32::from(s.v))) >> 8) as i16;
+    };
+    // (sprite left of the centre, above it): which side to push out to
+    let left_of = ch < mid_h;
+    let above = cv < mid_v;
+    let d_v = if above { mid_v.wrapping_sub(cv) } else { cv.wrapping_sub(mid_v) };
+    let d_h = if left_of { mid_h.wrapping_sub(ch) } else { ch.wrapping_sub(mid_h) };
+    if d_v < d_h {
+        // push out horizontally
+        if left_of {
+            if s.h > 0 {
+                rh(s);
+            }
+            body.at.1 = left.wrapping_sub(hot[3]);
+        } else {
+            if s.h < 0 {
+                rh(s);
+            }
+            body.at.1 = right.wrapping_sub(hot[1]);
+        }
+    } else if above {
+        if s.v > 0 {
+            rv(s);
+        }
+        body.at.0 = top.wrapping_sub(hot[2]);
+    } else {
+        if s.v < 0 {
+            rv(s);
+        }
+        body.at.0 = bottom.wrapping_sub(hot[0]);
+    }
+    if body.at.1 != ah {
+        body.fix.0 = i32::from(body.at.1) << 8;
+    }
+    if body.at.0 != av {
+        body.fix.1 = i32::from(body.at.0) << 8;
+    }
+}

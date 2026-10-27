@@ -62,6 +62,38 @@ def main():
             out.write(f"{' '.join(map(str, ins))} -> {' '.join(map(str, outs))}\n")
     print(f"wallbounce: {CASES} cases")
 
+    # RectBounceFake (PPC 0x1001e954): rect obstacle, no mask test
+    rect = m.alloc(8)
+    rnd = random.Random("rectbounce")
+    with open(os.path.join(out_dir, "rectbounce.txt"), "w") as out:
+        out.write("# RectBounceFake: tileV tileH rect(t l b r) atV atH speedH speedV bounce -> "
+                  "atV atH speedH speedV fixH fixV\n")
+        for _ in range(CASES):
+            tv, th = rnd.randint(10, 100) * 32, rnd.randint(10, 100) * 32
+            r = rnd.choice([(2, 2, 30, 30), (6, 6, 26, 26), (0, 0, 32, 32),
+                            tuple(sorted(rnd.sample(range(0, 33), 2)))[:1] + tuple(sorted(rnd.sample(range(0, 33), 2)))[:1]
+                            + (rnd.randint(17, 32), rnd.randint(17, 32))])
+            av, ah = tv - 32 + rnd.randint(-36, 36), th - 32 + rnd.randint(-36, 36)
+            if rnd.random() < 0.25:
+                # exactly diagonal to the rect's centre (ties of the axis choice)
+                mv, mh = tv + r[0] + ((r[2] - r[0]) >> 1), th + r[1] + ((r[3] - r[1]) >> 1)
+                d = rnd.randint(0, 20)
+                av, ah = mv - 32 + rnd.choice([-d, d]), mh - 32 + rnd.choice([-d, d])
+            sh, sv = rnd.choice([rnd.randint(-2500, 2500), rnd.randint(-30, 30), 0]), rnd.choice([rnd.randint(-2500, 2500), rnd.randint(-30, 30), 0])
+            bounce = rnd.choice([150, 150, rnd.randint(0, 300)])
+            for off, v in ((CEN_V, av), (CEN_H, ah), (SPEED_H, sh), (SPEED_V, sv)):
+                m.w16(sp + off, v)
+            m.w32(sp + FIX_H, 0x7777)
+            m.w32(sp + FIX_V, 0x7777)
+            m.write(tile, struct.pack(">hh", tv, th))
+            m.write(rect, struct.pack(">hhhh", *r))
+            m.call("RectBounceFake", sp, tile, rect, 32, bounce, hot)
+            outs = [m.r16(sp + CEN_V), m.r16(sp + CEN_H), m.r16(sp + SPEED_H), m.r16(sp + SPEED_V),
+                    struct.unpack(">i", m.read(sp + FIX_H, 4))[0], struct.unpack(">i", m.read(sp + FIX_V, 4))[0]]
+            ins = [tv, th, *r, av, ah, sh, sv, bounce]
+            out.write(f"{' '.join(map(str, ins))} -> {' '.join(map(str, outs))}\n")
+    print(f"rectbounce: {CASES} cases")
+
 
 if __name__ == "__main__":
     main()

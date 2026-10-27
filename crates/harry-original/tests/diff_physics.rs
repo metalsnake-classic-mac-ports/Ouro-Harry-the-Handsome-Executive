@@ -123,3 +123,19 @@ fn wall_bounce_matches() {
         vec![r, b.at.0.into(), b.at.1.into(), b.pos.0.into(), b.pos.1.into(), b.speed.h.into(), b.speed.v.into(), b.fix.0, b.fix.1, calls]
     });
 }
+
+#[test]
+fn rect_bounce_matches() {
+    use harry_core::bounce::{Body, rect_bounce_fake};
+    check("rectbounce", |v| {
+        let mut b = Body {
+            pos: (0, 0),
+            at: (v[6] as i16, v[7] as i16),
+            fix: (0x7777, 0x7777),
+            speed: Speed { h: v[8] as i16, v: v[9] as i16 },
+        };
+        let rect = [v[2] as i16, v[3] as i16, v[4] as i16, v[5] as i16];
+        rect_bounce_fake(&mut b, (v[0] as i16, v[1] as i16), rect, 32, v[10], [22, 22, 42, 42]);
+        vec![b.at.0.into(), b.at.1.into(), b.speed.h.into(), b.speed.v.into(), b.fix.0, b.fix.1]
+    });
+}

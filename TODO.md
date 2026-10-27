@@ -39,7 +39,8 @@
 - [x] Physics: impulse by direction, max speed, floor friction; moves (scoot, kick, inch) -
       differential tests against the PPC routines (`re/tools/emu_physics.py`, 16 000 cases, planted bugs caught)
 - [x] `WallBounce` (mask test as a parameter), differential test 12 000 cases
-- [ ] `RectBounceFake`, `BGTileBounce` (needs a loaded level), region mask test + `REGIONSEPARATE`
+- [x] `RectBounceFake`, differential test 12 000 cases (incl. exact diagonal ties)
+- [ ] `BGTileBounce` (needs a loaded level), region mask test + `REGIONSEPARATE`
 - [ ] Tile collision pass (`CheckTileCollisions`) and the player's tile reactions
 - [ ] Whole player frame (`HandlePlayerSprite`): timers, comfort delta, position update
 - [ ] `harry-data`: level / world model and the data pack; extract tool in `harry-original`
