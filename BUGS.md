@@ -52,6 +52,12 @@ option) and why.
   is to be checked (the drawing code scales by it). Port: keep the value
   (`air::UNSET_SCALE`), check the drawing.
 
+- **Harmless out-of-bounds read with no item selected.**
+  `HandlePlayerSprite` checks `inventory[gCurInvSlot].id == -1`; with slot
+  −1 it reads the word before the table, which is the idle-chatter timer
+  (`_DAT_10065ac8`) - never −1, so nothing happens. Port: same read
+  (`frame::handle_player`).
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

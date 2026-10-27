@@ -7,6 +7,7 @@
 
 pub mod air;
 pub mod bounce;
+pub mod frame;
 pub mod level;
 pub mod mask;
 pub mod moves;

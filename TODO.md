@@ -48,7 +48,8 @@
 - [x] Mirrored face masks confirmed with the original's BuildMaskRegion in Unicorn (all 929 faces)
 - [x] Tile collision pass (`CheckTileCollisions`) and the player's tile reactions (19 500 cases)
 - [x] Half pipes, jumps, holes (`HandleHalfPipe`, `JumpScale`), 46 000 cases
-- [ ] Whole player frame (`HandlePlayerSprite`): keys and items (`HandleKeys`), timers, comfort delta, position update
+- [x] Whole player frame (`HandlePlayerSprite`) without keys, 20 000 cases
+- [ ] `HandleKeys`: turning, moves, items, weapons (player shots), cheats and key sequences
 - [ ] See the garbage-scale frame (BUGS.md) in the emulator: drop Harry into a hole in level 11
 - [x] Level model (`harry_core::Level`), MacBinary / resource fork / `Hlvl` reader + writer (exact round trip)
 - [x] Graphics readers in Rust: PICT 1/8-bit/direct, cicn, HrSp; masks from the original files

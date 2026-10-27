@@ -17,8 +17,9 @@ pub struct Player {
     pub body: Body,
     /// 0–35, the direction of travel.
     pub dir: i16,
-    /// Pose offset (0, 36, 72, 108): the face drawn is `dir + pose`.
-    pub pose: i16,
+    /// The face drawn (`faceEntry`): `dir + pose` of the frame's start;
+    /// faces 107–143 have collision masks (the kick).
+    pub face: i16,
     /// `sp->air` (jump state).
     pub air: i16,
     /// `sp->hotRect`; `KICK_HOT_RECT` while the kick reaches out.
@@ -80,7 +81,7 @@ fn kick_test(p: &mut Player, st: &mut TileState, masks: &Masks, hit: &TileHit, t
     if !sect(foot, offset(tile_rect, hit.tile.0, hit.tile.1)) {
         return;
     }
-    let Some(face) = masks.faces.get((p.dir + p.pose) as usize).and_then(Option::as_ref) else { return };
+    let Some(face) = masks.faces.get(p.face as usize).and_then(Option::as_ref) else { return };
     let saved = p.body.at;
     if mask_hit(&mut p.body.pos, face, hit.tile, tile_mask) {
         st.kick_contact = 256;

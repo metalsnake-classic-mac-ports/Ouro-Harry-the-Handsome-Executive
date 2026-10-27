@@ -54,7 +54,7 @@ fn tile_collisions_match_the_original() {
         let mut p = Player {
             body: Body { pos: at, at, fix: (0x7777, 0x7777), speed: Speed { h: v[3] as i16, v: v[4] as i16 } },
             dir: v[5] as i16,
-            pose: v[6] as i16,
+            face: (v[5] + v[6]) as i16,
             air: v[7] as i16,
             hot_rect: if kicking { KICK_HOT_RECT } else { HOT_RECT },
         };

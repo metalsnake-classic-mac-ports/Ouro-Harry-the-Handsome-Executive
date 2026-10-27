@@ -675,6 +675,20 @@ QuickTime Musical Instruments.
   recorded). `harry_core::air` (+ `harry_core::random`, the QuickDraw
   generator) matches all. Two mutations survived as equivalent (`× 0.8`
   vs `× 4 / 5` on integers; `< 0x40e` vs `< 0x40d` where 1037 is odd).
+- **Harry's frame** (`HandlePlayerSprite`, keys stubbed):
+  `re/tools/emu_frame.py` records it on the real levels with all globals
+  around the player set at random (20 000 cases): position sanity check,
+  flags cleared, comfort delta (not while caffeine works), 15 timers
+  counted down in a fixed order, idle chatter (`SATRand(100) < 30` when
+  the chatter timer runs out, then `SATRand(3)` picks the voice), the
+  inventory check, `MoveChair`, `HandlePlayerGlide` (sets the surface
+  meter), `HandleHalfPipe`, the direction wrap (≥ 36 → 0, < 0 → 35),
+  the face (`dir + pose` before `JumpScale` may spin him), `JumpScale`,
+  wetness drying (−2 at speed ≥ 201), max speed 2500, floor kind reset,
+  position update, shake (`SATRand(6)` − 3 on h, then v), death when a
+  shown meter is below 1 on the floor. `harry_core::frame::handle_player`
+  matches all cases; surviving mutations only in unreachable states (dir
+  ≥ 37, negative air after `JumpScale`).
 - Full chain `WallBounce` + mask test on the rebuilt mask tables (walls at
   `*_DAT_100658d4` + 0x1a + kind · 0x2e, obstacle at `*_DAT_100658d0` +
   0x1a): 12 000 cases for the mask kinds 4–31, all matching.
