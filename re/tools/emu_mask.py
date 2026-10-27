@@ -142,3 +142,38 @@ def full_chain(work="re/work"):
 
 if __name__ == "__main__" and len(sys.argv) > 2 and sys.argv[2] == "chain":
     full_chain(sys.argv[1])
+
+
+def face_masks(work="re/work"):
+    """BuildMaskRegion (with the game's BlitEncFaceToPixMap and
+    Threshold255Blit) on every HrSp face; writes the region of each as
+    rows of # and . to diff/facemasks.txt ("= id w h" header lines)."""
+    import glob
+    m = Machine(f"{work}/ppc")
+    files = sorted(glob.glob(f"{work}/res/Harry_Graphics/HrSp_*.bin"), key=lambda p: int(p.split("_")[-1][:-4]))
+    with open(f"{work}/diff/facemasks.txt", "w") as out:
+        out.write("# BuildMaskRegion of each HrSp face (original code in Unicorn, QuickDraw bit order in BitMapToRegion)\n")
+        for path in files:
+            fid = int(path.split("_")[-1][:-4])
+            data = open(path, "rb").read()
+            t, l, b, r = struct.unpack(">hhhh", data[0:8])
+            m.heap = 0x30000000 + 0x100000          # reuse the heap; nothing survives a face
+            m.regions.clear()
+            handle = m.alloc(4)
+            ptr = m.alloc(len(data))
+            m.write(ptr, data)
+            m.w32(handle, ptr)
+            face = m.alloc(0x1C)
+            m.write(face, data[0:16])
+            m.w32(face + 0x10, handle)
+            rgn = m.call("BuildMaskRegion", face)
+            px = m.regions.get(rgn, set())
+            w, h = r - l, b - t
+            out.write(f"= {fid} {w} {h}\n")
+            for y in range(h):
+                out.write("".join("#" if (x, y) in px else "." for x in range(w)) + "\n")
+    print(f"facemasks: {len(files)} faces")
+
+
+if __name__ == "__main__" and len(sys.argv) > 2 and sys.argv[2] == "faces":
+    face_masks(sys.argv[1])

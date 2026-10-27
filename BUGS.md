@@ -23,8 +23,13 @@ option) and why.
   of the player's kick poses (faces 107–143 of the face set, used by the
   pixel-exact kick test in `HitPlayerTileSprite`) and any other face set
   loaded with a region range. Masks from `cicn` resources and PICT 160
-  (walls, Harry's body, obstacles) are not affected. Port: keep (build
-  those regions the same way), to be confirmed in the emulator.
+  (walls, Harry's body, obstacles) are not affected. Confirmed by running
+  the original's `BuildMaskRegion` (with its `BlitEncFaceToPixMap` and
+  `Threshold255Blit`) in Unicorn on all 929 faces, with `BitMapToRegion`
+  reading bits the QuickDraw way: `harry_original::masks::from_face`
+  matches every face only with the mirror. Pixels whose mirrored place
+  falls beyond the face width are lost (e.g. the right 4 px of a 44 px
+  face). Port: keep (`from_face` builds them the same way).
 
 ## Fixed in 1.0.1
 

@@ -87,12 +87,18 @@ class Machine:
         uc.hook_add(UC_HOOK_CODE, self._stub_hook, begin=STUBS, end=STUBS + 0xffff)
         self.rand_seed = 1
         self.regions = {}
+        self.gworld = 0
         self.ticks = 0
         self.trace_calls = False
         for n, f in (("SetRect", self.tb_setrect), ("Random", self.tb_random),
                      ("TickCount", self.tb_tickcount), ("SectRect", self.tb_sectrect), ("NewRgn", self.tb_newrgn),
                      ("CopyRgn", self.tb_copyrgn), ("OffsetRgn", self.tb_offsetrgn), ("SectRgn", self.tb_sectrgn),
-                     ("EmptyRgn", self.tb_emptyrgn), ("DisposeRgn", self.tb_disposergn), ("OffsetRect", self.tb_offsetrect),
+                     ("EmptyRgn", self.tb_emptyrgn), ("DisposeRgn", self.tb_disposergn),
+                     ("NewGWorld", self.tb_newgworld), ("GetGWorldPixMap", self.tb_getgworldpixmap),
+                     ("GetPixBaseAddr", self.tb_getpixbaseaddr), ("SetGWorld", self.tb_setgworld),
+                     ("GetGWorld", self.tb_getgworld), ("EraseRect", self.tb_eraserect),
+                     ("BitMapToRegion", self.tb_bitmaptoregion), ("LockPixels", self.tb_nop),
+                     ("UnlockPixels", self.tb_nop), ("DisposeGWorld", self.tb_nop), ("OffsetRect", self.tb_offsetrect),
                      ("NewPtr", self.tb_newptr), ("NewPtrClear", self.tb_newptr),
                      ("NewHandle", self.tb_newhandle), ("NewHandleClear", self.tb_newhandle),
                      ("HLock", self.tb_nop), ("HUnlock", self.tb_nop), ("MoveHHi", self.tb_nop),
@@ -113,7 +119,7 @@ class Machine:
         return struct.unpack(">I", self.read(a, 4))[0]
 
     def w16(self, a, v):
-        self.write(a, struct.pack(">h", v))
+        self.write(a, struct.pack(">H", v & 0xFFFF))
 
     def w32(self, a, v):
         self.write(a, struct.pack(">I", v & 0xffffffff))
@@ -249,6 +255,55 @@ class Machine:
 
     def tb_disposergn(self):
         self.regions.pop(self.get(3), None)
+
+    # --- offscreen GWorlds (enough for BuildMaskRegion): a GWorld is its
+    # PixMap handle; PixMap: baseAddr +0, rowBytes +4, bounds +6, pixelSize
+    # +0x20. EraseRect fills with 0 (white in clut 8 and in 1-bit).
+    def tb_newgworld(self):
+        out, depth, rect = self.get(3), self.get(4) & 0xFFFF, self.get(5)
+        t, l, b, r = struct.unpack(">hhhh", self.read(rect, 8))
+        w, h = r - l, b - t
+        row = ((w * depth + 31) // 32) * 4
+        base = self.alloc(row * h)
+        pm = self.alloc(0x32)
+        self.w32(pm, base)
+        self.w16(pm + 4, row | (0x8000 if depth > 1 else 0))
+        self.write(pm + 6, struct.pack(">hhhh", t, l, b, r))
+        self.w16(pm + 0x20, depth)
+        handle = self.alloc(4)
+        self.w32(handle, pm)
+        self.w32(out, handle)
+        return 0
+
+    def tb_getgworldpixmap(self):
+        return self.get(3)
+
+    def tb_getpixbaseaddr(self):
+        return self.r32(self.r32(self.get(3)))
+
+    def tb_setgworld(self):
+        self.gworld = self.get(3)
+
+    def tb_getgworld(self):
+        self.w32(self.get(3), self.gworld)
+        self.w32(self.get(4), 0)
+
+    def tb_eraserect(self):
+        pm = self.r32(self.gworld)
+        base, row = self.r32(pm), self.r16(pm + 4) & 0x3FFF
+        t, l, b, r = struct.unpack(">hhhh", self.read(pm + 6, 8))
+        self.write(base, bytes(row * (b - t)))
+
+    def tb_bitmaptoregion(self):
+        """QuickDraw: the region of the set bits, most significant bit = left."""
+        rgn, bm = self.get(3), self.get(4)
+        base, row = self.r32(bm), self.r16(bm + 4) & 0x3FFF
+        t, l, b, r = struct.unpack(">hhhh", self.read(bm + 6, 8))
+        data = self.read(base, row * (b - t))
+        self.regions[rgn] = {(l + x, t + y) for y in range(b - t) for x in range(r - l)
+                             if data[y * row + x // 8] & (0x80 >> (x % 8))}
+        self._region_sync(rgn)
+        return 0
 
     def tb_random(self):
         # QuickDraw Random: Park-Miller (16807, 2^31 - 1) on randSeed; -32768 -> 0

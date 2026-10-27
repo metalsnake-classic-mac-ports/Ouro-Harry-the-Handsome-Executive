@@ -2,6 +2,10 @@
 //! of the port against recordings of the original's code
 //! (`re/tools/emu_*.py`, run in Unicorn; see `tests/`).
 
+pub mod cicn;
 pub mod hlvl;
+pub mod hrsp;
+pub mod masks;
+pub mod pict;
 pub mod resfork;
 pub mod text;

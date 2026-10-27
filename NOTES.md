@@ -623,6 +623,16 @@ QuickTime Musical Instruments.
   tie, Bresenham comparisons - one of them loops forever); `>> 1` vs
   `/ 2` for the centres is equivalent for the game's positive
   coordinates.
+- Rust readers (`harry-original`): `pict` (PackBits 8-bit pixmaps with
+  colour table, 1-bit bitmaps - rows under 8 bytes unpacked -, and
+  `DirectBits` 32-bit packType 4: application PICT 140), `cicn`, `hrsp`,
+  `masks` (body / obstacle from cicn, walls from PICT 160, face masks with
+  the original's mirrored bits). Tests: all 82 pictures decode; the 929
+  faces equal the Python decoder (size, opaque pixels, index sum); the
+  masks equal the recorded ones; face masks equal the original's
+  `BuildMaskRegion` run in Unicorn (`emu_mask.py re/work faces`, GWorld
+  stubs in `ppcmachine`: `NewGWorld`, `GetGWorldPixMap`, `EraseRect`,
+  `BitMapToRegion` MSB first, ...).
 - Full chain `WallBounce` + mask test on the rebuilt mask tables (walls at
   `*_DAT_100658d4` + 0x1a + kind · 0x2e, obstacle at `*_DAT_100658d0` +
   0x1a): 12 000 cases for the mask kinds 4–31, all matching.
