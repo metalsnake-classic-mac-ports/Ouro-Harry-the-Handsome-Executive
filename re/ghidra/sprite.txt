@@ -26,7 +26,7 @@
 0x68 short levelIndex    index in the level's sprite list, -1 none
 0x72 short state
 0x74 short timer
-0x76 short target
+0x76 short idleIndex     slot in the idle sprite table (set by IdleToActiveSprite)
 0x7e ptr   faceEntry     current face (face set + frame * 0x1c)
 0x8e short air           jump / fall state: 1-35 jump, 215-220 half-pipe flip, 1000-1045 falling into a hole; >= 23 cannot move
 0x92 char  frozen        task does nothing while set

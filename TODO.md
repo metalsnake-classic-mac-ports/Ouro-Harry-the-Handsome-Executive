@@ -31,7 +31,9 @@
 - [ ] `WallBounce`, `BGTileBounce`, `RectBounceFake` (the bounce maths), mask test `FUN_10054124`
 - [ ] Ramps, stairs, half pipes (`HandleRampCollision`, `HandleStairsCollision`, `HandleHalfPipe`, `JumpScale`)
 - [ ] Meters: what changes comfort / favor; death and respawn (`HandlePlayerSpriteDeath`, copier saves)
-- [ ] SAT run order (`HandleSprites`, idle sprites) - which sprite moves first
+- [x] SAT run order (`HandleSprites`): tasks, sort pass, collision pass, player collisions - 20 000 cases
+- [ ] Idle sprites (`HandleIdleSprites`) and level start (`SetupLevelSprites`, `GenerateSprite`) in the port
+- [ ] Level 1 complete: door, plant, cooler, collider, background props, dart enemy, exit, message, ramp, item; `HitPlayerSprite`
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one
 

@@ -378,6 +378,77 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
 - Keys 1–4 (codes 0x12–0x15) select staple gun / B.A.D.A.S.S. / shrapnel
   gun / power of the swivel if carried.
 
+### Sprite management (SAT list, idle sprites)
+
+- **SAT configuration** (`InitSAT`): `SATConfigure(false, 1, 1, 64)` -
+  sort by layer (+0x4c), collision mode 1, search width 64; sprite
+  records 0xa2 bytes. SAT's globals at `*0x10065b70`, first sprite at
+  +0x78; links next +0x2e, previous +0x32; free list at +0x110.
+- **New sprites** (`SATNewSprite` = `FUN_10060cbc(0, 0, kind, h, v,
+  setup)`): a record from the free list (fields not cleared by SAT or the
+  setup keep old values) or a new one, kind and position set, put at the
+  **front** of the list, then the setup routine runs.
+- **One frame** (`GameLoop`): `HandleIdleSprites`; `HandleSprites` =
+  `SATRun` (each sprite's task in list order, its `hotRect2` = position
+  + hot rect right after; one bubble pass forward and one backward by
+  layer; the collision pass: each sprite against the following ones while
+  their layer is ≤ its own + 64, overlapping `hotRect2` → a's hit task
+  with b, then b's with a; sprites without a task get kind 0 and no hit
+  task) and then `CheckPlayerCollision` (unless `*_DAT_10065acc`: the
+  first sprite with `HandlePlayerSprite` as task against every other
+  sprite with a task, `at` + hot rect, `SectRect` → `HitPlayerSprite`);
+  the view (`FindUpperLeftCorner`); `CheckTileCollisions`; when drawing,
+  `EraseSprites` takes sprites without a task or `frozen` out of the list
+  (a frozen level sprite is also marked gone in the level's sprite list
+  and its idle slot freed). So "frozen" means dead; with Reduce Frame
+  Rate the erase happens only on drawn passes, so dead sprites stay in
+  the list (doing nothing, but still colliding) one pass longer.
+  `re/tools/emu_sat.py` + `harry_core::sat`: 20 000 cases with dummy
+  sprites (tasks that log, kill or move), all matching.
+- **Start of a level**: `SetupLevelSprites` (`GenerateSprite` for each
+  active record of the level's sprite list, position − 6), then the
+  player and then the held weapon with `SATNewSprite` - so the list
+  starts weapon, player, level sprites (in reverse).
+- **Idle sprites** (255 slots of 0x44 bytes at 0x1006dcf0): most level
+  sprites are made through `AddIdleSprite` - created, then at once
+  parked: `ActiveToIdleSprite` saves kind, face, dir, layer, at, level
+  index, state, timer, hot rect, speed, +0x6e/+0x70, +0x7c, +0x8b, +0x8c,
+  scale0/1, air, task, hit task and hit tile task, and kills the sprite
+  (task = 0). Each frame `HandleIdleSprites` goes through the slots in
+  order: a parked sprite comes back (`IdleToActiveSprite`: `SATNewSprite`
+  without setup, the saved fields restored, fix = at << 8, +0x8a = 1,
+  +0x82/+0x84 = −1, +0x76 = its slot) when |view.h − at.h + 200| < 348
+  and |view.v − at.v + 200| < 348 (view = the upper-left corner, the view
+  is 448 × 448); an active one is parked when one of them is > 348 and its
+  hot rect at `at` does not touch the view rect. Fields not saved (e.g.
+  +0x90, +0x94, +0x96, +0x98…+0x9c, scale2/3) come back with whatever
+  the reused record held.
+- **Object ids → sprite kinds** (`GenerateSprite`; "idle" = via
+  `AddIdleSprite`, "even" = position rounded to even pixels toward 0):
+  301–319 desk (direct); 500–501 cooler, 550 barrel, 560 chair, 601 plant
+  (idle, even); 700–799 bonus (idle); 900–949 door (idle, even); 950–999
+  sliding door (idle, even; 951 one pixel lower); 1019 / 1029 / 1039 /
+  1049 background props (`AddBGProp`), other 1000–1049 dart enemy (idle);
+  1100–1299 scientist (idle); 1300–1449 co-worker (idle, h even + 1);
+  1600–1699: 1601 / 1611 / 1621 / 1631 mail guy (direct), 1609 / 1619 /
+  1629 / 1639 foreground props (`AddFGProp`); 1700–1799 blob; 1800–1849
+  robot; 1850–1899 reversor (direct); 1900–1999 turret; 2000–2099 robot;
+  2200–2299 boss; 2301–2304 collider (direct); 3000 nothing, 3001 hazard
+  (idle, even); 3100, 3101, 9199, 9200, 9300, 9401–9499, 9600, 9800
+  collider (idle); 3900–3999 grate (idle, even; v − 1, 3905 / 3915 not); 4200–4299
+  fire pipe (4201–4204 with four face sets, idle, even); 5000–5999
+  ghost; 6000–6099 boulder (direct); 9900–9909 stairs; 9500–9599 button;
+  9700–9799 ramp; 9990–9999 exit; 11001–19999 item; ≥ 21000 message (all
+  idle). "Direct" sprites never go idle.
+- Sprite kinds in Episode 1 (count over all 15 levels): bonus 443, door
+  172, fire pipe 142, robot 121, blob 116, grate 101, cooler 92, message
+  90, barrel 87, turret 78, plant 73, mail guy / props 71, scientist 71,
+  item 67, collider ≈ 76, ramp 58, button 51, ghost 50, dart enemy / props
+  48, sliding door 28, stairs 26, co-worker 21, chair 19, exit 18, boulder
+  14, reversor 12, boss 1. Level 1: doors 901 / 913, plants, cooler 500,
+  colliders 3100 / 9200 / 9600, background prop 1029, dart enemy 1021,
+  exit 9991, messages, ramp 9703, item 11397.
+
 ### Sprite kinds (CODE 3)
 
 Player (`HandlePlayerGlide`, `DoScoot`, `DoKick`, `DoInch`, `MoveChair`,
