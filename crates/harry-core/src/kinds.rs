@@ -1,10 +1,12 @@
-//! Simple sprite kinds: bonuses, items, exits, doors. Each has a setup (run when
+//! Simple sprite kinds: bonuses, items, exits, doors, water coolers. Each has a setup (run when
 //! the sprite is made), a task (each frame) and a hit task (SAT's
 //! collision pass); what Harry does when he touches them is in
 //! `HitPlayerSprite`.
 
 use crate::level::Level;
-use crate::sprite::{HitTask, Sprite, Task};
+use crate::mask::{Mask, mask_hit};
+use crate::sprite::{HitTask, Sprite, SpriteEvent, Task};
+use crate::tiles::{KICK_RECTS, offset, sect};
 
 
 /// `SetupBonusSprite` (700–799: the bonus objects Harry collects).
@@ -201,5 +203,103 @@ pub fn hit_door(sp: &Sprite, other: &mut Sprite) {
         && !door_open(sp.kind)
     {
         other.frozen = true;
+    }
+}
+
+/// `SetupCoolerSprite` (500, 501): a water cooler, face 2001, solid to
+/// Harry (mask HrSp 2002), destroyed by four shots.
+pub fn setup_cooler(sp: &mut Sprite) {
+    sp.init();
+    sp.dir = 1;
+    sp.layer = 8;
+    sp.task = Some(Task::Cooler);
+    sp.hit_task = Some(HitTask::Cooler);
+    sp.hit_tile_task = None;
+    sp.speed = Default::default();
+    sp.hot_rect = [0, 0, 24, 24];
+    sp.face = 2001;
+    sp.at_from_pos();
+    sp.fix_from_at();
+    sp.b8b = true;
+}
+
+/// `HandleCoolerSprite`: `dir` counts the hits; at 4 it explodes (the
+/// explosion kind is the level entry's info #1, default 5) and is gone from
+/// the level, at 10 the sprite is removed.
+pub fn handle_cooler(sp: &mut Sprite, level: &mut Level, events: &mut Vec<SpriteEvent>) {
+    if sp.frozen {
+        return;
+    }
+    let entry = usize::try_from(sp.level_index).ok().filter(|&i| i < 256);
+    match sp.dir {
+        10 => sp.frozen = true,
+        4 => {
+            let kind = entry.map(|i| level.sprites[i].info[1]).filter(|&k| k != 0).unwrap_or(5);
+            events.push(SpriteEvent::Explosion { h: sp.pos.1.wrapping_sub(20), v: sp.pos.0.wrapping_sub(20), a: kind, b: 0 });
+            sp.dir += 1;
+            if let Some(i) = entry {
+                level.sprites[i].present = false;
+            }
+        }
+        5..=9 => sp.dir += 1,
+        _ => sp.face = 2001,
+    }
+}
+
+/// The masks the coolers need.
+pub struct CoolerMasks<'a> {
+    /// Harry's body (cicn 299).
+    pub body: &'a Mask,
+    /// The cooler (HrSp 2002, mirrored like all face masks).
+    pub cooler: &'a Mask,
+}
+
+/// `HitCoolerSprite`. Harry (on the floor): kicking it rings it (3-D
+/// sound 501, kick contact 192) when the kick rect of his direction
+/// touches it; walking into it moves him out by the mask test, with sound
+/// 501, his speed × −0.6 and kick contact 256. Shots (frozen) and
+/// effects (not kind 9610) knock it: sound 502 for the first three, 500
+/// for the fourth.
+pub fn hit_cooler(
+    sp: &mut Sprite,
+    other: &mut Sprite,
+    masks: &CoolerMasks,
+    kick_contact: &mut i16,
+    events: &mut Vec<SpriteEvent>,
+) {
+    if sp.frozen || other.frozen || other.air >= 1 {
+        return;
+    }
+    if other.task == Some(Task::Player) {
+        if other.hot_rect[1] == 0 {
+            let kick = offset(KICK_RECTS[other.dir as usize], other.at.0, other.at.1);
+            if sect(kick, offset(sp.hot_rect, sp.at.0, sp.at.1)) {
+                events.push(SpriteEvent::Sound3D(501));
+                *kick_contact = 0xc0;
+            }
+        } else {
+            other.pos = other.at;
+            if mask_hit(&mut other.pos, masks.body, sp.at, masks.cooler) {
+                other.at = other.pos;
+                other.fix_from_at();
+                events.push(SpriteEvent::Sound(501));
+                let damp = |s: i16| (-0.6 * f64::from(s)) as i32 as i16;
+                other.speed.h = damp(other.speed.h);
+                other.speed.v = damp(other.speed.v);
+                *kick_contact = 0x100;
+            }
+        }
+    }
+    if matches!(other.task, Some(Task::PlayerShot | Task::EnemyShot | Task::Effect)) && other.kind != 9610 {
+        if other.task != Some(Task::Effect) {
+            other.frozen = true;
+        }
+        if sp.dir < 3 {
+            events.push(SpriteEvent::Sound(502));
+            sp.dir += 1;
+        } else if sp.dir == 3 {
+            events.push(SpriteEvent::Sound(500));
+            sp.dir += 1;
+        }
     }
 }

@@ -482,6 +482,20 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   kicked open (dir 1) it counts up to 17 and becomes the open kind at
   once, also in the level's sprite list (so it stays open on reload). A
   closed or locked door stops player and enemy shots (they freeze).
+- **Water cooler** (500, 501; layer 8, hot rect (0, 0, 24, 24), face
+  2001, mask HrSp 2002): it reacts in its own hit task (SAT's collision
+  pass), not in `HitPlayerSprite`. Harry on the floor: kicking - his kick
+  rect (`KICK_RECTS`[dir] at his `at`) touching its hot rect - rings it
+  (3-D sound 501, kick contact 192); walking - the mask test (his body
+  mask at his `at` against the cooler's) moves him out: `at` and fix
+  from the moved position, sound 501, speed × −0.6 (double, truncated),
+  kick contact 256. Player / enemy shots (frozen) and effects (except
+  kind 9610) knock it: `dir` 1 → 2 → 3 with sound 502, 3 → 4 with 500;
+  at 4 its task makes an explosion (kind = level info #1, default 5) at
+  pos − 20 and marks it gone in the level; at 10 it is removed.
+  `re/tools/emu_cooler.py`: 12 000 cases, all matching; 9 of 11
+  mutations caught, the other two equivalent (dir > 10 never happens;
+  −0.6 · v truncates like −6 · v / 10 for all 16-bit v).
 - **Exit** (9990–9999, layer 1): 9991–9994 with faces 3201–3204 and hot
   rects beside them (9991 (96, 0, 100, 64), 9992 (−40, 0, −32, 64), 9993
   (0, 40, 64, 100), 9994 (0, −32, 64, 0)), others no face, (0, 0, 32,

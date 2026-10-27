@@ -20,6 +20,8 @@ pub enum Task {
     Exit,
     Door,
     EnemyShot,
+    Effect,
+    Cooler,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -31,6 +33,7 @@ pub enum HitTask {
     Item,
     Exit,
     Door,
+    Cooler,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -38,6 +41,17 @@ pub enum HitTask {
 pub enum HitTileTask {
     Player,
     PlayerShot,
+}
+
+/// What a sprite routine asks of the rest of the game.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpriteEvent {
+    /// `STPlayRegSound`.
+    Sound(i16),
+    /// `STPlay3DSound` at the sprite.
+    Sound3D(i16),
+    /// `EasyExplosion(h, v, 0, 0, a, b)`.
+    Explosion { h: i16, v: i16, a: i16, b: i16 },
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
