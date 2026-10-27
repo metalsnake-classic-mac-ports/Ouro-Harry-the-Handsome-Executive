@@ -1,10 +1,11 @@
-//! Simple sprite kinds: bonuses, items, exits. Each has a setup (run when
+//! Simple sprite kinds: bonuses, items, exits, doors. Each has a setup (run when
 //! the sprite is made), a task (each frame) and a hit task (SAT's
 //! collision pass); what Harry does when he touches them is in
 //! `HitPlayerSprite`.
 
 use crate::level::Level;
 use crate::sprite::{HitTask, Sprite, Task};
+
 
 /// `SetupBonusSprite` (700–799: the bonus objects Harry collects).
 pub fn setup_bonus(sp: &mut Sprite) {
@@ -126,4 +127,79 @@ pub fn hit_exit(sp: &mut Sprite, other: &Sprite, level: &Level, counter: &mut Le
     let dest = level.sprites.get(sp.level_index as usize).map_or(0, |s| s.info[0]);
     counter.current = if dest == 0 { counter.current.wrapping_add(1) } else { dest };
     sp.timer = 69;
+}
+
+/// Door faces: 36 frames from HrSp 2601, nine per door kind (opening).
+const DOOR_FACES: i16 = 2601;
+
+/// The four door kinds (hinged at different sides): 901–903, 911–913,
+/// 921–923, 931–933; …1 closed, …2 open, …3 locked (a key opens it). Index
+/// 0–3 of the kind, or `None`.
+pub fn door_group(kind: i16) -> Option<i16> {
+    match kind {
+        901..=903 => Some(0),
+        911..=913 => Some(1),
+        921..=923 => Some(2),
+        931..=933 => Some(3),
+        _ => None,
+    }
+}
+
+/// An open door (902, 912, 922, 932).
+pub fn door_open(kind: i16) -> bool {
+    matches!(kind, 902 | 912 | 922 | 932)
+}
+
+/// `SetupDoorSprite`. An open door starts at frame 16 (fully open).
+pub fn setup_door(sp: &mut Sprite) {
+    sp.init();
+    sp.dir = 0;
+    sp.task = Some(Task::Door);
+    sp.hit_task = Some(HitTask::Door);
+    sp.hit_tile_task = None;
+    sp.layer = 5;
+    if door_open(sp.kind) {
+        sp.dir = 16;
+    }
+    if let Some(g) = door_group(sp.kind) {
+        sp.hot_rect = [[34, 15, 37, 46], [15, 16, 18, 47], [3, 33, 34, 36], [1, 4, 32, 7]][g as usize];
+        sp.face = if door_open(sp.kind) { DOOR_FACES + 9 * g + 8 } else { DOOR_FACES + 9 * g + sp.dir };
+    }
+    sp.at_from_pos();
+    sp.b8b = true;
+}
+
+/// `HandleDoorSprite`: a door Harry kicked open (dir 1–16) swings one
+/// step per frame (a face every two) and is open from its first step on -
+/// also in the level's sprite list, so it stays open.
+pub fn handle_door(sp: &mut Sprite, level: &mut Level) {
+    if sp.frozen {
+        return;
+    }
+    if sp.hit_task.is_none() {
+        sp.hot_rect = [0; 4];
+    }
+    if let Some(g) = door_group(sp.kind) {
+        sp.face = DOOR_FACES + 9 * g + sp.dir / 2;
+    }
+    if 0 < sp.dir && sp.dir < 17 {
+        sp.dir += 1;
+        if let Some(g) = door_group(sp.kind).filter(|_| !door_open(sp.kind)) {
+            sp.kind = 902 + 10 * g;
+        }
+        if let Some(e) = usize::try_from(sp.level_index).ok().and_then(|i| level.sprites.get_mut(i)) {
+            e.id = sp.kind;
+        }
+    }
+}
+
+/// `HitDoorSprite`: a closed door stops shots.
+pub fn hit_door(sp: &Sprite, other: &mut Sprite) {
+    if !sp.frozen
+        && !other.frozen
+        && matches!(other.task, Some(Task::EnemyShot | Task::PlayerShot))
+        && !door_open(sp.kind)
+    {
+        other.frozen = true;
+    }
 }

@@ -18,6 +18,8 @@ pub enum Task {
     Bonus,
     Item,
     Exit,
+    Door,
+    EnemyShot,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -28,6 +30,7 @@ pub enum HitTask {
     Bonus,
     Item,
     Exit,
+    Door,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).

@@ -475,6 +475,13 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   11199–12198 read past the table), 11397 → 3652, 11398 → 3651; the
   mystery vial 11699 bubbles through 3661–3668, two frames each. No fix
   position set.
+- **Door** (901–933, layer 5, faces 2601–2636: nine per hinge side;
+  hot rects 901–903 (34, 15, 37, 46), 911–913 (15, 16, 18, 47), 921–923
+  (3, 33, 34, 36), 931–933 (1, 4, 32, 7)): …2 open (dir 16, last face),
+  …1 closed, …3 locked. Each frame the face is dir / 2 of its nine; when
+  kicked open (dir 1) it counts up to 17 and becomes the open kind at
+  once, also in the level's sprite list (so it stays open on reload). A
+  closed or locked door stops player and enemy shots (they freeze).
 - **Exit** (9990–9999, layer 1): 9991–9994 with faces 3201–3204 and hot
   rects beside them (9991 (96, 0, 100, 64), 9992 (−40, 0, −32, 64), 9993
   (0, 40, 64, 100), 9994 (0, −32, 64, 0)), others no face, (0, 0, 32,
@@ -504,6 +511,26 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   (`GetInvItem`: a second one counts up) with sound 214 - and stays in
   the level when the inventory is full.
 - 12 000 cases match; 12 of 12 mutations caught.
+- **Door** (any `air`; nothing for open doors 902 / 912 / 922 / 932):
+  walking into a closed or locked door: a locked one opens with its key
+  selected (item 11399 − the door's info #0: sound 240, the key used up,
+  door and level entry become the closed kind, +0x8a set), else a remark
+  (205) at most every 25 frames (`t28`); then `DoorSeparate` (Harry back
+  to his side, judged by his centre, from his fix position) and his speed
+  reversed × bounce / 256. Kicking (hot rect left = 0): from the side the
+  door opens to (his centre past the hinge: 901 v > door.v + 35, 911 v <
+  door.v + 17, 921 h > door.h + 34, 931 h < door.h + 5 - using the
+  `gPlayerH/V` copies) and facing it (901: dir 1–17, 911: 19–34, 921:
+  10–26, 931: 0–8 / 28–35) the door swings open (its dir + 1, kick contact
+  0, kick reset), from the other side facing it the kick hits it as solid
+  (contact 256); both with sound 204. Otherwise `RectSeparate` with his
+  normal hot rect (which stays for the rest of the frame). A locked door
+  opens on a kick only with the key (which unlocks it either way).
+- `RectSeparate`: the shortest of the four distances out of the other
+  rect (ties: up, down, right, left) - Ghidra shows the minimum and the
+  first distance as one variable, the machine code keeps them apart.
+- 30 000 cases (bonus, item, door) match; 19 of 20 door mutations caught,
+  the survivor changes a hinge coordinate the door's axis never reads.
 
 ### Sprite kinds (CODE 3)
 

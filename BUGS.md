@@ -89,6 +89,20 @@ option) and why.
   counter while it is below 100, so it can reach 119; gun pickups clamp to
   100. How the panel shows more than 100 is to be checked. Port: keep.
 
+- **Kicking a locked door reads stale stack values.** `HitPlayerSprite`
+  sets the door's hinge point only for 901, 911, 921, 931; for the locked
+  903 / 913 / 923 / 933 the comparison reads two locals that were never
+  set (machine code 0x1002a8bc ff.), so whether the kick counts as from
+  the front or the back depends on whatever an earlier call left there.
+  Port: uses the closed door's hinge (the recorder puts those values on
+  the stack, so everything else is compared exactly).
+- **A kick that misses a door loses the kick's hot rect.** When Harry
+  kicks a door he can neither open nor hit, `HitPlayerSprite` sets his
+  normal hot rect for `RectSeparate` and does not restore the kick's
+  (the restore tests an address against −8, never true). For the rest of
+  the frame he is no longer kicking (e.g. in `CheckTileCollisions`).
+  Port: keep.
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

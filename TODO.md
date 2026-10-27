@@ -35,7 +35,8 @@
 - [ ] Idle sprites (`HandleIdleSprites`) and level start (`SetupLevelSprites`, `GenerateSprite`) in the port
 - [x] Sprite record in the port (`sprite::Sprite`), faces by HrSp id; bonus, item, exit (9 000 cases)
 - [x] `HitPlayerSprite` for bonus and item (12 000 cases)
-- [ ] Level 1 complete: door, plant, cooler, collider, background props, dart enemy, message, ramp (+ their `HitPlayerSprite` branches)
+- [x] Door (kinds + `HitPlayerSprite`, 3 000 + 30 000 cases)
+- [ ] Level 1 complete: plant, cooler, collider, background props, dart enemy, message, ramp (+ their `HitPlayerSprite` branches)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one
 

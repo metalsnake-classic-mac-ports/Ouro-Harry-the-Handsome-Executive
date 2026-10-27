@@ -1,38 +1,48 @@
 """Record HitPlayerSprite - Harry touching another sprite - for the kinds
-the port has (bonus, item). The other sprite is made by its real setup.
+the port has (bonus, item, door). The other sprite is made by its real
+setup; doors get a level entry (index, info #0) on level 1.
 
-Each line: "<kind> <air> <pfrozen> <ofrozen> <comfort> <t24> <staple>
-  <badass> <shrapnel> <curslot> <inv> <voicebusy> -> <ofrozen> <comfort>
-  <t24> <staple> <badass> <shrapnel> <curslot> <inv> <events>"
+Each line: "<name=value ...> -> <name=value ...>"
   inv     the 12 slots as id:count joined by ","
-  events  p:<snd> (STPlayRegSound), v:<snd> (kept as the voice), halt
+  events  p:<snd> (STPlayRegSound), v:<snd> (kept as the voice), r:<snd>
+          (the remark: the old one stopped, this one kept), halt
           (HaltTalkingSounds), joined by ","
+For a locked door the original reads two never-set locals (the hinge);
+the recorder puts the closed door's values there (as the port does).
 Usage: python3 -I emu_playerhit.py [re/work]
 """
 import os
 import random
+import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ppcmachine import Machine  # noqa: E402
+from ppcmachine import Machine, STACK_TOP  # noqa: E402
 from sprites import Faces  # noqa: E402
 
 COMFORT, CUR_SLOT, INVENTORY = 0x1006856A, 0x1006857A, 0x10065AC4
-T24, STAPLE, BADASS, SHRAPNEL = 0x10065E24, 0x10065AEC, 0x10065AE8, 0x10065AE4
-VOICE, VOICE2 = 0x10068AA0, 0x10068AA4
+SLOTS = {"t24": 0x10065E24, "t28": 0x10065E28, "staple": 0x10065AEC, "badass": 0x10065AE8, "shrapnel": 0x10065AE4,
+         "contact": 0x10065E1C, "playerh": 0x100659B4, "playerv": 0x100659B0}
+KICK_RESET, PHYSICS = 0x10065E20, 0x100659D8
+VOICE, VOICE2, REMARK = 0x10068AA0, 0x10068AA4, 0x10068A98
 SOUNDS = {0x10065CC0: 212, 0x10065CC4: 211, 0x10065CC8: 210, 0x10065CB0: 216, 0x10065CB8: 214,
-          0x10065C28: 218, 0x10065C24: 219}
+          0x10065C28: 218, 0x10065C24: 219, 0x10065C60: 240, 0x10065CE0: 204, 0x10065CDC: 205}
 ITEMS = [11199, 11299, 11397, 11398, 11399, 11499, 11599, 11699, 11799, 11899, 11999]
-KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("SetupItemSprite", ITEMS)]
-CASES = 12000
+DOORS = [901, 902, 903, 911, 912, 913, 921, 922, 923, 931, 932, 933]
+HINGE = {0: (30, 35), 1: (31, 17), 2: (34, 19), 3: (5, 18)}
+KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("SetupItemSprite", ITEMS),
+         ("SetupDoorSprite", DOORS), ("SetupDoorSprite", DOORS)]
+FRAME = STACK_TOP - 0x1000 - 0x140              # HitPlayerSprite's r1
+CASES = 30000
 
 
 def main():
     work = sys.argv[1] if len(sys.argv) > 1 else "re/work"
     m = Machine(f"{work}/ppc")
     Faces(m)
-    for init in ("InitBonusSprite", "InitItemSprite"):
+    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite"):
         m.call(init)
+    lvl = m.load_level(open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read())
     ev = []
     channel = [0]
 
@@ -43,6 +53,7 @@ def main():
     m.stub_routine("STPlayRegSound", play)
     busy = {}
     m.stub_routine(0x10056DE8, lambda mm: busy.get(mm.get(3), 0))
+    m.stub_routine(0x10056C0C, lambda mm: ev.append(["stop", mm.get(3)]) or 0)
     m.stub_routine("HaltTalkingSounds", lambda mm: ev.append(["halt"]) or 0)
     for f in ("UpdateAmmo", "CopyStatRect", "PlotEncFace", "DrawNumItems", "FindInvItemFace", "UpdateInventory",
               0x1005F738, 0x1005F7EC):
@@ -51,60 +62,100 @@ def main():
         m.stub(n, m.tb_nop)
     for slot, snd in SOUNDS.items():
         m.w32(m.glob(slot), snd)
-    g = {n: m.glob(a) for n, a in (("t24", T24), ("staple", STAPLE), ("badass", BADASS), ("shrapnel", SHRAPNEL))}
+    g = {n: m.glob(a) for n, a in SLOTS.items()}
+    kick_reset, physics = m.glob(KICK_RESET), m.glob(PHYSICS)
     inv = m.r32(INVENTORY)
     player, other = m.alloc(0xA2), m.alloc(0xA2)
     rnd = random.Random("playerhit")
     out = open(f"{work}/diff/playerhit.txt", "w")
-    out.write("# HitPlayerSprite: kind air pfrozen ofrozen comfort t24 staple badass shrapnel curslot inv voicebusy "
-              "-> ofrozen comfort t24 staple badass shrapnel curslot inv events\n")
+    out.write("# HitPlayerSprite: name=value inputs -> name=value outputs\n")
     for case in range(CASES):
         setup, ids = rnd.choice(KINDS)
         kind = rnd.choice(ids)
-        air = rnd.choice([0, 0, 0, 0, 5])
-        pfrozen, ofrozen = int(rnd.random() < 0.05), int(rnd.random() < 0.05)
-        comfort = rnd.choice([rnd.randint(0, 150), 143, 144, 140])
-        t24 = rnd.choice([0, 0, rnd.randint(1, 200)])
-        ammo = [rnd.choice([0, 50, 99, 100, rnd.randint(0, 120)]) for _ in range(3)]
+        st = {"kind": kind, "air": rnd.choice([0, 0, 0, 0, 5]), "pfrozen": int(rnd.random() < 0.03),
+              "ofrozen": int(rnd.random() < 0.03), "comfort": rnd.choice([rnd.randint(0, 150), 143, 144, 140]),
+              "t24": rnd.choice([0, 0, rnd.randint(1, 200)]), "t28": rnd.choice([0, 0, rnd.randint(1, 25)]),
+              "staple": rnd.choice([0, 50, 99, 100, rnd.randint(0, 120)]),
+              "badass": rnd.choice([0, 50, 99, 100, rnd.randint(0, 120)]),
+              "shrapnel": rnd.choice([0, 50, 99, 100, rnd.randint(0, 120)]),
+              "voicebusy": rnd.choice([0, 0, 1]), "contact": rnd.choice([0, 64, 256]),
+              "kickreset": rnd.choice([0, 1]), "bounce": rnd.choice([150, 100, 200])}
+        # the other sprite and Harry around it
+        ov, oh = rnd.randint(500, 3500), rnd.randint(500, 3500)
+        st.update({"ov": ov, "oh": oh, "levelindex": rnd.randint(0, 255), "info0": rnd.choice([0, 0, 0, 100, 200])})
+        pv, ph = ov + rnd.randint(-64, 40), oh + rnd.randint(-64, 40)
+        st.update({"pv": pv, "ph": ph, "fixh": (ph + rnd.choice([0, 0, rnd.randint(-8, 8)])) * 256 + rnd.randint(0, 255),
+                   "fixv": (pv + rnd.choice([0, 0, rnd.randint(-8, 8)])) * 256 + rnd.randint(0, 255),
+                   "speedh": rnd.randint(-2500, 2500), "speedv": rnd.randint(-2500, 2500), "dir": rnd.randint(0, 35),
+                   "kicking": int(rnd.random() < 0.5)})
+        st["playerh"], st["playerv"] = ph + rnd.choice([0, 0, rnd.randint(-5, 5)]), pv + rnd.choice([0, 0, rnd.randint(-5, 5)])
+        key = 0x2C87 - st["info0"]
         n_items = rnd.choice([0, 1, 3, 11, 12, rnd.randint(0, 12)])
-        slots = [(rnd.choice(ITEMS), rnd.randint(1, 3)) for _ in range(n_items)] + [(-1, 0)] * (12 - n_items)
-        cur = -1 if n_items == 0 else rnd.randint(0, n_items - 1)
-        voice_busy = rnd.choice([0, 0, 1])
+        pool = ITEMS + [key, key]
+        slots = [(rnd.choice(pool), rnd.randint(1, 3)) for _ in range(n_items)] + [(-1, 0)] * (12 - n_items)
+        st["curslot"] = -1 if n_items == 0 else rnd.randint(0, n_items - 1)
+        st["inv"] = ",".join("%d:%d" % s for s in slots)
+        # write it
         m.write(player, bytes(0xA2))
         m.w32(player + 0x1A, 0x10066FC4)
-        m.w16(player + 0x8E, air)
-        m.write(player + 0x92, bytes([pfrozen]))
+        for off, n in ((0x02, "pv"), (0x04, "ph"), (0x4E, "speedv"), (0x50, "speedh"), (0x66, "dir"), (0x8E, "air")):
+            m.w16(player + off, st[n])
+        m.w32(player + 0x5E, st["fixh"])
+        m.w32(player + 0x62, st["fixv"])
+        m.write(player + 0x06, struct.pack(">hhhh", *((0, 0, 64, 64) if st["kicking"] else (22, 22, 42, 42))))
+        m.write(player + 0x92, bytes([st["pfrozen"]]))
         m.write(other, bytes(0xA2))
         m.w16(other, kind)
+        m.w16(other + 2, ov)
+        m.w16(other + 4, oh)
         m.call(setup, other)
-        m.write(other + 0x92, bytes([ofrozen]))
-        m.w16(COMFORT, comfort)
-        m.w16(g["t24"], t24)
-        for n, v in zip(("staple", "badass", "shrapnel"), ammo):
-            m.w16(g[n], v)
+        m.w16(other + 0x68, st["levelindex"])
+        m.w16(lvl + 0x10002 + st["levelindex"] * 16, kind)
+        m.w16(lvl + 0x10004 + st["levelindex"] * 16, st["info0"])
+        m.write(other + 0x92, bytes([st["ofrozen"]]))
+        m.w16(COMFORT, st["comfort"])
+        for n in SLOTS:
+            m.w16(g[n], st[n])
+        m.write(kick_reset, bytes([st["kickreset"]]))
+        m.w16(physics + 8, st["bounce"])
         for i, (oid, cnt) in enumerate(slots):
             m.w16(inv + 4 * i, oid)
             m.w16(inv + 4 * i + 2, cnt)
-        m.w16(CUR_SLOT, cur)
+        m.w16(CUR_SLOT, st["curslot"])
+        if kind in DOORS:
+            dh, dv = HINGE[(kind - 901) // 10]
+            m.w16(FRAME + 0x86, ov + dv)
+            m.w16(FRAME + 0x88, oh + dh)
         m.w32(VOICE, 0xD0)
         m.w32(VOICE2, 0xD1)
+        m.w32(REMARK, 0xE0)
         busy.clear()
-        busy.update({0xD0: voice_busy, 0xD1: voice_busy})
+        busy.update({0xD0: st["voicebusy"], 0xD1: st["voicebusy"]})
         ev.clear()
         channel[0] = 0
         m.call("HitPlayerSprite", player, other)
-        voice = m.r32(VOICE)
+        voice, remark = m.r32(VOICE), m.r32(REMARK)
         events = []
         for e in ev:
             if e[0] == "halt":
                 events.append("halt")
+            elif e[0] == "stop":
+                assert e[1] == 0xE0, e
             else:
-                events.append(("v:%d" if e[2] == voice else "p:%d") % e[1])
-        inv_s = lambda: ",".join("%d:%d" % (m.r16(inv + 4 * i), m.r16(inv + 4 * i + 2)) for i in range(12))
-        ins = [kind, air, pfrozen, ofrozen, comfort, t24, *ammo, cur, ",".join("%d:%d" % s for s in slots), voice_busy]
-        outs = [m.read(other + 0x92, 1)[0], m.r16(COMFORT), m.r16(g["t24"]), m.r16(g["staple"]), m.r16(g["badass"]),
-                m.r16(g["shrapnel"]), m.r16(CUR_SLOT), inv_s(), ",".join(events) or "-"]
-        out.write(f"{' '.join(map(str, ins))} -> {' '.join(map(str, outs))}\n")
+                events.append(("v:%d" if e[2] == voice else "r:%d" if e[2] == remark else "p:%d") % e[1])
+        hot = struct.unpack(">hhhh", m.read(player + 6, 8))
+        outs = {"ofrozen": m.read(other + 0x92, 1)[0], "comfort": m.r16(COMFORT),
+                **{n: m.r16(g[n]) for n in ("t24", "t28", "staple", "badass", "shrapnel", "contact")},
+                "kickreset": m.read(kick_reset, 1)[0], "curslot": m.r16(CUR_SLOT),
+                "inv": ",".join("%d:%d" % (m.r16(inv + 4 * i), m.r16(inv + 4 * i + 2)) for i in range(12)),
+                "pv": m.r16(player + 2), "ph": m.r16(player + 4),
+                "fixh": struct.unpack(">i", m.read(player + 0x5E, 4))[0],
+                "fixv": struct.unpack(">i", m.read(player + 0x62, 4))[0],
+                "speedv": m.r16(player + 0x4E), "speedh": m.r16(player + 0x50), "hot": "%d:%d:%d:%d" % hot,
+                "okind": m.r16(other), "odir": m.r16(other + 0x66), "ob8a": m.read(other + 0x8A, 1)[0],
+                "record": m.r16(lvl + 0x10002 + st["levelindex"] * 16), "events": ",".join(events) or "-"}
+        fmt = lambda d: " ".join(f"{k}={v}" for k, v in d.items())
+        out.write(f"{fmt(st)} -> {fmt(outs)}\n")
     out.close()
     print(f"playerhit: {CASES} cases")
 

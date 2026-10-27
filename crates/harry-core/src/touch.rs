@@ -3,8 +3,13 @@
 //! One long chain by the other sprite's task; the branches come with the
 //! sprite kinds.
 
+use crate::bounce::Body;
 use crate::frame::{Harry, PlayerGlobals};
-use crate::inventory::{get_item, item};
+use crate::inventory::{current_item, get_item, item, remove_item};
+use crate::kinds::{door_group, door_open};
+use crate::level::Level;
+use crate::physics::Physics;
+use crate::player::HOT_RECT;
 use crate::sprite::{Sprite, Task};
 
 /// What touching asks of the rest of the game, in order.
@@ -16,6 +21,8 @@ pub enum TouchEvent {
     VoiceSound(i16),
     /// `HaltTalkingSounds`: stop all voice samples.
     HaltTalking,
+    /// Stop the last remark (`uRam10068a98`) and play this one in its place.
+    Remark(i16),
 }
 
 /// `snd` ids.
@@ -27,16 +34,28 @@ pub mod snd {
     pub const AMMO: i16 = 216;
     pub const COMFORT_FULL: i16 = 218;
     pub const AMMO_FULL: i16 = 219;
+    pub const DOOR_KICK: i16 = 204;
+    pub const DOOR_LOCKED: i16 = 205;
+    pub const UNLOCK: i16 = 240;
 }
 
-/// `HitPlayerSprite`. `voice_playing`: is a voice sample playing (then
-/// the voice of a bonus is skipped)?
-pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, voice_playing: bool, events: &mut Vec<TouchEvent>) {
+/// What else `HitPlayerSprite` reads and changes.
+pub struct TouchWorld<'a> {
+    pub level: &'a mut Level,
+    pub physics: &'a Physics,
+    /// Is a voice sample playing (then the voice of a bonus is skipped)?
+    pub voice_playing: bool,
+}
+
+/// `HitPlayerSprite`.
+pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut TouchWorld, events: &mut Vec<TouchEvent>) {
     if h.frozen || other.frozen {
         return;
     }
     let on_floor = h.player.air == 0;
+    let voice_playing = w.voice_playing;
     match other.task {
+        Some(Task::Door) => door(h, g, other, w, events),
         Some(Task::Bonus) if on_floor => bonus(g, other, voice_playing, events),
         Some(Task::Item) if on_floor => pick_up(g, other, events),
         _ => {}
@@ -108,5 +127,140 @@ fn pick_up(g: &mut PlayerGlobals, other: &mut Sprite, events: &mut Vec<TouchEven
     if take && get_item(g, other.kind) {
         other.frozen = true;
         events.push(TouchEvent::Sound(snd::PICK_UP));
+    }
+}
+
+/// The key that opens a locked door: item 11399 − the door's info #0.
+fn door_key(level: &Level, door: &Sprite) -> i16 {
+    let info = usize::try_from(door.level_index).ok().and_then(|i| level.sprites.get(i)).map_or(0, |e| e.info[0]);
+    (0x2c87 - i32::from(info)) as i16
+}
+
+/// Unlock a locked door with the selected item if it is its key: the
+/// key is used up, the door (and its entry in the level) becomes closed.
+fn unlock(g: &mut PlayerGlobals, door: &mut Sprite, level: &mut Level, events: &mut Vec<TouchEvent>) -> bool {
+    if door_key(level, door) != current_item(g) {
+        return false;
+    }
+    events.push(TouchEvent::Sound(snd::UNLOCK));
+    remove_item(g, g.cur_slot);
+    door.kind -= 2;
+    if let Some(e) = usize::try_from(door.level_index).ok().and_then(|i| level.sprites.get_mut(i)) {
+        e.id = e.id.wrapping_sub(2);
+    }
+    true
+}
+
+/// Doors. Kicking a closed door from the side it opens to, facing the
+/// right way, swings it open (and the kick stops); from the other side,
+/// facing it, it is solid (kick contact); otherwise Harry is pushed out.
+/// Walking into it pushes him back with the level's bounce.
+fn door(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut TouchWorld, events: &mut Vec<TouchEvent>) {
+    let Some(group) = door_group(other.kind).filter(|_| !door_open(other.kind)) else { return };
+    let locked = other.kind % 10 == 3;
+    let p = &mut h.player;
+    if p.hot_rect[1] != 0 {
+        if locked {
+            if unlock(g, other, w.level, events) {
+                other.b8a = true;
+            } else if g.t28 == 0 {
+                g.t28 = 25;
+                events.push(TouchEvent::Remark(snd::DOOR_LOCKED));
+            }
+        }
+        door_separate(&mut p.body, p.hot_rect, other);
+        let bounce = i32::from(w.physics.bounce);
+        p.body.speed.h = (((bounce * i32::from(p.body.speed.h)) >> 8) as i16).wrapping_neg();
+        p.body.speed.v = (((bounce * i32::from(p.body.speed.v)) >> 8) as i16).wrapping_neg();
+        return;
+    }
+    // the kick
+    let me = (g.player_pos.0.wrapping_add(32), g.player_pos.1.wrapping_add(32));
+    // the hinge; for a locked door the original reads two never-set
+    // locals here (BUGS.md) - the port takes the closed door's values
+    let (dh, dv) = [(30, 35), (31, 17), (34, 19), (5, 18)][group as usize];
+    let hinge = (other.pos.1.wrapping_add(dh), other.pos.0.wrapping_add(dv));
+    let d = p.dir;
+    let (front, facing_in, facing_out) = match group {
+        0 => (hinge.1 < me.1, 0 < d && d < 18, 18 < d && d < 35),
+        1 => (me.1 < hinge.1, 18 < d && d < 35, 0 < d && d < 18),
+        2 => (hinge.0 < me.0, 9 < d && d < 27, d < 9 || 27 < d),
+        _ => (me.0 < hinge.0, d < 9 || 27 < d, 9 < d && d < 27),
+    };
+    let mut open = front && facing_in;
+    let solid = !front && facing_out;
+    let sound = open || solid;
+    if locked && !unlock(g, other, w.level, events) {
+        open = false;
+    }
+    if solid {
+        g.tile.kick_contact = 0x100;
+    }
+    if open {
+        g.tile.kick_contact = 0;
+        g.kick_reset = true;
+        other.dir = other.dir.wrapping_add(1);
+    } else if !solid {
+        // the kick's hot rect is not put back (BUGS.md)
+        p.hot_rect = HOT_RECT;
+        rect_separate(&mut p.body, p.hot_rect, other);
+    }
+    if sound {
+        events.push(TouchEvent::Sound(snd::DOOR_KICK));
+    }
+}
+
+/// `RectSeparate` (PPC 0x10053c6c): move the sprite (`pos`) out of the
+/// other one's hot rect along the shortest of the four distances (ties:
+/// the first). Returns the side (0 up, 1 down, 2 right, 3 left).
+pub fn rect_separate(body: &mut Body, hot: crate::bounce::Rect, other: &Sprite) -> usize {
+    let a = crate::sat::absolute(hot, body.pos);
+    let b = crate::sat::absolute(other.hot_rect, other.pos);
+    let d = [b[0].wrapping_sub(a[2]), b[2].wrapping_sub(a[0]), b[3].wrapping_sub(a[1]), b[1].wrapping_sub(a[3])];
+    let abs = |x: i16| if x > 0 { i32::from(x) } else { -i32::from(x) };
+    let mut best = 0;
+    let mut min = abs(d[0]) as i16;
+    for (i, &x) in d.iter().enumerate().skip(1) {
+        if abs(x) < i32::from(min) {
+            best = i;
+            min = abs(x) as i16;
+        }
+    }
+    if best < 2 {
+        body.pos.0 = body.pos.0.wrapping_add(d[best]);
+    } else {
+        body.pos.1 = body.pos.1.wrapping_add(d[best]);
+    }
+    best
+}
+
+/// `DoorSeparate` (PPC 0x10029c08): put Harry back on his side of a door
+/// (decided by his centre before the move), from his fixed position.
+fn door_separate(body: &mut Body, hot: crate::bounce::Rect, door: &Sprite) {
+    let centre = (body.pos.0.wrapping_add(32), body.pos.1.wrapping_add(32));
+    let r = crate::sat::absolute(door.hot_rect, door.pos);
+    body.pos = ((body.fix.1 >> 8) as i16, (body.fix.0 >> 8) as i16);
+    let old = body.pos;
+    let mid = |base: i16, a: i16, b: i16| base.wrapping_add(((i32::from(a) + i32::from(b)) >> 1) as i16);
+    if door.kind < 920 {
+        if centre.0 < mid(door.pos.0, door.hot_rect[0], door.hot_rect[2]) {
+            if i32::from(r[0]) - i32::from(hot[2]) < i32::from(body.pos.0) {
+                body.pos.0 = r[0].wrapping_sub(hot[2]);
+            }
+        } else if i32::from(body.pos.0) < i32::from(r[2]) - i32::from(hot[0]) {
+            body.pos.0 = r[2].wrapping_sub(hot[0]);
+        }
+    } else if centre.1 < mid(door.pos.1, door.hot_rect[1], door.hot_rect[3]) {
+        if i32::from(r[1]) - i32::from(hot[3]) < i32::from(body.pos.1) {
+            body.pos.1 = r[1].wrapping_sub(hot[3]);
+        }
+    } else if i32::from(body.pos.1) < i32::from(r[3]) - i32::from(hot[1]) {
+        body.pos.1 = r[3].wrapping_sub(hot[1]);
+    }
+    if old.1 != body.pos.1 {
+        body.fix.0 = i32::from(body.pos.1) << 8;
+    }
+    if old.0 != body.pos.0 {
+        body.fix.1 = i32::from(body.pos.0) << 8;
     }
 }
