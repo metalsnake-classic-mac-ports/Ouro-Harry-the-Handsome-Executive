@@ -26,6 +26,11 @@ def main():
     for k in range(64):
         e = m.read(fg + 20 * k, 20)
         print(f"fg {k:2} {rect(e[4:12])} {rect(e[12:20])}" + (f" head {e[:4].hex()}" if e[:4] != bytes(4) else ""))
+    m.call("InitPlayerKickRects")
+    kick = m.r32(0x10065B78)
+    print("# InitPlayerKickRects: foot rect per direction")
+    for d in range(36):
+        print(f"kick {d:2} {rect(m.read(kick + 8 * d, 8))}")
     print("# background kind: collision rect")
     for k in range(96):
         e = m.read(bg + 12 * k, 12)

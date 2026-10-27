@@ -10,6 +10,8 @@ pub mod level;
 pub mod mask;
 pub mod moves;
 pub mod physics;
+pub mod player;
+pub mod tiles;
 
 pub use level::Level;
 pub use physics::{Physics, Speed};

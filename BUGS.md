@@ -31,6 +31,13 @@ option) and why.
   falls beyond the face width are lost (e.g. the right 4 px of a 44 px
   face). Port: keep (`from_face` builds them the same way).
 
+- **Wall-shape masks indexed out of range.** `HitPlayerTileSprite`'s
+  kick test looks up the mask of foreground kinds up to 54 in a table of
+  32 wall shapes (`FUN_10054a14(160, …, 32, …)`), so kinds 32–54 read
+  memory after the table. Unreachable in Episode 1 (foreground kinds
+  32–55 are −1 there); a custom world with such kinds would test against
+  garbage. Port: no mask for those kinds (no kick contact).
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

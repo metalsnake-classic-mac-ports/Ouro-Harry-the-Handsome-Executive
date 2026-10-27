@@ -46,7 +46,7 @@
 - [x] Full chain: `WallBounce` + real mask test (`emu_mask.py re/work chain`), 12 000 cases
 - [x] Same for `BGTileBounce` (obstacle mask cicn 290), 12 000 cases
 - [x] Mirrored face masks confirmed with the original's BuildMaskRegion in Unicorn (all 929 faces)
-- [ ] Tile collision pass (`CheckTileCollisions`) and the player's tile reactions
+- [x] Tile collision pass (`CheckTileCollisions`) and the player's tile reactions (19 500 cases)
 - [ ] Whole player frame (`HandlePlayerSprite`): timers, comfort delta, position update
 - [x] Level model (`harry_core::Level`), MacBinary / resource fork / `Hlvl` reader + writer (exact round trip)
 - [x] Graphics readers in Rust: PICT 1/8-bit/direct, cicn, HrSp; masks from the original files

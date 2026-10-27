@@ -633,6 +633,29 @@ QuickTime Musical Instruments.
   `BuildMaskRegion` run in Unicorn (`emu_mask.py re/work faces`, GWorld
   stubs in `ppcmachine`: `NewGWorld`, `GetGWorldPixMap`, `EraseRect`,
   `BitMapToRegion` MSB first, ...).
+- **One frame of tile collisions** (`re/tools/emu_tiles.py`): the
+  original's `CheckTileCollisions` with Harry as the only sprite in SAT's
+  list (`*(SAT globals + 0x78)`, next at +0x2e) and his real
+  `HitPlayerTileSprite` (TVector 0x10066fbc) - all bounces, mask tests,
+  kick tests with the kick-pose masks, floors, damage, water - on levels
+  1–15 with the real masks and the game's tables; sounds / `Ouch` /
+  `AddFGRedraw` stubbed. 19 500 cases (15 000 at obstacles and wall
+  edges, 4 500 on special floors with wetness around the water sound's
+  threshold). `harry_core::tiles::touched_tiles` +
+  `harry_core::player::hit_player_tile` match all of them; the kick
+  rects and tile shapes are also compared with the tables the original
+  computes. Mutations caught, including one pixel of a kick rect and the
+  water threshold (after adding the targeted cases).
+- Player tile reactions in detail: while kicking (hot rect left = 0)
+  walls and obstacles are not bounced off: the foot rect of the
+  direction (`InitPlayerKickRects`, on the side opposite to the direction
+  of travel) is tested against the tile, then the kick-pose mask against
+  the tile mask; on contact `gKickContact` = 256 and Harry is put back
+  (the separation is undone). Damage tiles do not hurt while kicking.
+  The water sound plays only when `gWet` < 171 (and it is not playing).
+  The wall-shape table holds 32 faces, but foreground kinds up to 54 index
+  it - out of range for kinds 32–54 (never used in Episode 1, where those
+  tiles have kind −1).
 - Full chain `WallBounce` + mask test on the rebuilt mask tables (walls at
   `*_DAT_100658d4` + 0x1a + kind · 0x2e, obstacle at `*_DAT_100658d0` +
   0x1a): 12 000 cases for the mask kinds 4–31, all matching.
