@@ -86,10 +86,13 @@ class Machine:
         uc.mem_map(RETURN, 0x1000)
         uc.hook_add(UC_HOOK_CODE, self._stub_hook, begin=STUBS, end=STUBS + 0xffff)
         self.rand_seed = 1
+        self.regions = {}
         self.ticks = 0
         self.trace_calls = False
         for n, f in (("SetRect", self.tb_setrect), ("Random", self.tb_random),
-                     ("TickCount", self.tb_tickcount), ("SectRect", self.tb_sectrect), ("OffsetRect", self.tb_offsetrect),
+                     ("TickCount", self.tb_tickcount), ("SectRect", self.tb_sectrect), ("NewRgn", self.tb_newrgn),
+                     ("CopyRgn", self.tb_copyrgn), ("OffsetRgn", self.tb_offsetrgn), ("SectRgn", self.tb_sectrgn),
+                     ("EmptyRgn", self.tb_emptyrgn), ("DisposeRgn", self.tb_disposergn), ("OffsetRect", self.tb_offsetrect),
                      ("NewPtr", self.tb_newptr), ("NewPtrClear", self.tb_newptr),
                      ("NewHandle", self.tb_newhandle), ("NewHandleClear", self.tb_newhandle),
                      ("HLock", self.tb_nop), ("HUnlock", self.tb_nop), ("MoveHHi", self.tb_nop),
@@ -203,6 +206,49 @@ class Machine:
             return 0
         self.write(self.get(5), struct.pack(">hhhh", *r))
         return 1
+
+    # --- QuickDraw regions: pixel sets in Python, handle + {rgnSize, rgnBBox}
+    # in memory (the game reads rgnBBox directly) ---
+    def make_region(self, pixels=()):
+        h = self.alloc(4)
+        self.w32(h, self.alloc(10))
+        self.regions[h] = set(pixels)
+        self._region_sync(h)
+        return h
+
+    def _region_sync(self, h):
+        px = self.regions[h]
+        if px:
+            xs = [p[0] for p in px]
+            ys = [p[1] for p in px]
+            box = (min(ys), min(xs), max(ys) + 1, max(xs) + 1)
+        else:
+            box = (0, 0, 0, 0)
+        self.write(self.r32(h), struct.pack(">Hhhhh", 10, *box))
+
+    def tb_newrgn(self):
+        return self.make_region()
+
+    def tb_copyrgn(self):
+        self.regions[self.get(4)] = set(self.regions[self.get(3)])
+        self._region_sync(self.get(4))
+
+    def tb_offsetrgn(self):
+        h = self.get(3)
+        s16 = lambda v: (v & 0xFFFF) - 0x10000 if v & 0x8000 else v & 0xFFFF
+        dh, dv = s16(self.get(4)), s16(self.get(5))
+        self.regions[h] = {(x + dh, y + dv) for x, y in self.regions[h]}
+        self._region_sync(h)
+
+    def tb_sectrgn(self):
+        self.regions[self.get(5)] = self.regions[self.get(3)] & self.regions[self.get(4)]
+        self._region_sync(self.get(5))
+
+    def tb_emptyrgn(self):
+        return 0 if self.regions[self.get(3)] else 1
+
+    def tb_disposergn(self):
+        self.regions.pop(self.get(3), None)
 
     def tb_random(self):
         # QuickDraw Random: Park-Miller (16807, 2^31 - 1) on randSeed; -32768 -> 0

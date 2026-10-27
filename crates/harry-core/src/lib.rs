@@ -6,6 +6,7 @@
 //! loop, 30 per second.
 
 pub mod bounce;
+pub mod mask;
 pub mod moves;
 pub mod physics;
 

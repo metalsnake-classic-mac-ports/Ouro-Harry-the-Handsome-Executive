@@ -168,3 +168,43 @@ fn bg_tile_bounce_matches() {
         vec![r, b.at.0.into(), b.at.1.into(), b.speed.h.into(), b.speed.v.into(), b.fix.0, b.fix.1, calls]
     });
 }
+
+fn load_mask(name: &str) -> harry_core::mask::Mask {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff/masks").join(format!("{name}.txt"));
+    let text = std::fs::read_to_string(path).unwrap();
+    let rows: Vec<&str> = text.lines().collect();
+    let bits = rows.iter().flat_map(|r| r.chars().map(|c| c == '#')).collect();
+    harry_core::mask::Mask::new(rows[0].len() as i32, rows.len() as i32, bits)
+}
+
+#[test]
+fn mask_test_matches() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff/masktest.txt");
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        eprintln!("skipped: {} not found (run re/tools/emu_mask.py)", path.display());
+        return;
+    };
+    let body = load_mask("body");
+    let mut cache = std::collections::HashMap::new();
+    let mut bad = 0;
+    let mut n = 0;
+    for line in text.lines().filter(|l| !l.starts_with('#')) {
+        let (a, b) = line.split_once("->").unwrap();
+        let mut it = a.split_whitespace();
+        let name = it.next().unwrap().to_string();
+        let v: Vec<i16> = it.map(|x| x.parse().unwrap()).collect();
+        let want: Vec<i32> = b.split_whitespace().map(|x| x.parse().unwrap()).collect();
+        let tile = cache.entry(name.clone()).or_insert_with(|| load_mask(&name));
+        let mut pos = (v[2], v[3]);
+        let hit = harry_core::mask::mask_hit(&mut pos, &body, (v[0], v[1]), tile);
+        let got = vec![hit as i32, pos.0.into(), pos.1.into()];
+        n += 1;
+        if got != want {
+            bad += 1;
+            if bad <= 10 {
+                eprintln!("masktest: {line}\n  port {got:?}");
+            }
+        }
+    }
+    assert_eq!(bad, 0, "{bad} of {n} mask cases differ");
+}

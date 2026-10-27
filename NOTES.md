@@ -589,8 +589,26 @@ QuickTime Musical Instruments.
   tile, offset to their positions, `SectRgn` / `EmptyRgn`; on overlap
   `FUN_10053eac` (68k `REGIONSEPARATE`) moves `pos` one pixel at a time
   along a Bresenham line from the intersection's bounding-box centre to
-  the sprite region's centre until the regions no longer overlap. To port
-  with pixel sets once the masks are in the data model.
+  the sprite region's centre until the regions no longer overlap.
+- **Collision masks** (`InitFaces`): wall shapes = application PICT 160
+  (1-bit, 256 × 128 = 32 tiles of 32 × 32, 8 per row; colour and mask
+  from the same PICT, `FUN_10054a14`), background obstacle = cicn 290
+  (32 × 32 rounded square), Harry's body against walls = cicn 299 (a
+  small circle in the middle of the 64 × 64 frame; passed by
+  `HitPlayerTileSprite` to `WallBounce` / `BGTileBounce`), barrel /
+  cooler / plant masks cicn 596–599. Face sets get regions from their
+  pixels (`BuildMaskRegion`: pixel ≠ 0 → set, see BUGS.md for the bit
+  order) only for the frame range given to `LoadEncFaceSetFromPICT` -
+  for Harry 107–143 (the kick poses).
+- `re/tools/emu_mask.py` runs the mask test with the real masks: QuickDraw
+  regions are emulated as pixel sets (`ppcmachine`: `NewRgn`, `CopyRgn`,
+  `OffsetRgn`, `SectRgn`, `EmptyRgn`, `DisposeRgn`, with `rgnBBox` kept
+  in memory because the game reads it). 12 000 cases (body vs. all 32
+  wall shapes and the obstacle), 5 626 hits with separation:
+  `harry_core::mask::mask_hit` matches all. Mutations caught (direction
+  tie, Bresenham comparisons - one of them loops forever); `>> 1` vs
+  `/ 2` for the centres is equivalent for the game's positive
+  coordinates.
 - Harness notes: Unicorn's PPC needs a CPU model with FPU
   (`UC_CPU_PPC32_750…`) and MSR[FP] set, else the first float instruction
   raises an exception. The physics array is bss, filled by
