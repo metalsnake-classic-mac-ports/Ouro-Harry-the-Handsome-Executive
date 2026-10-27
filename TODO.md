@@ -4,7 +4,8 @@
 - [x] Install 1.0.1 from the VISE installer in Basilisk II, take the files out
 - [x] Unpack the application (`re/work/app`), list all resources (`re/work/res`)
 - [x] MacsBug symbols of the 68k code (`re/tools/macsbug_syms.py`)
-- [ ] Decode the rest of `Hlvl` (after the sprite list) and `Hwld`
+- [x] Decode the rest of `Hlvl` (custom sprite tables stay raw)
+- [ ] Decode `Hwld`
 - [x] Render all levels to PNG (`re/tools/render_level.py`), matches the emulator
 - [x] 1-bit PICT masks (in render_level.py)
 - [x] `HrSp` encoded faces → PNG (`re/tools/hrsp.py`)
@@ -47,7 +48,9 @@
 - [ ] Confirm the mirrored kick-pose masks (BUGS.md) in the emulator
 - [ ] Tile collision pass (`CheckTileCollisions`) and the player's tile reactions
 - [ ] Whole player frame (`HandlePlayerSprite`): timers, comfort delta, position update
-- [ ] `harry-data`: level / world model and the data pack; extract tool in `harry-original`
+- [x] Level model (`harry_core::Level`), MacBinary / resource fork / `Hlvl` reader + writer (exact round trip)
+- [ ] Graphics readers in Rust: PICT 1/8-bit, cicn, HrSp; masks from the original files
+- [ ] `harry-data`: data pack; extract tool in `harry-original`
 - [ ] Frontend (SDL3)
 
 ## Phase 3: emulator

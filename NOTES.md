@@ -274,9 +274,12 @@ direction `dir` 0–35 in 10° steps.
 - **Tile kinds** come from the level's info fields (`LoadTileDefinitions`):
   #16–#39 (0x12094–0x120c3) hold 96 nibbles = the kind of background
   tiles 0–95 (`LookupBGTileKind`; other values pass through);
-  #40–#51 (0x120c4–0x120db) hold 24 bytes = the kind of foreground tiles
-  32–55 (`LookupFGTileKind`; tiles < 32 and ≥ 56 are their own kind,
-  0xffff = no tile).
+  #40–#51 (0x120c4–0x120db) hold 24 bytes (high byte first) = the kind
+  + 1 of foreground tiles 32–55 (`Unstuff16BitInto8Bits` subtracts 1, so
+  0 = −1 = no collision; `LookupFGTileKind`; tiles < 32 and ≥ 56 are their
+  own kind, 0xffff = no tile). In Episode 1 all 24 are 0: foreground tiles
+  32–55 never collide there (checked against the original in Unicorn for
+  levels 1–15, together with all 96 background kinds).
 - **Shapes** (`InitTileHotRects`, captured by running it in Unicorn:
   `re/tools/emu_tables.py` → `re/work/tables/tile_rects.txt`; rect =
   top, left, bottom, right): foreground kinds 0–3 half tiles (left, top,
@@ -401,10 +404,17 @@ turret. Each kind has `Init…` (once), `SETUP…` (per sprite), `HANDLE…`
   copier, 0x01f4 = 500 water cooler, 0x2707 = 9991 fade exit, 0x5208 =
   21000 ?), words +4…+a = info fields, +c and +e = position (pixels);
   the sprite is generated at (+e − 6, +c − 6) with its record index.
-- 0x11000, 0x11340: tables (to be decoded).
+- 0x11000: 16 records of 0x34 bytes, 0x11340: 16 records of 0x18 bytes -
+  custom sprite tables (copied into the game state at level start and
+  into saved games; `HitPlayerSprite` tests +0x0e == 3); empty in
+  Episode 1.
 - 0x114c0: **level name**, Pascal string ("Welcome to ScumCo"); also
   compared against fixed strings somewhere (cheat/special levels?).
-- 0x12032/0x12034: ?
+- 0x12032: **level number**. `CheckWorldCorruption` compares number and
+  name of each Episode 1 level with fixed values and quits with a dialog
+  when they differ (anti-tampering).
+- 0x12034 (byte): **own sounds** (`LoadLevelSounds`); set in level 10
+  (water scoot sounds, `snd` 200/201/203 in Episode 1).
 - 0x12074: **level info fields #0–#15**, words (see list below). Level 1:
   #6 = 200 (story picture scrolled before the level), #8 = 301 (picture
   shown before). Level 3: #5 = 201.
@@ -419,6 +429,10 @@ turret. Each kind has `Init…` (once), `SETUP…` (per sprite), `HANDLE…`
   world file).
 - 0x12100: physics override flag; 0x12102–0x1210a: five physics values
   (defaults when the flag is 0: 50, 70, 245, 252, 150; `LoadLevelPhysics`).
+- `crates/harry-original/src/hlvl.rs` reads all of this into
+  `harry_core::Level` and writes it back byte-exactly (test over all 16
+  levels). Still undecoded: 0x1210c (level 1: 80) and stale bytes after
+  the name in levels −1 and 13 (an older, longer name).
 - Level −1 is named **"Secret Level"** (default tile sets).
 - Level names / tile sets (fg, bg): 1 Welcome to ScumCo (default), 2 To
   The Incinerator (128, 130), 3 Seekers of the Sun, 4 Robot Rebellion

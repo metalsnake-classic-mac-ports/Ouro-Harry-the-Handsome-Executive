@@ -6,8 +6,10 @@
 //! loop, 30 per second.
 
 pub mod bounce;
+pub mod level;
 pub mod mask;
 pub mod moves;
 pub mod physics;
 
+pub use level::Level;
 pub use physics::{Physics, Speed};

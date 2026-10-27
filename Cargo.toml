@@ -10,3 +10,4 @@ repository = "https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Han
 
 [workspace.dependencies]
 harry-core = { path = "crates/harry-core" }
+thiserror = "2"
