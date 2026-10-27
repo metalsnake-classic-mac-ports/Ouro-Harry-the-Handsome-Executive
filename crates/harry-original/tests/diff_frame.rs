@@ -81,6 +81,7 @@ fn player_frame_matches_the_original() {
             player_dir: 0x4444,
             player_pos: (0x4444, 0x4444),
             player_speed: (0x4444, 0x4444),
+            ..Default::default()
         };
         let mut h = Harry {
             player: Player {
@@ -98,12 +99,13 @@ fn player_frame_matches_the_original() {
             air: Air { air: w("air"), slide: w("slide"), last_tile: (0, 0), flip: w("flip"), scale: w("scale0") },
             frozen: i["frozen"] != 0,
             dead: false,
+            blast_cooldown: 0,
         };
         let level = &levels[i["level"] as usize - 1];
         let mut rng = Random::new(i["seed"] as u32);
         let mut sounds = Vec::new();
         let mut keys = 0;
-        handle_player(&mut h, &mut g, level, &Physics::default(), &mut rng, |_, _| keys += 1, &mut sounds);
+        handle_player(&mut h, &mut g, level, &Physics::default(), &mut rng, |_, _, _| keys += 1, &mut sounds);
         let p = &h.player;
         let t = &g.tile;
         let m = &g.moves;

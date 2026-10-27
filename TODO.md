@@ -49,7 +49,9 @@
 - [x] Tile collision pass (`CheckTileCollisions`) and the player's tile reactions (19 500 cases)
 - [x] Half pipes, jumps, holes (`HandleHalfPipe`, `JumpScale`), 46 000 cases
 - [x] Whole player frame (`HandlePlayerSprite`) without keys, 20 000 cases
-- [ ] `HandleKeys`: turning, moves, items, weapons (player shots), cheats and key sequences
+- [x] `HandleKeys` with the inventory routines: turning, moves, items, weapons, cheats and key sequences, 30 000 cases
+- [ ] Player shots and the held weapon (`MakeNewShot`, `HandleHeldWeaponSprite`, `HandlePlayerShotSprite`)
+- [ ] See the ammo-less strong B.A.D.A.S.S. shot and negative ammo (BUGS.md) in the emulator
 - [ ] See the garbage-scale frame (BUGS.md) in the emulator: drop Harry into a hole in level 11
 - [x] Level model (`harry_core::Level`), MacBinary / resource fork / `Hlvl` reader + writer (exact round trip)
 - [x] Graphics readers in Rust: PICT 1/8-bit/direct, cicn, HrSp; masks from the original files

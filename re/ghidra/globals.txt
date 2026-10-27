@@ -39,3 +39,10 @@
 @100659b0  gPlayerV:short
 @10065e1c gKickContact:short       firmness touched this frame: wall 256, cooler 192/256, 128, 64
 @10065e0c gKickPower:short         contact firmness kept for the kick frames 12, 11
+@10065e00 gCheat1Step:short        P-A-R-G-H-Z progress
+@10065dfc gCheat2Step:short        B-E-N progress
+@10065df8 gWavyStep:short          W-A-V-Y-G-R-A-V-Y progress
+@1006592c gRipplePhase:short       reset when the ripple is toggled
+@10065b74 gDebug:char              debug keys and display, 0 in the shipped game
+10068a9c   gChargeChannel               sound channel of the charge sound
+10068aa0   gVoiceChannel                sound channel of the last voice

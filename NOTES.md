@@ -359,8 +359,10 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
 
 ### Cheats / Easter eggs found in `HandleKeys`
 
-- With a debug flag (`*_DAT_10065b74`) keys give comfort 144 / 0, staple
-  gun + 100 ammo, explosions, items.
+- With the debug flag (`gDebug`, cleared at start, never set in the
+  shipped game): F1 comfort 144, F2 staple gun + 100 staples, F12 comfort
+  0, `=` an explosion within ±64 px of Harry (not during his blast
+  cooldown, +0x96), F13 soda can, F4 item 11397, F3 caffeine pill.
 - Shift (0x38) + `=` (0x18) + key code 0x74 held together, with a sound:
   player scale 1.0 ↔ 2.0 (`scale0/1` = 0x200) - the README's "Command
   Shift +" Easter egg. 0x74 is not Command (0x37). Test in SheepShaver
@@ -689,6 +691,43 @@ QuickTime Musical Instruments.
   shown meter is below 1 on the floor. `harry_core::frame::handle_player`
   matches all cases; surviving mutations only in unreachable states (dir
   ≥ 37, negative air after `JumpScale`).
+- **Keys** (`HandleKeys` with `GetInvItem`, `SwitchInvItem`,
+  `RemoveInvItem`; their drawing stubbed): `re/tools/emu_keys.py`, 30 000
+  cases with random key sets (default and random bindings, the fixed
+  keys), inventories, ammo, charge times, sequence steps, the debug flag
+  and the "is a sound playing" answers as inputs; sounds, explosions,
+  balloons, the new player shot sprite and `BuildSineTable` recorded as
+  an event list (the `snd` ids put into the sound slots, the channels the
+  routine keeps marked as charge / voice). `harry_core::keys::handle_keys`
+  + `harry_core::inventory` match all. 29 of 30 planted mutations caught;
+  the survivor (`cur_slot < 0` for `== -1`) is equivalent. Details:
+  - Order: debug keys, size Easter egg, rotate (+0x10 → dir + 1, +0x12 →
+    dir − 1), select item (+0x1a, only when `gInvSwitchDelay` is 0; else
+    the keys 1–4, which ignore the delay and pick the last slot with the
+    item), the use key, the three key sequences, then the moves: kick
+    (+0x18) whenever no move runs, scoot and inch only on the floor (air
+    < 1).
+  - Use key held: staple gun fires at once (−1 staple, 3-D sound pitch
+    62000 + `SATRand(6000)`, fire delay 10); B.A.D.A.S.S., shrapnel gun
+    and the power of the swivel count `gFireHold` up (the first frame
+    starts the charge sound); caffeine pill (gulp, `gCaffeineTimer` 270,
+    item use delay 8); soda can (shot kind 4, delay 6); the mystery vial
+    - ignoring the fire delay - an explosion on Harry and
+    `SATRand(6)`: 0 caffeine, 1 / 3 comfort = 100, 2 comfort − 15 with
+    the "uncomfortable" sound, 4 all ammo 100, 5 all ammo − 25 (no lower
+    bound).
+  - Use key released with `gFireHold` > 0: B.A.D.A.S.S. weak (< 34
+    frames, −2) or strong (−6), shrapnel kinds 0 / 5 / 6 / 7 by hold < 8
+    / 16 / 24 / more (costs 1, 1–2, 2, 2–3), fire delay 4; anything else
+    (the swivel): hold ≤ 20 nothing, comfort < 10 the "uncomfortable"
+    sound, else comfort − 2 and a player shot sprite (kind 10) at Harry
+    with speed 2000 against his direction (`InverseMode`); hold becomes
+    10 (then 0 the next frame).
+  - The shot itself: firing sets `gRecoil` = 3 and `gShotKind`;
+    `HandleHeldWeaponSprite` calls `MakeNewShot` while `gRecoil` > 1.
+  - `gFireHold` is the word right after the inventory table (slot 12);
+    `SwitchInvItem` reads it as `inventory[12].id` when slot 11 is
+    selected (harmless).
 - Full chain `WallBounce` + mask test on the rebuilt mask tables (walls at
   `*_DAT_100658d4` + 0x1a + kind · 0x2e, obstacle at `*_DAT_100658d0` +
   0x1a): 12 000 cases for the mask kinds 4–31, all matching.

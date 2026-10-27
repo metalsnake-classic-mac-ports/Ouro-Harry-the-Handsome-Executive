@@ -58,6 +58,17 @@ option) and why.
   (`_DAT_10065ac8`) - never −1, so nothing happens. Port: same read
   (`frame::handle_player`).
 
+- **The strong B.A.D.A.S.S. shot needs no ammo.** `HandleKeys`, fire key
+  released after ≥ 34 frames of charging with `gBadassAmmo` < 1: it plays
+  the strong shot's sound, sets `gShotKind` = 2 and `gRecoil` = 3 - and
+  `HandleHeldWeaponSprite` makes a shot whenever `gRecoil` > 1. The weak
+  shot correctly clicks empty. Confirmed by the differential test (state)
+  and the code of `HandleHeldWeaponSprite`; to be seen in the game. Port:
+  keep.
+- **The mystery vial can make ammo negative.** Its outcome 5 subtracts
+  25 from all three ammo counters without a lower bound (firing clamps
+  to 0). How the panel shows it is to be checked. Port: keep.
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

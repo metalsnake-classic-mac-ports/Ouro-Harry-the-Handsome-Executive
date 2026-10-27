@@ -5,6 +5,8 @@
 
 use crate::air::{Air, AirSound, half_pipe, jump_scale};
 use crate::bounce::Body;
+use crate::keys::Ammo;
+use crate::inventory::{EMPTY, current_item};
 use crate::level::Level;
 use crate::moves::{Chair, MoveInput, MoveSound, Moves, move_chair};
 use crate::physics::{Floor, Physics, Speed, enforce_max_speed, player_glide};
@@ -57,6 +59,20 @@ pub struct PlayerGlobals {
     pub player_dir: i16,
     pub player_pos: (i16, i16),
     pub player_speed: (i16, i16),
+    /// Ammunition (`gStapleAmmo`, `gBadassAmmo`, `gShrapnelAmmo`).
+    pub ammo: Ammo,
+    /// Frames the use key has been held with a charged weapon (`gFireHold`,
+    /// the word after the inventory table).
+    pub fire_hold: i16,
+    /// The kind of the last player shot (`gShotKind`).
+    pub shot_kind: i16,
+    /// Progress in the key sequences (`PTR_DAT_10065e00`, `…dfc`,
+    /// `…df8`); `cheat1`, `cheat2`, `wavy` are their windows.
+    pub cheat1_step: i16,
+    pub cheat2_step: i16,
+    pub wavy_step: i16,
+    /// The ripple is on (`gWavyOn`).
+    pub wavy_on: bool,
 }
 
 /// Harry's sprite state beyond `Player`.
@@ -68,6 +84,9 @@ pub struct Harry {
     pub frozen: bool,
     /// The task became `HandlePlayerSpriteDeath`.
     pub dead: bool,
+    /// Frames until an explosion can hurt him again (+0x96, set to 30 by
+    /// `HandleExplodeRadius`).
+    pub blast_cooldown: i16,
 }
 
 /// Sounds of the frame.
@@ -90,7 +109,7 @@ pub fn handle_player(
     level: &Level,
     physics: &Physics,
     rng: &mut Random,
-    keys: impl FnOnce(&mut Harry, &mut PlayerGlobals),
+    keys: impl FnOnce(&mut Harry, &mut PlayerGlobals, &mut Random),
     sounds: &mut Vec<FrameSound>,
 ) {
     if h.frozen {
@@ -100,7 +119,7 @@ pub fn handle_player(
     if b.fix.0 < 1 || b.fix.1 < 1 || b.fix.0 > 0x100000 || b.fix.1 > 0x100000 {
         b.fix = (i32::from(b.pos.1) << 8, i32::from(b.pos.0) << 8);
     }
-    keys(h, g);
+    keys(h, g, rng);
     g.flag5c = 0;
     g.flag50 = false;
     g.tile.bg_contact = false;
@@ -138,13 +157,9 @@ pub fn handle_player(
             sounds.push(FrameSound::Chatter(rng.below(3)));
         }
     }
-    // The selected item gone? Slot −1 reads the word before the inventory
-    // table - the chatter timer, never −1 here (BUGS.md).
-    let id = match g.cur_slot {
-        -1 => g.chatter,
-        s => g.inventory[s as usize].0,
-    };
-    if id == -1 {
+    // The selected item gone? (slot −1 reads the chatter timer, never −1
+    // here; BUGS.md)
+    if current_item(g) == EMPTY {
         g.cur_slot = if g.inventory[0].0 == -1 { -1 } else { 0 };
     }
     let p = &mut h.player;
