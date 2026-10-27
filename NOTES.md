@@ -656,6 +656,25 @@ QuickTime Musical Instruments.
   The wall-shape table holds 32 faces, but foreground kinds up to 54 index
   it - out of range for kinds 32–54 (never used in Episode 1, where those
   tiles have kind −1).
+- **Jump state** (`sp->air`, +0x8e - earlier mislabelled "hurt"): 0 on
+  the floor; 1–35 a jump (scale +0x10 … +0x50 … 0, a second smaller hop
+  23–35; sounds at 23 and 29; moves blocked from 23 on); 215–220 the
+  flip when a half pipe throws Harry over its edge (speed forced to ±0x200
+  in the flip direction, scale pulsing every 4 frames); 999/1000–1045
+  falling into a hole (background kind 7): shrink, speed × 0.8 per frame
+  and spinning until 1029, at 1030 back at the level's fall location
+  (info #1, #2) ± 3 px from `SATRand(7)` twice, view recentred, then
+  growing and spinning, at 1045 comfort += info #3 and air = 10 (a small
+  landing jump). Half pipes (background kinds 8–15, levels 7, 12, 14)
+  push toward their middle (Harry 0x90 / 0x30 + 3 · distance, other
+  sprites 0x60 / 0x20 + 2 · distance) and throw the sprite off (air 1)
+  when it leaves through the far side; holes are in levels 11 and 15.
+- `re/tools/emu_air.py`: `HandleHalfPipe` and `JumpScale` on the real
+  levels (23 000 cases each, weighted to the levels with half pipes and
+  holes; `SATRand` with a recorded seed; fades stubbed; the view globals
+  recorded). `harry_core::air` (+ `harry_core::random`, the QuickDraw
+  generator) matches all. Two mutations survived as equivalent (`× 0.8`
+  vs `× 4 / 5` on integers; `< 0x40e` vs `< 0x40d` where 1037 is odd).
 - Full chain `WallBounce` + mask test on the rebuilt mask tables (walls at
   `*_DAT_100658d4` + 0x1a + kind · 0x2e, obstacle at `*_DAT_100658d0` +
   0x1a): 12 000 cases for the mask kinds 4–31, all matching.

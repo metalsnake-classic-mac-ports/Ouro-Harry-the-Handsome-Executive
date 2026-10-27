@@ -19,8 +19,8 @@ pub struct Player {
     pub dir: i16,
     /// Pose offset (0, 36, 72, 108): the face drawn is `dir + pose`.
     pub pose: i16,
-    /// `sp->hurt`.
-    pub hurt: i16,
+    /// `sp->air` (jump state).
+    pub air: i16,
     /// `sp->hotRect`; `KICK_HOT_RECT` while the kick reaches out.
     pub hot_rect: Rect,
 }
@@ -125,7 +125,7 @@ pub fn hit_player_tile(
         }
         return;
     }
-    if p.hurt != 0 {
+    if p.air != 0 {
         return;
     }
     match kind {

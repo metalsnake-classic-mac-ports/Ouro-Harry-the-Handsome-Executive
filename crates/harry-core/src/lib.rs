@@ -5,12 +5,14 @@
 //! to it; see NOTES.md). One game frame is one pass of the original's main
 //! loop, 30 per second.
 
+pub mod air;
 pub mod bounce;
 pub mod level;
 pub mod mask;
 pub mod moves;
 pub mod physics;
 pub mod player;
+pub mod random;
 pub mod tiles;
 
 pub use level::Level;

@@ -46,8 +46,8 @@ pub struct Chair {
     pub speed: Speed,
     /// `sp->dir`, 0–35.
     pub dir: i16,
-    /// `sp->hurt`: moves are blocked from 23 on.
-    pub hurt: i16,
+    /// `sp->air` (jump state): moves are blocked from 23 on.
+    pub air: i16,
     /// `sp->hotRect` (top, left, bottom, right); the kick widens it.
     pub hot_rect: [i16; 4],
 }
@@ -204,7 +204,7 @@ pub fn move_chair(
     if input.wet > 0 {
         p = (256 - i32::from(input.wet)) * i32::from(p as i16) >> 8;
     }
-    if chair.hurt < 23 {
+    if chair.air < 23 {
         scoot(m, p, input, sounds);
         kick(m, chair, i32::from(physics.kick), input, sounds);
         inch(m, p);

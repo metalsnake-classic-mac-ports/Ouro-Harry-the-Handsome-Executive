@@ -38,6 +38,20 @@ option) and why.
   32–55 are −1 there); a custom world with such kinds would test against
   garbage. Port: no mask for those kinds (no kick contact).
 
+- **Half-pipe flip to the left tests the wrong axis.** `JumpScale`, during
+  a half-pipe flip (air 200–299) with flip kind 0x26b0 (thrown left):
+  `if (-0x200 < speedV) speedH = -0x200` - it tests the vertical speed
+  but sets the horizontal one (the other three directions test and set
+  the same axis). Confirmed by the differential test. Port: keep.
+- **One frame with a garbage scale when landing on a hole.** At air 999
+  (set when a jump ends over a hole, background kind 7) no case of
+  `JumpScale` sets the scale variable, so it uses register r30 as the
+  caller left it: `HandlePlayerSprite` keeps the address 0x10068aa4
+  there, so `scale0/1` = 0x8aa4 + 0x100 (−29 788) for that frame
+  (recorded with r30 set like in the game). What this looks like on screen
+  is to be checked (the drawing code scales by it). Port: keep the value
+  (`air::UNSET_SCALE`), check the drawing.
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

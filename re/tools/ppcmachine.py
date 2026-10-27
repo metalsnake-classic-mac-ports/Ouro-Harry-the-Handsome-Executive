@@ -329,8 +329,10 @@ class Machine:
     def addr(self, f):
         return self.names[f] if isinstance(f, str) else f
 
-    def call(self, f, *args, limit=50_000_000):
-        """Call routine f (name or address) with integer args in r3...; return r3."""
+    def call(self, f, *args, limit=50_000_000, regs=None):
+        """Call routine f (name or address) with integer args in r3...; return r3.
+        regs: other registers to set first ({30: value}) - for routines that
+        read a caller's register without setting it."""
         self.missing = None
         for i in range(32):
             self.set(i, 0)
@@ -338,6 +340,8 @@ class Machine:
         self.set(2, TOC)
         for i, a in enumerate(args):
             self.set(3 + i, a)
+        for r, v in (regs or {}).items():
+            self.set(r, v)
         self.uc.reg_write(UC_PPC_REG_LR, RETURN)
         from unicorn.ppc_const import UC_PPC_REG_MSR
         self.uc.reg_write(UC_PPC_REG_MSR, self.uc.reg_read(UC_PPC_REG_MSR) | 0x2000)  # MSR[FP]

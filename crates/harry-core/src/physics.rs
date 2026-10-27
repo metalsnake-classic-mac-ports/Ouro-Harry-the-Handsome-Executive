@@ -116,8 +116,8 @@ fn friction_axis(s: i16, f: i16, gliding: bool) -> i16 {
 /// The state `HandlePlayerGlide` reads besides the speed.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Floor {
-    /// `sp->hurt`: friction applies at 0 and at 24–199.
-    pub hurt: i16,
+    /// `sp->air` (jump state): friction applies at 0 and at 24–199.
+    pub air: i16,
     /// `gFloorKind`: 1 normal, 2 (fixed 236), 3 slippery; others none.
     pub kind: i16,
     /// `gWet` 0–200: raises the friction factor toward 256.
@@ -131,7 +131,7 @@ pub struct Floor {
 /// it (kinds 1 and 3: 5 · f − 1150 from the level's friction value, at
 /// least 8), else `None`.
 pub fn player_glide(speed: &mut Speed, floor: Floor, physics: &Physics) -> Option<i16> {
-    if !(floor.hurt == 0 || (floor.hurt > 23 && floor.hurt < 200)) {
+    if !(floor.air == 0 || (floor.air > 23 && floor.air < 200)) {
         return None;
     }
     let base = match floor.kind {

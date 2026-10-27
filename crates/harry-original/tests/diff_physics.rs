@@ -66,7 +66,7 @@ fn max_speed_matches() {
 fn glide_matches() {
     check("glide", |v| {
         let ph = physics(v);
-        let floor = Floor { hurt: v[5] as i16, kind: v[6] as i16, wet: v[7] as i16, glide: v[8] as i16 };
+        let floor = Floor { air: v[5] as i16, kind: v[6] as i16, wet: v[7] as i16, glide: v[8] as i16 };
         let mut s = Speed { h: v[10] as i16, v: v[11] as i16 };
         let surface = player_glide(&mut s, floor, &ph).unwrap_or(v[9] as i16);
         vec![s.h.into(), s.v.into(), surface.into()]
@@ -81,7 +81,7 @@ fn move_chair_matches() {
         let mut chair = Chair {
             speed: Speed { h: v[12] as i16, v: v[13] as i16 },
             dir: v[10] as i16,
-            hurt: v[0] as i16,
+            air: v[0] as i16,
             hot_rect: [22, 22, 42, 42],
         };
         let mut m = Moves {
