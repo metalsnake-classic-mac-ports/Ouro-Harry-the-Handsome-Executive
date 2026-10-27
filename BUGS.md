@@ -58,16 +58,32 @@ option) and why.
   (`_DAT_10065ac8`) - never −1, so nothing happens. Port: same read
   (`frame::handle_player`).
 
-- **The strong B.A.D.A.S.S. shot needs no ammo.** `HandleKeys`, fire key
-  released after ≥ 34 frames of charging with `gBadassAmmo` < 1: it plays
-  the strong shot's sound, sets `gShotKind` = 2 and `gRecoil` = 3 - and
-  `HandleHeldWeaponSprite` makes a shot whenever `gRecoil` > 1. The weak
-  shot correctly clicks empty. Confirmed by the differential test (state)
-  and the code of `HandleHeldWeaponSprite`; to be seen in the game. Port:
-  keep.
+- **The last strong B.A.D.A.S.S. shot backfires.** Releasing a strong
+  shot (≥ 34 frames of charging) with 1–6 ammo: `HandleKeys` takes 6 ammo
+  (clamped to 0) and sets shot kind 2; the next frame `MakeNewShot` sees
+  no ammo and makes the out-of-ammo backfire (an explosion at the weapon,
+  explosion and "empty" sounds) instead of the four shots. With 0 ammo the
+  backfire is meant (the strong shot is still allowed, the weak one
+  clicks empty). Probably the ammo was meant to be checked before taking
+  it. Confirmed by reading both routines; both are differential-tested.
+  Port: keep.
 - **The mystery vial can make ammo negative.** Its outcome 5 subtracts
   25 from all three ammo counters without a lower bound (firing clamps
   to 0). How the panel shows it is to be checked. Port: keep.
+
+- **Shots test walls with a wrong rect.** `HitPlayerShotTileSprite` builds
+  the shot's small test rect as (atV + 4, atH + 4, atV + 6, atV + 6): the
+  right edge comes from atV (confirmed in the machine code at 0x100459b4).
+  When the shot is right of the map's diagonal (h > v + 2) the rect is
+  empty and walls of kinds ≤ 0x37 never stop it; left of it the rect
+  reaches far to the right. Only then does `WallBounce` with the shot's
+  mask decide. Fixing it changes 1 319 of the 22 500 recorded near-wall
+  cases (shots that passed through stop, others pass). Port: keep (an
+  option to fix it later).
+- **A stopped shot keeps hitting tiles.** It is only `frozen`; the
+  remaining tiles of the same `CheckTileCollisions` pass are still
+  handled, so its sound / soda explosion can come up to 4 times in one
+  frame (seen in the recordings). Port: keep.
 
 ## Fixed in 1.0.1
 

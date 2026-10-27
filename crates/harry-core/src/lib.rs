@@ -16,6 +16,7 @@ pub mod moves;
 pub mod physics;
 pub mod player;
 pub mod random;
+pub mod shots;
 pub mod tiles;
 
 pub use level::Level;

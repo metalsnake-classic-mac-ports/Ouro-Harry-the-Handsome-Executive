@@ -98,7 +98,7 @@ class Machine:
                      ("GetPixBaseAddr", self.tb_getpixbaseaddr), ("SetGWorld", self.tb_setgworld),
                      ("GetGWorld", self.tb_getgworld), ("EraseRect", self.tb_eraserect),
                      ("BitMapToRegion", self.tb_bitmaptoregion), ("LockPixels", self.tb_nop),
-                     ("UnlockPixels", self.tb_nop), ("DisposeGWorld", self.tb_nop), ("OffsetRect", self.tb_offsetrect),
+                     ("UnlockPixels", self.tb_nop), ("DisposeGWorld", self.tb_nop), ("OffsetRect", self.tb_offsetrect), ("SetPt", self.tb_setpt),
                      ("NewPtr", self.tb_newptr), ("NewPtrClear", self.tb_newptr),
                      ("NewHandle", self.tb_newhandle), ("NewHandleClear", self.tb_newhandle),
                      ("HLock", self.tb_nop), ("HUnlock", self.tb_nop), ("MoveHHi", self.tb_nop),
@@ -195,6 +195,11 @@ class Machine:
         r, left, top, right, bottom = (self.get(i) for i in range(3, 8))
         s16 = lambda v: (v & 0xFFFF) - 0x10000 if v & 0x8000 else v & 0xFFFF
         self.write(r, struct.pack(">hhhh", *(s16(v) for v in (top, left, bottom, right))))
+
+    def tb_setpt(self):
+        # SetPt(&pt, h, v): Point is {v, h}
+        self.w16(self.get(3), self.get(5))
+        self.w16(self.get(3) + 2, self.get(4))
 
     def tb_offsetrect(self):
         r, dh, dv = self.get(3), self.get(4), self.get(5)

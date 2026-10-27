@@ -728,6 +728,36 @@ QuickTime Musical Instruments.
   - `gFireHold` is the word right after the inventory table (slot 12);
     `SwitchInvItem` reads it as `inventory[12].id` when slot 11 is
     selected (harmless).
+- **Player shots** (`re/tools/emu_shots.py`; `harry_core::shots`):
+  - Firing sets `gShotKind` and `gRecoil` = 3 (`HandleKeys`); the frame
+    counts the recoil down, and `HandleHeldWeaponSprite` calls
+    `MakeNewShot` while it is > 1 - one shot (set) per firing, the frame
+    after the key.
+  - The held weapon sits at Harry's top-left (scaled with
+    `FindScaledPosAndBounds`, which gets scale0 for both axes) + a
+    per-direction offset (`WEAPON_OFFSETS`) × scale − 6; its face is
+    `gPlayerDir` (+ 36 while recoiling), gun 0/1/2 for staple gun /
+    B.A.D.A.S.S. / shrapnel gun, none for other items.
+  - `MakeNewShot` from the weapon position + 2: kinds 0 (staple), 1 (weak
+    B.A.D.A.S.S., speed ± 512 random), 4 (soda can) one shot; 5/6/7 two /
+    three / four shrapnel pellets (kind 0, position −4…+4 px, speed ±256);
+    2 four B.A.D.A.S.S. pellets in the four quadrants, or with no ammo the
+    backfire (explosion at the weapon − 26 px, sounds 602 and 239).
+    Speeds from `AssignShotSpeed` (`SHOT_SPEEDS`, 2200 in the facing
+    direction, captured from the original).
+  - Shot sprites: hot rect (−2, −2, 10, 10), kind 10 (the swivel shot,
+    drawn as a spinning Harry, dir + 2 per frame) (27, 27, 37, 37); timer
+    3 frames before walls count; animation 0–6; straight flight.
+  - Walls (`HitPlayerShotTileSprite`): foreground tiles only, the small
+    rect test (with a bug, BUGS.md), then `WallBounce` (half 4, bounce
+    factor 1, not first contact) with the shot's mask (face 4021, mirrored
+    like all face masks). Hit: `frozen`, sound 4700 (3-D), the soda can
+    explodes (sound 500, explosion at − 28 px).
+  - 20 000 weapon cases (scales including the garbage scale, random face
+    bounds), 5 000 shot flights, 22 500 shot / wall cases on levels 1–15:
+    all match; 30 planted mutations caught.
+  - Not yet: shots hitting sprites (`HitPlayerShotSprite`, by the other
+    sprite's kind - with those kinds).
 - Full chain `WallBounce` + mask test on the rebuilt mask tables (walls at
   `*_DAT_100658d4` + 0x1a + kind · 0x2e, obstacle at `*_DAT_100658d0` +
   0x1a): 12 000 cases for the mask kinds 4–31, all matching.

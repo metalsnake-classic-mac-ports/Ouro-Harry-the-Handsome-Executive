@@ -46,3 +46,10 @@
 @10065b74 gDebug:char              debug keys and display, 0 in the shipped game
 10068a9c   gChargeChannel               sound channel of the charge sound
 10068aa0   gVoiceChannel                sound channel of the last voice
+@100660d8 gWeaponFaces             72 faces of the held weapon: dir, dir + 36 recoiling
+@100660dc gWeaponGun:char          gun drawn: 0 staple, 1 B.A.D.A.S.S., 2 shrapnel
+@10066144 gShotFaces0              7 frames, staple / shrapnel pellet
+10066140   gShotFaces1                  7 frames, B.A.D.A.S.S. pellet
+10066074   gShotFaces4                  7 frames, soda can
+@1006613c gShotMaskFace            face 4021, its region is the shots' wall mask
+@10065b70 gSAT                     SAT's globals; first sprite at +0x78
