@@ -2,7 +2,7 @@
 //! (`re/tools/sprites.py`).
 #![allow(dead_code)]
 
-use harry_core::sprite::{HitTask, Sprite, Task};
+use harry_core::sprite::{HitTask, HitTileTask, Sprite, Task};
 
 pub fn task_name(t: Option<Task>) -> &'static str {
     match t {
@@ -17,6 +17,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::EnemyShot) => "HandleEnemyShotSprite",
         Some(Task::Effect) => "HandleEffectSprite",
         Some(Task::Cooler) => "HandleCoolerSprite",
+        Some(Task::Plant) => "HandlePlantSprite",
     }
 }
 
@@ -30,6 +31,7 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Exit) => "HitExitSprite",
         Some(HitTask::Door) => "HitDoorSprite",
         Some(HitTask::Cooler) => "HitCoolerSprite",
+        Some(HitTask::Plant) => "HitPlantSprite",
     }
 }
 
@@ -82,7 +84,15 @@ pub fn dump(s: &Sprite) -> String {
     let mut out: Vec<String> = fields.iter().map(|(n, v)| format!("{n}={v}")).collect();
     out.push(format!("task={}", task_name(s.task)));
     out.push(format!("hit={}", hit_name(s.hit_task)));
-    out.push(format!("tile={}", if s.hit_tile_task.is_some() { "?" } else { "-" }));
+    out.push(format!(
+        "tile={}",
+        match s.hit_tile_task {
+            None => "-",
+            Some(HitTileTask::Player) => "HitPlayerTileSprite",
+            Some(HitTileTask::PlayerShot) => "HitPlayerShotTileSprite",
+            Some(HitTileTask::Plant) => "HitPlantTileSprite",
+        }
+    ));
     out.join(" ")
 }
 

@@ -182,3 +182,29 @@ mod tests {
         }
     }
 }
+
+/// `HandleGlide` (PPC 0x10023230): friction for objects (plants, barrels,
+/// ...) - on the floor or high in a jump (air 24–199): the floor's friction
+/// (slippery for background kind 2), halved toward 1.0 when `slide` > 87;
+/// a speed below 25 stops (unless `slide` > 87). `half` is the offset of
+/// the sprite's centre.
+pub fn handle_glide(speed: &mut Speed, fix: (i32, i32), air: i16, slide: i16, half: i16, level: &crate::Level, physics: &Physics) {
+    if !(air == 0 || (23 < air && air < 200)) {
+        return;
+    }
+    let x = i32::from(((fix.0 >> 8) as i16).wrapping_add(half)) >> 5;
+    let y = i32::from(((fix.1 >> 8) as i16).wrapping_add(half)) >> 5;
+    let mut f = if level.bg_kind(level.bg_tile(x, y)) == 2 { physics.slippery } else { physics.friction };
+    if slide > 87 {
+        f = ((i32::from(f) + 0x100) >> 1) as i16;
+    }
+    for s in [&mut speed.h, &mut speed.v] {
+        if i32::from(*s).abs() < 25 {
+            if slide < 88 {
+                *s = 0;
+            }
+        } else {
+            *s = ((i32::from(f) * i32::from(*s)) >> 8) as i16;
+        }
+    }
+}

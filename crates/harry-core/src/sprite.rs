@@ -3,7 +3,8 @@
 //! port keeps it as one struct with the original's fields; fields whose
 //! meaning depends on the kind keep their offset as name (`f6e`, ...).
 
-use crate::bounce::Rect;
+use crate::air::Air;
+use crate::bounce::{Body, Rect};
 use crate::physics::Speed;
 
 /// A face: the `HrSp` resource id of the picture, 0 = none.
@@ -22,6 +23,7 @@ pub enum Task {
     EnemyShot,
     Effect,
     Cooler,
+    Plant,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -34,6 +36,7 @@ pub enum HitTask {
     Exit,
     Door,
     Cooler,
+    Plant,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -41,6 +44,7 @@ pub enum HitTask {
 pub enum HitTileTask {
     Player,
     PlayerShot,
+    Plant,
 }
 
 /// What a sprite routine asks of the rest of the game.
@@ -144,5 +148,37 @@ impl Sprite {
     /// `fix` = `at` << 8.
     pub fn fix_from_at(&mut self) {
         self.fix = (i32::from(self.at.1) << 8, i32::from(self.at.0) << 8);
+    }
+
+    /// The moving part, as the bounce and jump code takes it.
+    pub fn body(&self) -> Body {
+        Body { pos: self.pos, at: self.at, fix: self.fix, speed: self.speed }
+    }
+
+    pub fn set_body(&mut self, b: Body) {
+        (self.pos, self.at, self.fix, self.speed) = (b.pos, b.at, b.fix, b.speed);
+    }
+
+    /// The jump state, as `air` takes it (`scale` = scale0).
+    pub fn air_state(&self) -> Air {
+        Air { air: self.air, slide: self.slide, last_tile: self.last_tile, flip: self.flip, scale: self.scale[0] }
+    }
+
+    /// Back from `air_state`; a changed scale goes to scale0 and scale1.
+    pub fn set_air_state(&mut self, a: Air) {
+        if a.scale != self.scale[0] {
+            self.scale[0] = a.scale;
+            self.scale[1] = a.scale;
+        }
+        (self.air, self.slide, self.last_tile, self.flip) = (a.air, a.slide, a.last_tile, a.flip);
+    }
+
+    /// `fix` += speed, `pos` = `at` = fix >> 8.
+    pub fn integrate(&mut self) {
+        self.fix.0 = self.fix.0.wrapping_add(i32::from(self.speed.h));
+        self.fix.1 = self.fix.1.wrapping_add(i32::from(self.speed.v));
+        let (h, v) = ((self.fix.0 >> 8) as i16, (self.fix.1 >> 8) as i16);
+        self.pos = (v, h);
+        self.at = (v, h);
     }
 }

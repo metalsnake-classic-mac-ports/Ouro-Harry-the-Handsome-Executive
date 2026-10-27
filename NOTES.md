@@ -496,6 +496,20 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   `re/tools/emu_cooler.py`: 12 000 cases, all matching; 9 of 11
   mutations caught, the other two equivalent (dir > 10 never happens;
   −0.6 · v truncates like −6 · v / 10 for all 16-bit v).
+- **Plant** (601; layer 8, hot rect (8, 8, 28, 28), faces 3901–3904,
+  bounce mask cicn 599): a hit plant (dir 1) shakes 3902, 3902, 3903,
+  3903, 3904, 3904, then back to 3901. Each frame `HandleGlide` (object
+  friction: on the floor or at air 24–199 the floor's friction - slippery
+  on background kind 2 -, halfway to 1.0 when `slide` > 87; speeds below
+  25 stop unless `slide` > 87), `HandleHalfPipe` and `JumpScale` (centre
+  + 18, not as the player; at air 999 the unset scale is r30 =
+  0x1007dfac of `HandlePlantSprite`), then the straight move. Its tile
+  routine bounces off walls (`WallBounce`) and, on the floor, background
+  obstacles (`BGTileBounce`) with its own mask, always as first contact.
+  `re/tools/emu_plant.py`: 12 000 cases of 1–6 frames each with tile
+  collisions on all levels (special floors, wall edges), all matching;
+  all 11 mutations caught. The plant's hit task (kicks, pushes, other
+  objects, shots) is next.
 - **Exit** (9990–9999, layer 1): 9991–9994 with faces 3201–3204 and hot
   rects beside them (9991 (96, 0, 100, 64), 9992 (−40, 0, −32, 64), 9993
   (0, 40, 64, 100), 9994 (0, −32, 64, 0)), others no face, (0, 0, 32,

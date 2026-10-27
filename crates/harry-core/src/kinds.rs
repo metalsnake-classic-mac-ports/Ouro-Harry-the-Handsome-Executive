@@ -1,12 +1,16 @@
-//! Simple sprite kinds: bonuses, items, exits, doors, water coolers. Each has a setup (run when
+//! Sprite kinds: bonuses, items, exits, doors, water coolers, plants. Each has a setup (run when
 //! the sprite is made), a task (each frame) and a hit task (SAT's
 //! collision pass); what Harry does when he touches them is in
 //! `HitPlayerSprite`.
 
+use crate::air::{AirSound, PLANT_UNSET_SCALE, half_pipe, jump_scale};
+use crate::bounce::{bg_tile_bounce, wall_bounce};
 use crate::level::Level;
+use crate::physics::{Physics, handle_glide};
+use crate::random::Random;
 use crate::mask::{Mask, mask_hit};
 use crate::sprite::{HitTask, Sprite, SpriteEvent, Task};
-use crate::tiles::{KICK_RECTS, offset, sect};
+use crate::tiles::{KICK_RECTS, TileHit, offset, sect};
 
 
 /// `SetupBonusSprite` (700–799: the bonus objects Harry collects).
@@ -302,4 +306,86 @@ pub fn hit_cooler(
             sp.dir += 1;
         }
     }
+}
+
+/// `SetupPlantSprite` (601): a potted plant Harry can kick and push
+/// around (layer 8, hot rect (8, 8, 28, 28), face 3901).
+pub fn setup_plant(sp: &mut Sprite) {
+    sp.init();
+    sp.dir = 0;
+    sp.speed = Default::default();
+    sp.layer = 8;
+    sp.task = Some(Task::Plant);
+    sp.hit_task = Some(HitTask::Plant);
+    sp.hit_tile_task = Some(crate::sprite::HitTileTask::Plant);
+    sp.hot_rect = [8, 8, 28, 28];
+    sp.face = 3901;
+    sp.at_from_pos();
+    sp.fix_from_at();
+}
+
+/// `HandlePlantSprite`: a hit plant (dir 1) shakes through faces 3902,
+/// 3903, 3904 (two frames each, then back to 3901); it glides with the
+/// floor's friction, rides half pipes and jumps like other objects (centre
+/// at + 18). `plant_flag` is `PTR_DAT_10066118`, cleared by every plant.
+pub fn handle_plant(
+    sp: &mut Sprite,
+    level: &Level,
+    physics: &Physics,
+    rng: &mut Random,
+    plant_flag: &mut bool,
+    sounds: &mut Vec<AirSound>,
+) {
+    if sp.frozen {
+        return;
+    }
+    *plant_flag = false;
+    match sp.dir {
+        1 | 2 => (sp.face, sp.dir) = (3902, sp.dir + 1),
+        3 | 4 => (sp.face, sp.dir) = (3903, sp.dir + 1),
+        5 => (sp.face, sp.dir) = (3904, 6),
+        6 => (sp.face, sp.dir) = (3904, 0),
+        _ => sp.face = 3901,
+    }
+    handle_glide(&mut sp.speed, sp.fix, sp.air, sp.slide, 18, level, physics);
+    let mut body = sp.body();
+    let mut air = sp.air_state();
+    half_pipe(&mut body, &mut air, 18, false, level, sounds);
+    let mut unused_comfort = 0;
+    jump_scale(&mut body, &mut air, &mut sp.dir, 18, false, level, rng, &mut unused_comfort, PLANT_UNSET_SCALE, sounds);
+    sp.set_body(body);
+    sp.set_air_state(air);
+    sp.integrate();
+    sp.b8b = true;
+}
+
+/// The masks objects bounce with.
+pub struct ObjectMasks<'a> {
+    /// The plant's own mask (cicn 599).
+    pub plant: &'a Mask,
+    /// The 32 wall shapes (PICT 160).
+    pub walls: &'a [Mask],
+    /// The background obstacle (cicn 290).
+    pub obstacle: &'a Mask,
+}
+
+/// `HitPlantTileSprite`: walls (`WallBounce`) and, on the floor,
+/// background obstacles (`BGTileBounce`), with the plant's mask and the
+/// level's bounce, always as the frame's first contact.
+pub fn hit_plant_tile(sp: &mut Sprite, hit: TileHit, level: &Level, masks: &ObjectMasks, physics: &Physics) {
+    let mut body = sp.body();
+    let tile = hit.tile;
+    if hit.foreground {
+        let wall = usize::try_from(hit.kind).ok().and_then(|k| masks.walls.get(k));
+        wall_bounce(&mut body, hit.kind, tile, 18, physics.bounce, sp.hot_rect, true, &mut |b| match wall {
+            Some(w) => mask_hit(&mut b.pos, masks.plant, tile, w),
+            None => false,
+        });
+    } else if sp.air == 0 && hit.kind == 1 {
+        let fg = |x: i32, y: i32| level.fg_kind(level.fg_tile(x, y));
+        bg_tile_bounce(&mut body, tile, 18, physics.bounce, sp.hot_rect, true, &mut |b| {
+            mask_hit(&mut b.pos, masks.plant, tile, masks.obstacle)
+        }, &fg);
+    }
+    sp.set_body(body);
 }

@@ -116,13 +116,17 @@ const JUMP_SCALE: [i16; 35] = [
 ];
 
 /// The value the original adds when no case of `JumpScale` sets the scale
-/// (air 999, the frame Harry lands on a hole): register r30, which in
-/// `HandlePlayerSprite` holds the address 0x10068aa4 - so the scale becomes
-/// 0x8aa4 + 0x100 for one frame (BUGS.md).
+/// (air 999, the frame a sprite lands on a hole): register r30 as the
+/// caller left it (BUGS.md). In `HandlePlayerSprite` it holds the address
+/// 0x10068aa4 - so the scale becomes 0x8aa4 + 0x100 for one frame.
 pub const UNSET_SCALE: i16 = 0x8aa4u16 as i16;
+/// The same for `HandlePlantSprite` (r30 = 0x1007dfac, the address of the
+/// plant's sound).
+pub const PLANT_UNSET_SCALE: i16 = 0xdfacu16 as i16;
 
-/// `JumpScale` (PPC 0x100223a8) for the player (`is_player`: spinning and
-/// the view follow). `comfort` is `gComfort`.
+/// `JumpScale` (PPC 0x100223a8) (`is_player`: spinning and the view
+/// follow). `comfort` is `gComfort`; `unset` the caller's r30 (see
+/// `UNSET_SCALE`).
 #[allow(clippy::too_many_arguments)]
 pub fn jump_scale(
     body: &mut Body,
@@ -133,6 +137,7 @@ pub fn jump_scale(
     level: &Level,
     rng: &mut Random,
     comfort: &mut i16,
+    unset: i16,
     sounds: &mut Vec<AirSound>,
 ) -> JumpEffects {
     let mut fx = JumpEffects::default();
@@ -152,7 +157,7 @@ pub fn jump_scale(
             *d -= 36;
         }
     };
-    let mut scale = UNSET_SCALE;
+    let mut scale = unset;
     let air = a.air;
     if air < 200 {
         if (1..=35).contains(&air) {

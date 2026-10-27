@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use harry_core::air::{Air, half_pipe, jump_scale};
+use harry_core::air::{Air, UNSET_SCALE, half_pipe, jump_scale};
 use harry_core::bounce::Body;
 use harry_core::physics::Speed;
 use harry_core::random::Random;
@@ -72,7 +72,7 @@ fn jump_scale_matches() {
         let mut a = Air { air: v[9] as i16, slide: 0, last_tile: (0, 0), flip: v[10] as i16, scale: 0x100 };
         let mut comfort = v[11] as i16;
         let mut sounds = Vec::new();
-        let fx = jump_scale(&mut body, &mut a, &mut dir, 32, true, level, &mut rng, &mut comfort, &mut sounds);
+        let fx = jump_scale(&mut body, &mut a, &mut dir, 32, true, level, &mut rng, &mut comfort, UNSET_SCALE, &mut sounds);
         let view = fx.recentre.unwrap_or((0x5555, 0x5555));
         vec![
             a.air.into(), a.scale.into(), a.scale.into(), body.speed.h.into(), body.speed.v.into(), dir.into(), body.fix.0,

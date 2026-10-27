@@ -3,7 +3,7 @@
 //! and the tile collisions (`CheckTileCollisions`, a separate pass of the
 //! main loop).
 
-use crate::air::{Air, AirSound, half_pipe, jump_scale};
+use crate::air::{Air, AirSound, UNSET_SCALE, half_pipe, jump_scale};
 use crate::bounce::Body;
 use crate::keys::Ammo;
 use crate::inventory::{EMPTY, current_item};
@@ -196,7 +196,7 @@ pub fn handle_player(
         p.dir = 35;
     }
     p.face = p.dir + g.moves.pose;
-    jump_scale(&mut p.body, &mut h.air, &mut p.dir, 32, true, level, rng, &mut g.comfort, &mut air_sounds);
+    jump_scale(&mut p.body, &mut h.air, &mut p.dir, 32, true, level, rng, &mut g.comfort, UNSET_SCALE, &mut air_sounds);
     p.air = h.air.air;
     sounds.extend(air_sounds.into_iter().map(FrameSound::Air));
     if g.tile.wet > 0 && (i32::from(p.body.speed.h).abs() >= 201 || i32::from(p.body.speed.v).abs() >= 201) {
