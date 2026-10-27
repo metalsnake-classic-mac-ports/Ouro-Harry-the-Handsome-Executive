@@ -114,6 +114,31 @@ def full_chain(work="re/work"):
             out.write(f"{kind} {first} {tv} {th} {pv} {ph} {sh} {sv} -> {' '.join(map(str, outs))}\n")
     print(f"wallchain: {CASES} cases")
 
+    # BGTileBounce + mask test against the obstacle (cicn 290) on real levels
+    from emu_bounce import bg_cases
+    with open(f"{work}/diff/bgchain.txt", "w") as out:
+        out.write("# BGTileBounce + real mask test (body cicn 299, obstacle cicn 290): kindUp kindRight kindLeft "
+                  "kindDown first tileV tileH posV posH speedH speedV -> return atV atH posV posH speedH speedV fixH fixV\n")
+        for kinds, (tv, th), m2 in bg_cases(m, rnd, work):
+            m.regions.clear()
+            body = m.make_region(ms["body"])
+            m.w32(obstacle_face + 0x1A, m.make_region(ms["obstacle"]))
+            pv, ph = tv - 32 + rnd.randint(-14, 46), th - 32 + rnd.randint(-14, 46)
+            sh, sv = rnd.randint(-2500, 2500), rnd.randint(-2500, 2500)
+            first = rnd.randint(0, 1)
+            for off, v in ((POS_V, pv), (POS_H, ph), (CEN_V, pv), (CEN_H, ph), (SPEED_H, sh), (SPEED_V, sv)):
+                m.w16(sp + off, v)
+            m.w32(sp + FIX_H, 0x7777)
+            m.w32(sp + FIX_V, 0x7777)
+            m.write(tile, struct.pack(">hh", tv, th))
+            r = m.call("BGTileBounce", sp, 1, tile, 32, 150, hot, body, first) & 0xFF
+            outs = [r, m.r16(sp + CEN_V), m.r16(sp + CEN_H), m.r16(sp + POS_V), m.r16(sp + POS_H),
+                    m.r16(sp + SPEED_H), m.r16(sp + SPEED_V),
+                    struct.unpack(">i", m.read(sp + FIX_H, 4))[0], struct.unpack(">i", m.read(sp + FIX_V, 4))[0]]
+            ins = kinds + [first, tv, th, pv, ph, sh, sv]
+            out.write(f"{' '.join(map(str, ins))} -> {' '.join(map(str, outs))}\n")
+    print("bgchain written")
+
 
 if __name__ == "__main__" and len(sys.argv) > 2 and sys.argv[2] == "chain":
     full_chain(sys.argv[1])

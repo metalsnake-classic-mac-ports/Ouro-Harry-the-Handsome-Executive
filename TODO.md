@@ -43,7 +43,7 @@
 - [x] `BGTileBounce` with real levels in Unicorn (`Machine.load_level`), 12 000 cases
 - [x] Region mask test + `REGIONSEPARATE` with the real masks (12 000 cases)
 - [x] Full chain: `WallBounce` + real mask test (`emu_mask.py re/work chain`), 12 000 cases
-- [ ] Same for `BGTileBounce` (obstacle mask cicn 290)
+- [x] Same for `BGTileBounce` (obstacle mask cicn 290), 12 000 cases
 - [ ] Confirm the mirrored kick-pose masks (BUGS.md) in the emulator
 - [ ] Tile collision pass (`CheckTileCollisions`) and the player's tile reactions
 - [ ] Whole player frame (`HandlePlayerSprite`): timers, comfort delta, position update
