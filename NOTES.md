@@ -573,6 +573,15 @@ QuickTime Musical Instruments.
   stubbed with its result as an input). `harry_core::bounce::wall_bounce`
   matches all; 11 planted bugs (corner swap, diagonal choices, clamps, the
   9 px threshold, kind 0's first-contact rule, ...) are all caught.
+- `RectBounceFake` and `BGTileBounce` ported and tested the same way
+  (12 000 cases each). `BGTileBounce` runs on the real levels 1–15
+  (`ppcmachine.Machine.load_level`: the Hlvl as the handle `gLevelH`,
+  then `LoadTileDefinitions`), at background obstacles and free tiles next
+  to walls; the four neighbouring foreground kinds are part of each case.
+  Its quirks: speed damped twice (when the side is chosen and again on the
+  frame's first contact), the side moved away from a neighbouring wall
+  (kinds 1/6/5 above, 2/7/6 right, 0/4/5 left, 3/7/4 below), position
+  only clamped to 14 px from the tile centre.
 - Sprite record: +0x5a/+0x5c (`atV`, `atH`) are not centres but a working
   copy of the position (top-left of the 64 × 64 face) that the collision
   code moves; the centre is at + 32 (`half`).

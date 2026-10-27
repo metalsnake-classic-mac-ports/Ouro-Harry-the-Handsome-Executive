@@ -40,7 +40,8 @@
       differential tests against the PPC routines (`re/tools/emu_physics.py`, 16 000 cases, planted bugs caught)
 - [x] `WallBounce` (mask test as a parameter), differential test 12 000 cases
 - [x] `RectBounceFake`, differential test 12 000 cases (incl. exact diagonal ties)
-- [ ] `BGTileBounce` (needs a loaded level), region mask test + `REGIONSEPARATE`
+- [x] `BGTileBounce` with real levels in Unicorn (`Machine.load_level`), 12 000 cases
+- [ ] Region mask test + `REGIONSEPARATE` (needs masks from the data model)
 - [ ] Tile collision pass (`CheckTileCollisions`) and the player's tile reactions
 - [ ] Whole player frame (`HandlePlayerSprite`): timers, comfort delta, position update
 - [ ] `harry-data`: level / world model and the data pack; extract tool in `harry-original`

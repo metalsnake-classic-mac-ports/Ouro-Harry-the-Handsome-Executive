@@ -310,3 +310,115 @@ pub fn rect_bounce_fake(body: &mut Body, tile: (i16, i16), rect: Rect, half: i16
         body.fix.1 = i32::from(body.at.0) << 8;
     }
 }
+
+/// `BGTileBounce` (PPC 0x1001c8a4): bounce off a background obstacle
+/// (background kind 1) at `tile` (v, h). `mask` is the region test as in
+/// [`wall_bounce`]; `fg_kind(x, y)` gives the foreground kind of a tile
+/// (`LookupFGTileKind(GetFGTile(x, y))`, −1 for none) - a side already
+/// covered by a neighbouring wall is not used.
+///
+/// The speed is damped twice: once when the side is chosen, and again
+/// (with the sign forced away from the tile) on the frame's first contact.
+/// The position is only clamped to 14 px from the tile's centre.
+pub fn bg_tile_bounce(
+    body: &mut Body,
+    tile: (i16, i16),
+    half: i16,
+    bounce: i16,
+    hot: Rect,
+    first: bool,
+    mask: &mut dyn FnMut(&mut Body) -> bool,
+    fg_kind: &dyn Fn(i32, i32) -> i16,
+) -> i32 {
+    let (tv, th) = tile;
+    let mid_h = th.wrapping_add(16);
+    let mid_v = tv.wrapping_add(16);
+    if !mask(body) {
+        return 0;
+    }
+    let ch = body.at.1.wrapping_add(half);
+    let cv = body.at.0.wrapping_add(half);
+    let dh = mid_h.wrapping_sub(ch).wrapping_abs();
+    let dv = mid_v.wrapping_sub(cv).wrapping_abs();
+    let s = &mut body.speed;
+    // side: 1 right of the tile, 2 left, 3 above, 4 below
+    let mut side;
+    if dv < dh {
+        s.h = scale(bounce, s.h).wrapping_neg();
+        s.v = scale(bounce, s.v);
+        side = if mid_h < ch { 1 } else { 2 };
+    } else {
+        s.h = scale(bounce, s.h);
+        s.v = scale(bounce, s.v);
+        side = if mid_v < cv { 4 } else { 3 };
+    }
+    let x = i32::from(th) >> 5;
+    let y = i32::from(tv) >> 5;
+    let h_side = if mid_h < ch { 1 } else { 2 };
+    let v_side = if mid_v < cv { 4 } else { 3 };
+    match side {
+        3 if matches!(fg_kind(x, y - 1), 1 | 6 | 5) => side = h_side,
+        1 if matches!(fg_kind(x + 1, y), 2 | 7 | 6) => side = v_side,
+        2 if matches!(fg_kind(x - 1, y), 0 | 4 | 5) => side = v_side,
+        4 if matches!(fg_kind(x, y + 1), 3 | 7 | 4) => side = h_side,
+        _ => {}
+    }
+    let damp = |s: &mut Speed| {
+        s.h = scale(bounce, s.h);
+        s.v = scale(bounce, s.v);
+    };
+    let (av, ah) = (i32::from(body.at.0), i32::from(body.at.1));
+    match side {
+        3 => {
+            if first {
+                damp(s);
+                if s.v > 0 {
+                    s.v = s.v.wrapping_neg();
+                }
+            }
+            let edge = i32::from(mid_v) - 14 - i32::from(hot[2]);
+            if edge < av {
+                body.at.0 = edge as i16;
+            }
+        }
+        1 => {
+            if first {
+                damp(s);
+                if s.h < 0 {
+                    s.h = s.h.wrapping_neg();
+                }
+            }
+            let edge = i32::from(mid_h) + 14 - i32::from(hot[1]);
+            if ah < edge {
+                body.at.1 = edge as i16;
+            }
+        }
+        2 => {
+            if first {
+                damp(s);
+                if s.h > 0 {
+                    s.h = s.h.wrapping_neg();
+                }
+            }
+            let edge = i32::from(mid_h) - 14 - i32::from(hot[3]);
+            if edge < ah {
+                body.at.1 = edge as i16;
+            }
+        }
+        _ => {
+            if first {
+                s.h = scale(bounce, s.h);
+                s.v = scale(bounce, s.v).wrapping_neg();
+                if s.v < 0 {
+                    s.v = s.v.wrapping_neg();
+                }
+            }
+            let edge = i32::from(mid_v) + 14 - i32::from(hot[0]);
+            if av < edge {
+                body.at.0 = edge as i16;
+            }
+        }
+    }
+    body.fix = (i32::from(body.at.1) << 8, i32::from(body.at.0) << 8);
+    1
+}

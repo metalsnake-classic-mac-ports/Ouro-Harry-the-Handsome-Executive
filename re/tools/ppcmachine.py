@@ -145,6 +145,17 @@ class Machine:
 
         self.uc.hook_add(UC_HOOK_CODE, hook, begin=a, end=a)
 
+    def load_level(self, data):
+        """Put a Hlvl resource in memory as the current level (gLevelH, a
+        handle) and build its tile kind tables (LoadTileDefinitions)."""
+        h = self.alloc(4)
+        p = self.alloc(len(data), clear=False)
+        self.write(p, data)
+        self.w32(h, p)
+        self.w32(self.glob(0x10065B64), h)
+        self.call("LoadTileDefinitions")
+        return p
+
     # --- registers ---
     def get(self, i):
         return self.uc.reg_read(R[i])
@@ -173,8 +184,8 @@ class Machine:
 
     def tb_setrect(self):
         r, left, top, right, bottom = (self.get(i) for i in range(3, 8))
-        self.write(r, struct.pack(">hhhh", *(v - 0x10000 if v & 0x8000 else v & 0xffff
-                                              for v in (top, left, bottom, right))))
+        s16 = lambda v: (v & 0xFFFF) - 0x10000 if v & 0x8000 else v & 0xFFFF
+        self.write(r, struct.pack(">hhhh", *(s16(v) for v in (top, left, bottom, right))))
 
     def tb_offsetrect(self):
         r, dh, dv = self.get(3), self.get(4), self.get(5)

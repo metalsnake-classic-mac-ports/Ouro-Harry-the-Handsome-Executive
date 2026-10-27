@@ -139,3 +139,32 @@ fn rect_bounce_matches() {
         vec![b.at.0.into(), b.at.1.into(), b.speed.h.into(), b.speed.v.into(), b.fix.0, b.fix.1]
     });
 }
+
+#[test]
+fn bg_tile_bounce_matches() {
+    use harry_core::bounce::{Body, bg_tile_bounce};
+    check("bgbounce", |v| {
+        let kinds = [v[0] as i16, v[1] as i16, v[2] as i16, v[3] as i16];
+        let (tv, th) = (v[5] as i16, v[6] as i16);
+        let (x, y) = (i32::from(th) >> 5, i32::from(tv) >> 5);
+        let fg = |a: i32, b: i32| match (a - x, b - y) {
+            (0, -1) => kinds[0],
+            (1, 0) => kinds[1],
+            (-1, 0) => kinds[2],
+            (0, 1) => kinds[3],
+            _ => panic!("unexpected tile lookup"),
+        };
+        let mut b = Body {
+            pos: (v[7] as i16, v[8] as i16),
+            at: (v[7] as i16, v[8] as i16),
+            fix: (0x7777, 0x7777),
+            speed: Speed { h: v[9] as i16, v: v[10] as i16 },
+        };
+        let mut calls = 0;
+        let r = bg_tile_bounce(&mut b, (tv, th), 32, v[11] as i16, [22, 22, 42, 42], v[4] != 0, &mut |_| {
+            calls += 1;
+            v[12] != 0
+        }, &fg);
+        vec![r, b.at.0.into(), b.at.1.into(), b.speed.h.into(), b.speed.v.into(), b.fix.0, b.fix.1, calls]
+    });
+}
