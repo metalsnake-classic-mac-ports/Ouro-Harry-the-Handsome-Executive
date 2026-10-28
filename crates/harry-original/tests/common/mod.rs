@@ -44,6 +44,17 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
     }
 }
 
+pub fn tile_name(t: Option<HitTileTask>) -> &'static str {
+    match t {
+        None => "-",
+        Some(HitTileTask::Player) => "HitPlayerTileSprite",
+        Some(HitTileTask::PlayerShot) => "HitPlayerShotTileSprite",
+        Some(HitTileTask::Plant) => "HitPlantTileSprite",
+        Some(HitTileTask::EnemyShot) => "HitEnemyShotTileSprite",
+        Some(HitTileTask::Ramp) => "HitRampTileSprite",
+    }
+}
+
 /// The recorders' event names: p:<snd>, 3d:<snd>, x:<h>:<v>:<a>:<b>
 /// (EasyExplosion), n:<kind>:<h>:<v>:<speed v>:<speed h> (SATNewSprite).
 pub fn event(e: &SpriteEvent) -> String {
@@ -113,17 +124,7 @@ pub fn dump(s: &Sprite) -> String {
     let mut out: Vec<String> = fields.iter().map(|(n, v)| format!("{n}={v}")).collect();
     out.push(format!("task={}", task_name(s.task)));
     out.push(format!("hit={}", hit_name(s.hit_task)));
-    out.push(format!(
-        "tile={}",
-        match s.hit_tile_task {
-            None => "-",
-            Some(HitTileTask::Player) => "HitPlayerTileSprite",
-            Some(HitTileTask::PlayerShot) => "HitPlayerShotTileSprite",
-            Some(HitTileTask::Plant) => "HitPlantTileSprite",
-            Some(HitTileTask::EnemyShot) => "HitEnemyShotTileSprite",
-            Some(HitTileTask::Ramp) => "HitRampTileSprite",
-        }
-    ));
+    out.push(format!("tile={}", tile_name(s.hit_tile_task)));
     out.join(" ")
 }
 

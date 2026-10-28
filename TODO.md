@@ -32,7 +32,7 @@
 - [ ] Ramps, stairs, half pipes (`HandleRampCollision`, `HandleStairsCollision`, `HandleHalfPipe`, `JumpScale`)
 - [ ] Meters: what changes comfort / favor; death and respawn (`HandlePlayerSpriteDeath`, copier saves)
 - [x] SAT run order (`HandleSprites`): tasks, sort pass, collision pass, player collisions - 20 000 cases
-- [ ] Idle sprites (`HandleIdleSprites`) and level start (`SetupLevelSprites`, `GenerateSprite`) in the port
+- [x] Idle sprites (`HandleIdleSprites`) and level start (`SetupLevelSprites`, `GenerateSprite`) in the port; SAT records with the free list (3000 cases)
 - [x] Sprite record in the port (`sprite::Sprite`), faces by HrSp id; bonus, item, exit (9 000 cases)
 - [x] `HitPlayerSprite` for bonus and item (12 000 cases)
 - [x] Door (kinds + `HitPlayerSprite`, 3 000 + 30 000 cases)
@@ -47,7 +47,8 @@
 - [x] Dart enemy (+ `HitPlayerSprite`), props (15 000 cases)
 - [x] Ramp: setup, task, `HandleRampCollision`, `HitPlayerSprite` (50 000 + 30 000 cases)
 - [x] Pushable ramps: `HitRampSprite` (`RectBounceFake2`), `HitRampTileSprite` (`WallBounce2`, `BGTileBounce2`), 24 000 cases
-- [ ] `EraseSprites`: +0x94 / +0x96 countdowns, frozen sprites leave, level entries updated
+- [x] `EraseSprites`: +0x94 / +0x96 countdowns, frozen sprites leave, level entries updated
+- [ ] Whole frame of level 1: player and held weapon creation, `FindUpperLeftCorner`, task dispatch, `CheckPlayerCollision`, `CheckTileCollisions` for all sprites
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [ ] Enemy shots hitting robots, grates, sliding doors, barrels, chairs - with those kinds
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock

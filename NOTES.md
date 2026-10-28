@@ -423,6 +423,29 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   hot rect at `at` does not touch the view rect. Fields not saved (e.g.
   +0x90, +0x94, +0x96, +0x98…+0x9c, scale2/3) come back with whatever
   the reused record held.
+- **SAT records** (`FUN_10060cbc` = new, `FUN_1005cb9c` = kill): killed
+  records go onto a free list (LIFO, linked by +0x2e, head at SAT +0x110)
+  and are reused first; a reused record gets only its task, hit task and
+  SAT's own fields (+0x16, +0x22, +0x26…+0x2d, +0x36, +0x3e, +0x46)
+  cleared - so `IdleToActiveSprite`, which runs no setup, leaves +0x6a,
+  +0x78, +0x90, +0x94, +0x96, +0x98…+0x9c and scale2/3 as the record's
+  last sprite had them. New records come from `NewPtrClear` (record size
+  0xa2, set by `InitSAT` via `FUN_1005fd08`). A new sprite without setup
+  gets SAT's default task (`_DAT_100666bc`), which `IdleToActiveSprite`
+  replaces.
+- **`EraseSprites`** (each drawn frame), apart from the drawing: a sprite
+  without a task or frozen is killed (frozen with a level index: its level
+  entry's byte 0 cleared and its idle slot freed); every other one gets
+  +0x8a = 0, +0x86 = face, +0x82 / +0x84 = at (v / h), scale2 / 3 =
+  scale0 / 1, +0x94 and +0x96 counted toward 0 while not 0 (negative ones
+  further down), and its level entry gets its kind and at + 6.
+- `harry_core::world` (`World`: records, list, free list, idle table,
+  props) with `re/tools/emu_world.py`: `SetupLevelSprites` on all 15
+  levels (cut down to the ported kinds), then frames of
+  `HandleIdleSprites` with a moving view, random deaths and
+  `EraseSprites` - 3000 cases, list (with record identities), free list,
+  idle table, level entries and props all matching. The recorder needs
+  `SATConfigure`, the record size and SAT's init flag set by hand.
 - **Object ids → sprite kinds** (`GenerateSprite`; "idle" = via
   `AddIdleSprite`, "even" = position rounded to even pixels toward 0):
   301–319 desk (direct); 500–501 cooler, 550 barrel, 560 chair, 601 plant

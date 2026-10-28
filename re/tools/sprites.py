@@ -64,6 +64,8 @@ def dump(m, sp, faces, tv):
     for name, off, size in FIELDS:
         b = m.read(sp + off, size)
         v = b[0] if size == 1 else struct.unpack(">h" if size == 2 else ">i", b)[0]
+        if name == "f86":
+            v = faces.name(v & 0xFFFFFFFF)          # the last frame's face
         out.append(f"{name}={v}")
     out.append("face=%d" % faces.name(m.r32(sp + 0x7E)))
     for name, off in (("task", 0x1A), ("hit", 0x1E), ("tile", 0x9E)):
