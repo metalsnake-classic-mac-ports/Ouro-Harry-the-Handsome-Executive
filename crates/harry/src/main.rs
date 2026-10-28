@@ -330,7 +330,6 @@ fn main() -> Result<()> {
                 }
             }
         }
-        mixer.fill();
         let (image, lines) = picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b));
         image.to_rgb24(&palette, &mut rgb);
         let w = render::SCREEN_WIDTH;
