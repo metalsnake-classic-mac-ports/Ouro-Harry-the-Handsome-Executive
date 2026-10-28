@@ -59,6 +59,7 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
     match other.task {
         Some(Task::Door) => door(h, g, other, w, events),
         Some(Task::Collider) if on_floor && !matches!(other.kind, 3100 | 3101) => collider(h, g, other, w.physics),
+        Some(Task::DartEnemy) if on_floor => collider(h, g, other, w.physics),
         Some(Task::Bonus) if on_floor => bonus(g, other, voice_playing, events),
         Some(Task::Item) if on_floor => pick_up(g, other, events),
         _ => {}
@@ -133,7 +134,7 @@ fn pick_up(g: &mut PlayerGlobals, other: &mut Sprite, events: &mut Vec<TouchEven
     }
 }
 
-/// Colliders other than the phone (and dart enemies, scientists and
+/// Colliders other than the phone and dart enemies (and scientists and
 /// co-workers, which come with their kinds): Harry bounces off the hot
 /// rect (his normal one, the level's bounce) - once a frame (`flag50`),
 /// whatever he touches after that in the same frame does nothing here.

@@ -656,6 +656,29 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   formula, the never-zero slope sides) and two rare edges (exactly 4096,
   wall kind 55).
 
+- **Dart enemy** (1011 / 1021 / 1031 / 1041 throwing right, left, up,
+  down; layer 9, hot rect (8, 8, 24, 24), faces 2501 + dir + 7 × the
+  direction). Only while `at` is in the view widened by 64 px up and left
+  (`PtInRect` with (view.h − 64, view.v − 64, view.h + 512, view.v +
+  512)): `f6e` counts frames - dir 1 / 2 / 3 / 4 / 5 at 1 / 4 / 7 / 10 /
+  13, at 20 dir 6, sound 300 and `ThrowDart`, at 22 dir 0; other frames
+  count down the timer (a hit's pause) or, with timer 0 and past frame
+  45, start over with a 1 in 25 chance (`SATRand(25) == 2`). Layer 10 (hit)
+  goes back to 7. `ThrowDart`: from `pos` + the hand of frame 6 (1011
+  (23, 19), 1021 (1, 4), 1031 (20, 1), 1041 (4, 21) as (h, v)) a dart
+  kind + 7 - or with the level entry's info #0 = 1 a paper ball 1051
+  thrown forward at 1100–1699 with −250…249 across; info #0 other than 0
+  / 1 throws nothing. A player shot hitting it stops (sound 4700), the
+  enemy pauses 65–134 frames and Harry loses 3 corporate favor.
+  `HitPlayerSprite` treats it like a collider (`RectBounce`).
+- `re/tools/emu_dart.py`: 15 000 cases, all matching; 22 of 23 mutations
+  caught (the survivor changes a hand offset of frame 1, which only the
+  drawing uses).
+- **Props** (`AddBGProp` / `AddFGProp`): object ids 1019 / 1029 / 1039 /
+  1049 become background pictures (HrSp 6034–6037), 1609 / 1619 / 1629 /
+  1639 foreground ones (6051–6054) - no sprite, just (point, face) in a
+  table of 64 slots each, drawn when the point is in the view.
+
 ### Harry touches a sprite (`HitPlayerSprite`)
 
 - Called by `CheckPlayerCollision`; nothing when Harry or the other

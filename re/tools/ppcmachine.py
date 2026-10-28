@@ -91,7 +91,7 @@ class Machine:
         self.ticks = 0
         self.trace_calls = False
         for n, f in (("SetRect", self.tb_setrect), ("Random", self.tb_random),
-                     ("TickCount", self.tb_tickcount), ("SectRect", self.tb_sectrect), ("NewRgn", self.tb_newrgn),
+                     ("TickCount", self.tb_tickcount), ("SectRect", self.tb_sectrect), ("PtInRect", self.tb_ptinrect), ("NewRgn", self.tb_newrgn),
                      ("CopyRgn", self.tb_copyrgn), ("OffsetRgn", self.tb_offsetrgn), ("SectRgn", self.tb_sectrgn),
                      ("EmptyRgn", self.tb_emptyrgn), ("DisposeRgn", self.tb_disposergn),
                      ("NewGWorld", self.tb_newgworld), ("GetGWorldPixMap", self.tb_getgworldpixmap),
@@ -217,6 +217,14 @@ class Machine:
             return 0
         self.write(self.get(5), struct.pack(">hhhh", *r))
         return 1
+
+    def tb_ptinrect(self):
+        """PtInRect(pt, &r): pt by value (v high, h low); top / left inside,
+        bottom / right not."""
+        pt = self.get(3)
+        v, h = struct.unpack(">hh", struct.pack(">I", pt))
+        r = struct.unpack(">hhhh", self.read(self.get(4), 8))
+        return int(r[0] <= v < r[2] and r[1] <= h < r[3])
 
     # --- QuickDraw regions: pixel sets in Python, handle + {rgnSize, rgnBBox}
     # in memory (the game reads rgnBBox directly) ---

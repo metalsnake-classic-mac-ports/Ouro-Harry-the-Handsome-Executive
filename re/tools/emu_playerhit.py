@@ -1,5 +1,5 @@
 """Record HitPlayerSprite - Harry touching another sprite - for the kinds
-the port has (bonus, item, door, collider). The other sprite is made by its real
+the port has (bonus, item, door, collider, dart enemy). The other sprite is made by its real
 setup; doors get a level entry (index, info #0) on level 1.
 
 Each line: "<name=value ...> -> <name=value ...>"
@@ -32,7 +32,8 @@ DOORS = [901, 902, 903, 911, 912, 913, 921, 922, 923, 931, 932, 933]
 HINGE = {0: (30, 35), 1: (31, 17), 2: (34, 19), 3: (5, 18)}
 KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("SetupItemSprite", ITEMS),
          ("SetupDoorSprite", DOORS), ("SetupDoorSprite", DOORS),
-         ("SetupColliderSprite", [9600, 9600, 9800, 9800, 9199, 9200, 2301, 3100, 3101, 9300, 9411])]
+         ("SetupColliderSprite", [9600, 9600, 9800, 9800, 9199, 9200, 2301, 3100, 3101, 9300, 9411]),
+         ("SetupDartEnemySprite", [1011, 1021, 1031, 1041])]
 FRAME = STACK_TOP - 0x1000 - 0x140              # HitPlayerSprite's r1
 CASES = 30000
 
@@ -41,7 +42,7 @@ def main():
     work = sys.argv[1] if len(sys.argv) > 1 else "re/work"
     m = Machine(f"{work}/ppc")
     Faces(m)
-    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitPlayerKickRects"):
+    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitPlayerKickRects"):
         m.call(init)
     lvl = m.load_level(open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read())
     ev = []

@@ -20,6 +20,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::Plant) => "HandlePlantSprite",
         Some(Task::Message) => "HandleMessageSprite",
         Some(Task::Collider) => "HandleColliderSprite",
+        Some(Task::DartEnemy) => "HandleDartEnemySprite",
     }
 }
 
@@ -37,6 +38,7 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Message) => "HitMessageSprite",
         Some(HitTask::Collider) => "HitColliderSprite",
         Some(HitTask::EnemyShot) => "HitEnemyShotSprite",
+        Some(HitTask::DartEnemy) => "HitDartEnemySprite",
     }
 }
 

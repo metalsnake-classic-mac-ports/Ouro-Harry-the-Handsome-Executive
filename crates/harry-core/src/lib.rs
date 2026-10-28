@@ -8,6 +8,7 @@
 pub mod air;
 pub mod bounce;
 pub mod collider;
+pub mod dart_enemy;
 pub mod enemy_shot;
 pub mod frame;
 pub mod inventory;
@@ -18,6 +19,7 @@ pub mod mask;
 pub mod moves;
 pub mod physics;
 pub mod player;
+pub mod props;
 pub mod random;
 pub mod sat;
 pub mod shots;

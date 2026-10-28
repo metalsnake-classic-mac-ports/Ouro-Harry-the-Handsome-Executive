@@ -48,6 +48,8 @@ pub struct PlayerGlobals {
     pub kick_reset: bool,
     pub comfort: i16,
     pub comfort_shown: i16,
+    /// Corporate favor (`gCorporateFavor`, 0–144; below 1 Harry is fired).
+    pub favor: i16,
     pub favor_shown: i16,
     pub surface: i16,
     /// The selected inventory slot, −1 none.
