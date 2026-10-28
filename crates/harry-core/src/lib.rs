@@ -27,6 +27,7 @@ pub mod shots;
 pub mod sprite;
 pub mod tiles;
 pub mod touch;
+pub mod view;
 pub mod world;
 
 pub use level::Level;

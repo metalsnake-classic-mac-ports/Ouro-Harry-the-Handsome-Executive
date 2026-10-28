@@ -166,6 +166,28 @@ tests against Basilisk II.
 - Ends when the "level done" flag is set; then `EndLevelEffect` if comfort
   or corporate favor dropped below 1.
 
+### The view (`FindUpperLeftCorner`)
+
+- The view is the top-left corner (v, h) of the 448 × 448 game area
+  (`_DAT_100659bc`), set once per frame after the sprites moved. The
+  scroll preference (prefs +8): **0** still; **1** follow - a target
+  (`_DAT_10065984`) eases toward Harry's top-left − 208 by 1/16 of the
+  distance (at least 1 px) and the view is the target; **2** lead - the
+  same target, the view at target − 2 × (target − (Harry − 208)), i.e.
+  ahead of him; **3 / 4** pages - when Harry's centre is more than 144 px
+  from the view's middle (or 145 px across), the view scrolls in that
+  direction (straight when the other axis is under 73 px, else diagonal)
+  176 px in 12 steps (8, 16 × 10, 8) or 160 px in 6 steps (16, 32 × 4,
+  16).
+- Then, in every mode: prefs +2 rounds v down to even; a shake counter
+  (`_DAT_10065ad0`) moves the view by ±counter / 2 (alternating, not
+  while paging) and counts down; Harry's centre is kept within 196 px of
+  the (old) middle; the corner is clamped to 0…3648.
+- `harry_core::view` with `re/tools/emu_view.py`: 6000 walks of up to 40
+  frames in all five modes, all matching; the surviving mutations are
+  equivalent (shift vs. division of a positive number, edges that move
+  by 0).
+
 ### Meters (`UpdateMeters`, panel x 473–620)
 
 | Meter | value | shown | y |
