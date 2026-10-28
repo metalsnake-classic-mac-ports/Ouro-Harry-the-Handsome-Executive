@@ -242,6 +242,7 @@ impl World {
     /// first free slot (position and level index as given, `face` if not
     /// 0) and free its record. A full table drops it (the original shows
     /// an error dialog).
+    #[allow(clippy::too_many_arguments)]
     pub fn add_idle(&mut self, kind: i16, h: i16, v: i16, index: i16, face: Face, setup: Setup, rng: &mut Random) {
         let Some(slot) = self.idle.iter().position(|s| !s.used) else { return };
         let i = self.sprites.spawn(kind, h, v, setup, rng);
@@ -358,8 +359,8 @@ impl World {
             let r = &mut self.sprites.recs[i];
             let li = usize::try_from(r.level_index).ok().filter(|&x| x < 256);
             if r.task.is_none() || r.frozen {
-                if r.frozen && li.is_some() {
-                    level.sprites[li.unwrap()].present = false;
+                if let Some(li) = li.filter(|_| r.frozen) {
+                    level.sprites[li].present = false;
                     if let Some(s) = usize::try_from(r.idle_index).ok().filter(|&x| x < 256).and_then(|x| self.idle.get_mut(x)) {
                         s.used = false;
                     }
