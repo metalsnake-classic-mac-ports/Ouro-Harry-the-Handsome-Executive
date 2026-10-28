@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/harry-core", "crates/harry-original"]
+members = ["crates/harry-core", "crates/harry-data", "crates/harry-original", "crates/harry"]
 
 [workspace.package]
 version = "0.1.0"
@@ -10,4 +10,7 @@ repository = "https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Han
 
 [workspace.dependencies]
 harry-core = { path = "crates/harry-core" }
+harry-data = { path = "crates/harry-data" }
+anyhow = "1"
+sdl3 = "0.20"
 thiserror = "2"

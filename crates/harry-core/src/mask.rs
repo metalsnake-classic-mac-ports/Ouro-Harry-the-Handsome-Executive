@@ -23,6 +23,27 @@ impl Mask {
         Mask { width, height, bits, pixels }
     }
 
+    /// `BuildMaskRegion` of a face (`width` × `height`, row major, `None`
+    /// transparent): pixels other than index 0 (white) count, but
+    /// `Threshold255Blit` packs each group of 8 pixels least significant
+    /// bit first while `BitMapToRegion` reads the most significant bit as
+    /// the leftmost pixel - so every 8-pixel group comes out mirrored
+    /// (BUGS.md).
+    pub fn from_face(width: usize, height: usize, pixels: &[Option<u8>]) -> Mask {
+        let mut bits = vec![false; width * height];
+        for y in 0..height {
+            for x in 0..width {
+                if pixels[y * width + x].is_some_and(|c| c != 0) {
+                    let mirrored = (x & !7) + 7 - (x & 7);
+                    if mirrored < width {
+                        bits[y * width + mirrored] = true;
+                    }
+                }
+            }
+        }
+        Mask::new(width as i32, height as i32, bits)
+    }
+
     pub fn get(&self, x: i32, y: i32) -> bool {
         x >= 0 && y >= 0 && x < self.width && y < self.height && self.bits[(y * self.width + x) as usize]
     }

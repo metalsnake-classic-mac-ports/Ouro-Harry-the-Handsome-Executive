@@ -1084,9 +1084,33 @@ QuickTime Musical Instruments.
 ## Port and differential tests
 
 - Rust workspace: `crates/harry-core` (game logic, no I/O; doc comments
-  name the original routine), `crates/harry-original` (tests against the
-  original). `cargo test` runs them; tests that need recordings skip when
-  `re/work/diff/` is missing.
+  name the original routine), `crates/harry-data` (the data pack),
+  `crates/harry-original` (the original's formats, `ouro-harry-extract`
+  and the tests against the original), `crates/harry` (the game with
+  SDL3, `ouro-harry`). `cargo test` runs the tests; those that need
+  recordings or the pack skip when `re/work/` lacks them.
+- **Data pack** (`harry-data`, made by `cargo run --release -p
+  harry-original --bin ouro-harry-extract -- re/work/installed
+  re/work/harry-data.zip`): a zip of PNGs and text - the 929 faces with
+  their header rects, the 9 tile sets of Episode 1 (foreground with its
+  mask as transparency), the collision masks (`cicn` 290, 299, 571–574,
+  598, 599, 1299; the wall sheet PICT 160), `Harry Titles` PICT 129 (the
+  game screen) and 150 (the meters), and the 15 levels as text (all
+  decoded fields; the undecoded bytes, empty in Episode 1, are left out).
+  Colours are `clut` 8 (`harry_data::clut8`); the tile set PICT 145's own
+  table maps exactly. `tests/pack.rs` checks the pack against the
+  original files (levels, faces, face masks, masks).
+- **Frontend** (`ouro-harry [pack] [level]`; `--screenshot out.bmp
+  [level] [frames]` renders without a window): `harry_core::game` at 30
+  frames per second with the default key bindings (SDL keys mapped to Mac
+  key codes), drawn into `clut` 8 indices as the original draws: screen
+  picture, background tiles, background props, sprites with +0x8b, the
+  foreground props, foreground tiles, the other sprites; the meters from
+  PICT 150 (`UpdateMeters`: the empty strip, then the value's strip up to
+  the shown value, 3 px shorter above 8 where a round end is drawn - cicn
+  10135–10137, not yet). A new game starts as `InitGameGlobals` (meters
+  72). Level 1 looks as in the emulator; missing: the panel's texts,
+  sprite tints, balloons, sound, music, Harry's death, menus.
 - `re/tools/emu_physics.py` runs `ApplyModedImpulse`, `EnforceMaxSpeed`,
   `HandlePlayerGlide` and `MoveChair` (with `DoScoot`, `DoKick`,
   `DoInch`; `STPlayRegSound` stubbed and counted) of the PPC build in

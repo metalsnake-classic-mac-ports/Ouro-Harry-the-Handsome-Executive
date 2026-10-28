@@ -8,4 +8,5 @@ repository.workspace = true
 
 [dependencies]
 harry-core.workspace = true
+harry-data.workspace = true
 thiserror.workspace = true

@@ -51,7 +51,6 @@
 - [x] Whole frame of level 1: player and held weapon creation, `FindUpperLeftCorner`, task dispatch, `CheckPlayerCollision`, `CheckTileCollisions` for all sprites (600 runs of up to 300 frames)
 - [x] Whole frames with weapons and items: player shots as records, `HitPlayerShotSprite`, effects (explosions), 900 runs
 - [ ] Harry's death (`HandlePlayerSpriteDeath`), `UpLevel`, the ripple, `CheckGameEvents`' other flag
-- [ ] Frontend (SDL3): draw level 1 and its sprites, keys, play the frames
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [ ] Enemy shots hitting robots, grates, sliding doors, barrels, chairs - with those kinds
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
@@ -78,8 +77,9 @@
 - [ ] See the garbage-scale frame (BUGS.md) in the emulator: drop Harry into a hole in level 11
 - [x] Level model (`harry_core::Level`), MacBinary / resource fork / `Hlvl` reader + writer (exact round trip)
 - [x] Graphics readers in Rust: PICT 1/8-bit/direct, cicn, HrSp; masks from the original files
-- [ ] `harry-data`: data pack; extract tool in `harry-original`
-- [ ] Frontend (SDL3)
+- [x] `harry-data`: data pack; extract tool `ouro-harry-extract` in `harry-original`
+- [x] Frontend (SDL3): level 1 drawn and playable at 30 fps (`ouro-harry`)
+- [ ] Frontend: panel texts (level name, score), meter ends (cicn 10135–10137), sprite tints (draw procs), balloons (`ShowBalloon`, world texts), sound, music, menus, preferences
 
 ## Phase 3: emulator
 - [x] SheepShaver built (`re/work/emu-ppc/src`), Mac OS ROM (newworld86.rom) from the user

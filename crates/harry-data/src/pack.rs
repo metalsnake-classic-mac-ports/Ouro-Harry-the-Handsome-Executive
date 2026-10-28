@@ -1,0 +1,205 @@
+//! The data pack: a zip file of ordinary files, made by
+//! `ouro-harry-extract` from the original and read by the game. It holds
+//! no original resource data, only what the game uses, converted:
+//!
+//! - `pack.txt`: [`FORMAT`] on the first line
+//! - `faces.txt`: per face `id top left bottom right` and the second rect;
+//!   `faces/ID.png` its picture (RGBA, colours of the screen palette `clut`
+//!   8, transparent pixels with alpha 0)
+//! - `tiles.txt`: per tile set `foreground background` (PICT ids);
+//!   `tiles/fg_ID.png` (256 × 256, transparent where the mask is clear) and
+//!   `tiles/bg_ID.png` (256 × 384)
+//! - `pictures/ID.png`: pictures (RGBA, opaque)
+//! - `masks/cicn_ID.png`, `masks/walls.png`: collision masks (grey, white
+//!   = set)
+//! - `levels/NN.txt`: the levels of Episode 1 (`level`)
+
+use std::collections::{BTreeMap, HashMap};
+use std::io::{Cursor, Read, Write};
+
+use harry_core::mask::Mask;
+use zip::write::SimpleFileOptions;
+
+use crate::{Face, GameData, Image, MaskImages, Result, TileSet, clut8, corrupt, level};
+
+/// The first line of `pack.txt`.
+pub const FORMAT: &str = "Harry the Handsome Executive data pack 1";
+
+fn encode_png(width: usize, height: usize, color: png::ColorType, data: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    {
+        let mut e = png::Encoder::new(&mut out, width as u32, height as u32);
+        e.set_color(color);
+        e.set_depth(png::BitDepth::Eight);
+        let mut w = e.write_header().expect("PNG header");
+        w.write_image_data(data).expect("PNG data");
+    }
+    out
+}
+
+/// (width, height, RGBA)
+fn decode_png(data: &[u8]) -> Result<(usize, usize, Vec<u8>)> {
+    let mut d = png::Decoder::new(Cursor::new(data));
+    d.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    let mut r = d.read_info().map_err(|e| corrupt(format!("PNG: {e}")))?;
+    let mut buf = vec![0; r.output_buffer_size()];
+    let info = r.next_frame(&mut buf).map_err(|e| corrupt(format!("PNG: {e}")))?;
+    let n = info.color_type.samples();
+    let mut rgba = Vec::with_capacity(info.width as usize * info.height as usize * 4);
+    for px in buf[..info.buffer_size()].chunks_exact(n) {
+        rgba.extend(match n {
+            1 => [px[0], px[0], px[0], 255],
+            2 => [px[0], px[0], px[0], px[1]],
+            3 => [px[0], px[1], px[2], 255],
+            _ => [px[0], px[1], px[2], px[3]],
+        });
+    }
+    Ok((info.width as usize, info.height as usize, rgba))
+}
+
+fn image_png(img: &Image) -> Vec<u8> {
+    let pal = clut8();
+    let rgba: Vec<u8> = img
+        .pixels
+        .iter()
+        .flat_map(|p| match p {
+            Some(i) => {
+                let c = pal[*i as usize];
+                [c[0], c[1], c[2], 255]
+            }
+            None => [0, 0, 0, 0],
+        })
+        .collect();
+    encode_png(img.width, img.height, png::ColorType::Rgba, &rgba)
+}
+
+fn png_image(data: &[u8], colours: &HashMap<[u8; 3], u8>) -> Result<Image> {
+    let (width, height, rgba) = decode_png(data)?;
+    let pixels = rgba
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|p| {
+            if p[3] < 128 {
+                return Ok(None);
+            }
+            colours.get(&[p[0], p[1], p[2]]).map(|&i| Some(i)).ok_or_else(|| corrupt(format!("colour {:?} is not in the palette", &p[..3])))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(Image { width, height, pixels })
+}
+
+fn mask_png(m: &Mask) -> Vec<u8> {
+    let data: Vec<u8> = (0..m.height).flat_map(|y| (0..m.width).map(move |x| (x, y))).map(|(x, y)| if m.get(x, y) { 255 } else { 0 }).collect();
+    encode_png(m.width as usize, m.height as usize, png::ColorType::Grayscale, &data)
+}
+
+fn png_mask(data: &[u8]) -> Result<Mask> {
+    let (w, h, rgba) = decode_png(data)?;
+    Ok(Mask::new(w as i32, h as i32, rgba.as_chunks::<4>().0.iter().map(|p| p[0] >= 128).collect()))
+}
+
+/// The pack of `data` (the bytes of the zip file).
+pub fn write(data: &GameData) -> Result<Vec<u8>> {
+    let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    let mut put = |name: &str, bytes: &[u8]| -> Result<()> {
+        zip.start_file(name, SimpleFileOptions::default()).map_err(|e| corrupt(e.to_string()))?;
+        zip.write_all(bytes).map_err(|e| corrupt(e.to_string()))
+    };
+    put("pack.txt", format!("{FORMAT}\n").as_bytes())?;
+    let mut faces = String::new();
+    for (id, f) in &data.faces {
+        let (b, r) = (f.bounds, f.rect2);
+        faces.push_str(&format!("{id} {} {} {} {} {} {} {} {}\n", b[0], b[1], b[2], b[3], r[0], r[1], r[2], r[3]));
+        put(&format!("faces/{id}.png"), &image_png(&f.image))?;
+    }
+    put("faces.txt", faces.as_bytes())?;
+    let mut tiles = String::new();
+    for ((fg, bg), t) in &data.tile_sets {
+        tiles.push_str(&format!("{fg} {bg}\n"));
+        put(&format!("tiles/fg_{fg}.png"), &image_png(&t.foreground))?;
+        put(&format!("tiles/bg_{bg}.png"), &image_png(&t.background))?;
+    }
+    put("tiles.txt", tiles.as_bytes())?;
+    for (id, p) in &data.pictures {
+        put(&format!("pictures/{id}.png"), &image_png(p))?;
+    }
+    for (id, m) in &data.masks.cicns {
+        put(&format!("masks/cicn_{id}.png"), &mask_png(m))?;
+    }
+    // the 32 wall shapes as one sheet, 8 per row
+    let mut sheet = vec![false; 256 * 128];
+    for (k, m) in data.masks.walls.iter().enumerate() {
+        for y in 0..32 {
+            for x in 0..32 {
+                sheet[(k / 8 * 32 + y) * 256 + k % 8 * 32 + x] = m.get(x as i32, y as i32);
+            }
+        }
+    }
+    put("masks/walls.png", &mask_png(&Mask::new(256, 128, sheet)))?;
+    for (i, l) in data.levels.iter().enumerate() {
+        put(&format!("levels/{:02}.txt", i + 1), level::write(l).as_bytes())?;
+    }
+    let cursor = zip.finish().map_err(|e| corrupt(e.to_string()))?;
+    Ok(cursor.into_inner())
+}
+
+/// Whether these bytes look like a zip file.
+pub fn is_pack(bytes: &[u8]) -> bool {
+    bytes.starts_with(b"PK\x03\x04")
+}
+
+/// Read a pack (the bytes of the zip file).
+pub fn read(bytes: &[u8]) -> Result<GameData> {
+    let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|e| corrupt(e.to_string()))?;
+    let mut get = |name: &str| -> Result<Vec<u8>> {
+        let mut f = zip.by_name(name).map_err(|_| corrupt(format!("{name} missing")))?;
+        let mut d = Vec::new();
+        f.read_to_end(&mut d).map_err(|e| corrupt(format!("{name}: {e}")))?;
+        Ok(d)
+    };
+    let text = |d: Vec<u8>| String::from_utf8_lossy(&d).into_owned();
+    if !text(get("pack.txt")?).starts_with(FORMAT) {
+        return Err(corrupt(format!("pack.txt does not start with {FORMAT:?}")));
+    }
+    let colours: HashMap<[u8; 3], u8> = clut8().iter().enumerate().map(|(i, c)| (*c, i as u8)).collect();
+    let mut faces = BTreeMap::new();
+    for line in text(get("faces.txt")?).lines() {
+        let v: Vec<i16> = line.split_whitespace().map(|w| w.parse().map_err(|_| corrupt("faces.txt"))).collect::<Result<_>>()?;
+        if v.len() != 9 {
+            return Err(corrupt("faces.txt: 9 numbers per line"));
+        }
+        let image = png_image(&get(&format!("faces/{}.png", v[0]))?, &colours)?;
+        faces.insert(v[0], Face { bounds: [v[1], v[2], v[3], v[4]], rect2: [v[5], v[6], v[7], v[8]], image });
+    }
+    let mut tile_sets = BTreeMap::new();
+    for line in text(get("tiles.txt")?).lines() {
+        let v: Vec<i16> = line.split_whitespace().map(|w| w.parse().map_err(|_| corrupt("tiles.txt"))).collect::<Result<_>>()?;
+        if v.len() != 2 {
+            return Err(corrupt("tiles.txt: 2 numbers per line"));
+        }
+        let foreground = png_image(&get(&format!("tiles/fg_{}.png", v[0]))?, &colours)?;
+        let background = png_image(&get(&format!("tiles/bg_{}.png", v[1]))?, &colours)?;
+        tile_sets.insert((v[0], v[1]), TileSet { foreground, background });
+    }
+    let mut pictures = BTreeMap::new();
+    for id in crate::PICTURES {
+        pictures.insert(id, png_image(&get(&format!("pictures/{id}.png"))?, &colours)?);
+    }
+    let mut cicns = BTreeMap::new();
+    for id in [290, 299, 571, 572, 573, 574, 598, 599, 1299] {
+        cicns.insert(id, png_mask(&get(&format!("masks/cicn_{id}.png"))?)?);
+    }
+    let sheet = png_mask(&get("masks/walls.png")?)?;
+    let walls = (0..32)
+        .map(|k| {
+            let bits = (0..32).flat_map(|y| (0..32).map(move |x| (x, y))).map(|(x, y)| sheet.get(k % 8 * 32 + x, k / 8 * 32 + y)).collect();
+            Mask::new(32, 32, bits)
+        })
+        .collect();
+    let mut levels = Vec::new();
+    for i in 1..=15 {
+        levels.push(level::parse(&text(get(&format!("levels/{i:02}.txt"))?))?);
+    }
+    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, levels })
+}

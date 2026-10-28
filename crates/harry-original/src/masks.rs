@@ -25,22 +25,7 @@ pub fn walls(app: &Resources) -> Result<Vec<Mask>, Error> {
         .collect())
 }
 
-/// `BuildMaskRegion` of a face: pixels other than index 0 (white) count,
-/// but `Threshold255Blit` packs each group of 8 pixels least significant
-/// bit first while `BitMapToRegion` reads the most significant bit as the
-/// leftmost pixel - so every 8-pixel group comes out mirrored (BUGS.md).
+/// `BuildMaskRegion` of a face (`Mask::from_face`).
 pub fn from_face(face: &hrsp::Face) -> Mask {
-    let (w, h) = (face.width, face.height);
-    let mut bits = vec![false; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            if face.pixels[y * w + x].is_some_and(|c| c != 0) {
-                let mirrored = (x & !7) + 7 - (x & 7);
-                if mirrored < w {
-                    bits[y * w + mirrored] = true;
-                }
-            }
-        }
-    }
-    Mask::new(w as i32, h as i32, bits)
+    Mask::from_face(face.width, face.height, &face.pixels)
 }

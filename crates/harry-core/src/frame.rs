@@ -81,6 +81,27 @@ pub struct PlayerGlobals {
     pub score: i32,
 }
 
+impl PlayerGlobals {
+    /// A new game (`InitGameGlobals`): the three meters at 72, nothing in
+    /// the inventory, no ammo; the floor kind as the data section starts
+    /// it (1).
+    pub fn new_game() -> PlayerGlobals {
+        let mut g = PlayerGlobals {
+            comfort: 72,
+            comfort_shown: 72,
+            favor: 72,
+            favor_shown: 72,
+            surface: 72,
+            surface_shown: 72,
+            cur_slot: -1,
+            inventory: [(EMPTY, 0); SLOTS],
+            ..Default::default()
+        };
+        g.tile.floor_kind = 1;
+        g
+    }
+}
+
 /// Harry's sprite state beyond `Player`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Harry {
