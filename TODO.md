@@ -38,7 +38,8 @@
 - [x] Door (kinds + `HitPlayerSprite`, 3 000 + 30 000 cases)
 - [x] Water cooler (12 000 cases)
 - [x] Plant movement and tiles (`HandleGlide`, 12 000 cases)
-- [ ] Plant hit task (`HitPlantSprite`: kick, push, objects, shots; needs `RectBounce`)
+- [x] Plant hit task with Harry, plant, cooler, doors, shots; `RectBounce` (20 000 cases)
+- [ ] Remaining `HitPlantSprite` branches with their kinds (effect, mail guy, barrel, desk, chair, robot, grate, ramp, stairs)
 - [ ] Level 1 complete: collider, background props, dart enemy, message, ramp (+ their `HitPlayerSprite` branches)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one

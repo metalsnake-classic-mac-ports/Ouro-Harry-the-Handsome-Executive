@@ -508,8 +508,34 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   obstacles (`BGTileBounce`) with its own mask, always as first contact.
   `re/tools/emu_plant.py`: 12 000 cases of 1–6 frames each with tile
   collisions on all levels (special floors, wall edges), all matching;
-  all 11 mutations caught. The plant's hit task (kicks, pushes, other
-  objects, shots) is next.
+  all 11 mutations caught.
+- **Plant hit task** (`HitPlantSprite`, both on the floor): Harry
+  kicking it (`KICK_RECTS`[dir] touching its hot rect): it shakes (dir
+  1), 3-D sound 1101, flies off away from him (`ApplyModedImpulse` with
+  `InverseMode(dir)` and kick thrust × 13 = 910), kick contact 128.
+  Walking into it: the mask test (his body at his SAT position against
+  cicn 599) moves him out (`at`, fix from it), the plant's fix is reset to
+  its `at`, sound 1100 (if not playing), the plant gets 0.6 of his speed,
+  he keeps −0.3 (doubles, truncated). Against another plant or a cooler:
+  on the same pixel both are jittered apart (`SATRand(0x300)` + 0x100,
+  four times), then the mask test (plant mask against cicn 599 for a
+  plant, cicn 598 - the barrel's - for a cooler); a hit: fix from the
+  moved position, sound 1100, with a plant momentum is traded (other +=
+  0.4 · mine, mine += 0.4 · other's new, both × −0.4), with a cooler the
+  plant only bounces back (× −0.4). Doors (not open), colliders,
+  co-workers: `RectBounce` (centre + 18, the level's bounce). Player and
+  enemy shots (except kind 9610) stop on it, 3-D sound 1101, it shakes;
+  kind 9450 also pushes it (speed / 4). Not yet: effects
+  (`HandleExplodeRadius`), mail guy, barrel, desk, chair, robot, grate,
+  ramp, stairs.
+- `RectBounce` (PPC 0x1001e4bc): if the hot rects (at `at`) overlap, the
+  side is chosen from the centres (h distance against v distance), the
+  sprite put just outside, and the speed across reflected (both × bounce
+  / 256) only when it moves into the rect.
+- `re/tools/emu_planthit.py`: 20 000 cases (Harry kicking / walking,
+  plant, cooler, all door kinds, shots), all matching; 15 of 16
+  mutations caught - the survivor shifts the jitter by 1/256 px, which the
+  mask separation right after almost always overwrites.
 - **Exit** (9990–9999, layer 1): 9991–9994 with faces 3201–3204 and hot
   rects beside them (9991 (96, 0, 100, 64), 9992 (−40, 0, −32, 64), 9993
   (0, 40, 64, 100), 9994 (0, −32, 64, 0)), others no face, (0, 0, 32,

@@ -4,14 +4,13 @@
 //! `HitPlayerSprite`.
 
 use crate::air::{AirSound, PLANT_UNSET_SCALE, half_pipe, jump_scale};
-use crate::bounce::{bg_tile_bounce, wall_bounce};
+use crate::bounce::{bg_tile_bounce, rect_bounce, wall_bounce};
 use crate::level::Level;
-use crate::physics::{Physics, handle_glide};
+use crate::physics::{Physics, apply_moded_impulse, handle_glide, inverse_mode};
 use crate::random::Random;
 use crate::mask::{Mask, mask_hit};
 use crate::sprite::{HitTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{KICK_RECTS, TileHit, offset, sect};
-
 
 /// `SetupBonusSprite` (700–799: the bonus objects Harry collects).
 pub fn setup_bonus(sp: &mut Sprite) {
@@ -388,4 +387,123 @@ pub fn hit_plant_tile(sp: &mut Sprite, hit: TileHit, level: &Level, masks: &Obje
         }, &fg);
     }
     sp.set_body(body);
+}
+
+/// The masks a plant's hit task uses.
+pub struct PlantHitMasks<'a> {
+    /// Harry's body (cicn 299).
+    pub body: &'a Mask,
+    /// Plant and chair (cicn 599).
+    pub plant: &'a Mask,
+    /// Barrel and water cooler (cicn 598).
+    pub barrel: &'a Mask,
+}
+
+/// `(int)(f * s)` in double, then to short.
+fn scaled(f: f64, s: i16) -> i16 {
+    (f * f64::from(s)) as i32 as i16
+}
+
+/// `(int)(a + f * b)` in double, then to short.
+fn plus_scaled(a: i16, f: f64, b: i16) -> i16 {
+    (f64::from(a) + f * f64::from(b)) as i32 as i16
+}
+
+/// `HitPlantSprite` (both on the floor). Harry kicking it (his kick rect
+/// touching it) sends it flying away from him with 13 × the kick thrust;
+/// walking into it, the mask test pushes him out, the plant takes 0.6 of
+/// his speed and he keeps −0.3. Against another plant or a cooler they
+/// are pushed apart (jittered when on the same pixel), a plant trades
+/// momentum (0.4 each way, then both × −0.4), a cooler stays and the
+/// plant bounces back × −0.4. Doors (not open), colliders and co-workers:
+/// `RectBounce`. Shots stop on it and make it shake. `bump_playing`: is
+/// the plant's bump sound (1100) playing?
+#[allow(clippy::too_many_arguments)]
+pub fn hit_plant(
+    sp: &mut Sprite,
+    other: &mut Sprite,
+    masks: &PlantHitMasks,
+    physics: &Physics,
+    rng: &mut Random,
+    kick_contact: &mut i16,
+    bump_playing: bool,
+    events: &mut Vec<SpriteEvent>,
+) {
+    if sp.frozen || other.frozen || sp.air >= 1 || other.air >= 1 {
+        return;
+    }
+    match other.task {
+        Some(Task::Player) => {
+            if other.hot_rect[1] == 0 {
+                let kick = offset(KICK_RECTS[other.dir as usize], other.at.0, other.at.1);
+                if sect(kick, offset(sp.hot_rect, sp.at.0, sp.at.1)) {
+                    sp.dir = 1;
+                    events.push(SpriteEvent::Sound3D(1101));
+                    let thrust = ((i32::from(physics.kick) * 26) >> 1) as i16;
+                    apply_moded_impulse(&mut sp.speed, inverse_mode(other.dir), thrust);
+                    *kick_contact = 0x80;
+                }
+            } else if mask_hit(&mut other.pos, masks.body, sp.at, masks.plant) {
+                sp.dir = 1;
+                other.at = other.pos;
+                other.fix_from_at();
+                sp.fix_from_at();
+                if !bump_playing {
+                    events.push(SpriteEvent::Sound(1100));
+                }
+                sp.speed.h = scaled(0.6, other.speed.h);
+                sp.speed.v = scaled(0.6, other.speed.v);
+                other.speed.h = scaled(-0.3, other.speed.h);
+                other.speed.v = scaled(-0.3, other.speed.v);
+            }
+        }
+        Some(Task::Plant | Task::Cooler) => {
+            if other.fix.0 >> 8 == sp.fix.0 >> 8 && other.fix.1 >> 8 == sp.fix.1 >> 8 {
+                sp.fix.0 -= i32::from(rng.below(0x300)) + 0x100;
+                sp.fix.1 -= i32::from(rng.below(0x300)) + 0x100;
+                other.fix.0 += i32::from(rng.below(0x300)) + 0x100;
+                other.fix.1 += i32::from(rng.below(0x300)) + 0x100;
+            }
+            sp.pos = ((sp.fix.1 >> 8) as i16, (sp.fix.0 >> 8) as i16);
+            sp.at = sp.pos;
+            other.pos = ((other.fix.1 >> 8) as i16, (other.fix.0 >> 8) as i16);
+            other.at = other.pos;
+            let other_mask = if other.task == Some(Task::Cooler) { masks.barrel } else { masks.plant };
+            if mask_hit(&mut sp.pos, masks.plant, other.at, other_mask) {
+                sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+                if !bump_playing {
+                    events.push(SpriteEvent::Sound(1100));
+                }
+                if other.task == Some(Task::Plant) {
+                    other.speed.h = plus_scaled(other.speed.h, 0.4, sp.speed.h);
+                    other.speed.v = plus_scaled(other.speed.v, 0.4, sp.speed.v);
+                    sp.speed.h = plus_scaled(sp.speed.h, 0.4, other.speed.h);
+                    sp.speed.v = plus_scaled(sp.speed.v, 0.4, other.speed.v);
+                    sp.speed.h = scaled(-0.4, sp.speed.h);
+                    sp.speed.v = scaled(-0.4, sp.speed.v);
+                    other.speed.h = scaled(-0.4, other.speed.h);
+                    other.speed.v = scaled(-0.4, other.speed.v);
+                } else {
+                    sp.speed.h = scaled(-0.4, sp.speed.h);
+                    sp.speed.v = scaled(-0.4, sp.speed.v);
+                }
+            }
+        }
+        _ => {}
+    }
+    let door = other.task == Some(Task::Door) && !door_open(other.kind);
+    if door {
+        let mut body = sp.body();
+        rect_bounce(&mut body, 18, i32::from(physics.bounce), sp.hot_rect, other.at, other.hot_rect);
+        sp.set_body(body);
+    }
+    if matches!(other.task, Some(Task::PlayerShot | Task::EnemyShot)) && other.kind != 9610 {
+        other.frozen = true;
+        events.push(SpriteEvent::Sound3D(1101));
+        sp.dir = 1;
+        if other.kind == 9450 {
+            sp.speed.h = sp.speed.h.wrapping_add(other.speed.h >> 2);
+            sp.speed.v = sp.speed.v.wrapping_add(other.speed.v >> 2);
+        }
+    }
 }

@@ -422,3 +422,82 @@ pub fn bg_tile_bounce(
     body.fix = (i32::from(body.at.1) << 8, i32::from(body.at.0) << 8);
     1
 }
+
+/// `RectBounce` (PPC 0x1001e4bc): bounce a sprite (centre at + `half`,
+/// hot rect `hot`) off another sprite's hot rect (at its `at`) when they
+/// overlap: pushed out on the side its centre is nearest to (comparing
+/// the distances to the other's centre), the speed across reflected and
+/// both damped × bounce / 256 if it moves into the rect.
+pub fn rect_bounce(body: &mut Body, half: i16, bounce: i32, hot: Rect, other_at: (i16, i16), other_hot: Rect) {
+    let o = [
+        other_at.0.wrapping_add(other_hot[0]),
+        other_at.1.wrapping_add(other_hot[1]),
+        other_at.0.wrapping_add(other_hot[2]),
+        other_at.1.wrapping_add(other_hot[3]),
+    ];
+    let me = [body.at.0.wrapping_add(hot[0]), body.at.1.wrapping_add(hot[1]), body.at.0.wrapping_add(hot[2]), body.at.1.wrapping_add(hot[3])];
+    if !crate::tiles::sect(me, o) {
+        return;
+    }
+    let ch = body.at.1.wrapping_add(half);
+    let cv = body.at.0.wrapping_add(half);
+    let half_of = |a: i16, b: i16| ((i32::from(b) - i32::from(a)) >> 1) as i16;
+    let oh = other_at.1.wrapping_add(other_hot[1]).wrapping_add(half_of(other_hot[1], other_hot[3]));
+    let ov = other_at.0.wrapping_add(other_hot[0]).wrapping_add(half_of(other_hot[0], other_hot[2]));
+    let old = body.at;
+    let s = &mut body.speed;
+    let damp = |x: i16| ((bounce * i32::from(x)) >> 8) as i16;
+    let flip = |x: i16| ((-(bounce * i32::from(x))) >> 8) as i16;
+    // which side: 0 left, 1 top, 2 bottom, 3 right
+    let side = if ch < oh {
+        let dh = oh.wrapping_sub(ch);
+        if cv < ov {
+            if ov.wrapping_sub(cv) < dh { 0 } else { 1 }
+        } else if cv.wrapping_sub(ov) < dh {
+            0
+        } else {
+            2
+        }
+    } else {
+        let dh = ch.wrapping_sub(oh);
+        if cv < ov {
+            if ov.wrapping_sub(cv) < dh { 3 } else { 1 }
+        } else if cv.wrapping_sub(ov) < dh {
+            3
+        } else {
+            2
+        }
+    };
+    match side {
+        0 => {
+            if s.h > 0 {
+                (s.h, s.v) = (flip(s.h), damp(s.v));
+            }
+            body.at.1 = o[1].wrapping_sub(hot[3]);
+        }
+        3 => {
+            if s.h < 0 {
+                (s.h, s.v) = (flip(s.h), damp(s.v));
+            }
+            body.at.1 = o[3].wrapping_sub(hot[1]);
+        }
+        1 => {
+            if s.v > 0 {
+                (s.h, s.v) = (damp(s.h), flip(s.v));
+            }
+            body.at.0 = o[0].wrapping_sub(hot[2]);
+        }
+        _ => {
+            if s.v < 0 {
+                (s.h, s.v) = (damp(s.h), flip(s.v));
+            }
+            body.at.0 = o[2].wrapping_sub(hot[0]);
+        }
+    }
+    if old.1 != body.at.1 {
+        body.fix.0 = i32::from(body.at.1) << 8;
+    }
+    if old.0 != body.at.0 {
+        body.fix.1 = i32::from(body.at.0) << 8;
+    }
+}
