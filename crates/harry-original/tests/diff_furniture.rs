@@ -17,6 +17,7 @@ use harry_core::ramp::setup_ramp;
 use harry_core::stairs::setup_stairs;
 use harry_core::button::setup_sliding_door;
 use harry_core::coworker::setup_coworker;
+use harry_core::mailguy::setup_mail_guy;
 use harry_core::random::Random;
 use harry_core::sprite::{Sprite, Task};
 use harry_core::tiles::touched_tiles;
@@ -175,6 +176,7 @@ fn barrel_and_chair_hits_match_the_original() {
             12 => setup_stairs(&mut o),
             13 => setup_sliding_door(&mut o),
             14 => setup_coworker(&mut o),
+            15 => setup_mail_guy(&mut o),
             11 => {
                 o.kind = 0;
                 setup_effect(&mut o);
@@ -202,6 +204,7 @@ fn barrel_and_chair_hits_match_the_original() {
             s.speed.v = k("speedv") as i16;
             s.air = k("air") as i16;
             s.frozen = k("frozen") != 0;
+            s.level_index = k("li") as i16;
             s.f6e = k("f6e") as i32;
             let hot: Vec<i16> = i[format!("{pre}hot").as_str()].split(':').map(|x| x.parse().unwrap()).collect();
             s.hot_rect = [hot[0], hot[1], hot[2], hot[3]];

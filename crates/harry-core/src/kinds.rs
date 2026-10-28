@@ -9,6 +9,7 @@ use crate::bounce::{bg_tile_bounce, rect_bounce, wall_bounce};
 use crate::level::Level;
 use crate::physics::{Physics, apply_moded_impulse, handle_glide, inverse_mode};
 use crate::ramp::{Rider, handle_ramp_collision};
+use crate::mailguy::mail_guy_crash;
 use crate::random::Random;
 use crate::stairs::object_on_stairs;
 use crate::words::Words;
@@ -453,6 +454,7 @@ pub fn hit_plant(
                 sp.layer = 10;
             }
         }
+        Some(Task::MailGuy) => mail_guy_crash(sp, other, events),
         Some(Task::Player) => {
             if other.hot_rect[1] == 0 {
                 let kick = offset(KICK_RECTS[other.dir as usize], other.at.0, other.at.1);

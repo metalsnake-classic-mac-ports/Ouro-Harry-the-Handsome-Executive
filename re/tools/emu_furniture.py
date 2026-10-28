@@ -15,7 +15,8 @@ sprite is made by its real setup.
 
 Each line: "<name=value ...> -> <dump> [|| <other dump>] | <outputs>"
   events  p:<snd>, 3d:<snd>, 3d:<snd>:<rate> (pitched),
-          x:<h>:<v>:<speed h>:<speed v>:<kind>:<dir> (EasyExplosion)
+          x:<h>:<v>:<speed h>:<speed v>:<kind>:<dir> (EasyExplosion),
+          forget:<i> (level entry cleared), score:<n> (points)
 Usage: python3 -I emu_furniture.py [re/work]
 """
 import os
@@ -33,10 +34,11 @@ from cicn import decode as cicn_decode  # noqa: E402
 SAT, WALLS, OBSTACLE, PHYSICS, CONTACT = 0x10065B70, 0x100658D4, 0x100658D0, 0x100659D8, 0x10065E1C
 BODY_FACE, PLANT_MASK, CHAIR_MASK, BARREL_MASK = 0x10065EA0, 0x10065ED0, 0x10065ECC, 0x10065EF0
 SHAKE, CAFFEINE = 0x10065AD0, 0x10065AD4
-SOUNDS = {0x10065BD8: 801, 0x10065BDC: 800, 0x10065C2C: 258, 0x10065C30: 257, 0x10065BB8: 1101, 0x10065BBC: 1100}
+SOUNDS = {0x10065BF4: 602, 0x10065C0C: 401, 0x10065BD8: 801, 0x10065BDC: 800, 0x10065C2C: 258, 0x10065C30: 257, 0x10065BB8: 1101, 0x10065BBC: 1100}
 DOORS = [901, 902, 903, 911, 912, 913, 921, 922, 923, 931, 932, 933]
 TASKS_PER_LEVEL = 800
 HITS = 40000
+SCORE = 0x10065AF8
 
 
 def s16(x):
@@ -49,13 +51,33 @@ def cicn_mask(work, n):
     return {(x, y) for y in range(h) for x in range(w) if mk[y][x]}
 
 
+def entries(m, base, rnd, st, sp, other):
+    """Level entries for both sprites (present) and the score, before a hit."""
+    for s_, pre in ((sp, ""), (other, "o")):
+        st[pre + "li"] = rnd.choice([-1, rnd.randint(0, 255)])
+        m.w16(s_ + 0x68, st[pre + "li"])
+        if st[pre + "li"] >= 0:
+            m.write(base + 0x10000 + st[pre + "li"] * 16, b"\1")
+    m.w32(m.glob(SCORE), 0)
+
+
+def entry_events(m, base, st, ev):
+    """After a hit: forget:<i> for each entry cleared, score:<n> if points came."""
+    for pre in ("", "o"):
+        i = st[pre + "li"]
+        if i >= 0 and m.read(base + 0x10000 + i * 16, 1)[0] == 0:
+            ev.append(f"forget:{i}")
+    if m.r32(m.glob(SCORE)):
+        ev.append(f"score:{m.r32(m.glob(SCORE))}")
+
+
 def main():
     work = sys.argv[1] if len(sys.argv) > 1 else "re/work"
     m = Machine(f"{work}/ppc")
-    faces = Faces(m)
+    faces = Faces(m, work)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # the mask loader; filled below
     for f in ("InitBarrelSprite", "InitChairSprite", "InitPlantSprite", "InitCoolerSprite", "InitDoorSprite",
-              "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitEffectSprite", "InitTileHotRects", "InitPlayerKickRects"):
+              "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitEffectSprite", "InitTileHotRects", "InitPlayerKickRects"):
         m.call(f)
     tv = tvectors(f"{work}/ppc")
     by_name = {v: k for k, v in tv.items()}
@@ -166,13 +188,13 @@ def main():
     out = open(f"{work}/diff/furniturehit.txt", "w")
     out.write("# HitBarrelSprite / HitChairSprite: name=value inputs -> dump || other dump | contact events\n")
     # other: 1 Harry, 2 barrel, 3 chair, 4 plant, 5 cooler, 6 door, 7 collider, 8 ramp, 9 player shot,
-    # 10 enemy shot, 11 explosion, 12 stairs, 13 sliding door, 14 co-worker
+    # 10 enemy shot, 11 explosion, 12 stairs, 13 sliding door, 14 co-worker, 15 mail guy
     for _ in range(HITS):
         m.heap = mark
         regions()
         kind = rnd.choice([550, 560])
         v, h = rnd.randint(200, 3800), rnd.randint(200, 3800)
-        ok = rnd.choice([1, 1, 1, 1, 2, 2, 3, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11, 12, 13, 14])
+        ok = rnd.choice([1, 1, 1, 1, 2, 2, 3, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11, 12, 13, 14, 15])
         st = {"kind": kind, "v": v, "h": h, "other": ok, "okind": 0,
               "ov": v + rnd.randint(-40, 40), "oh": h + rnd.randint(-40, 40), "samefix": int(rnd.random() < 0.05),
               "speedh": rnd.randint(-2500, 2500), "speedv": rnd.randint(-2500, 2500),
@@ -199,6 +221,8 @@ def main():
             st["okind"] = rnd.choice([951, 961])
         elif ok == 14:
             st["okind"] = rnd.choice([1301, 1321, 1441])
+        elif ok == 15:
+            st["okind"] = rnd.choice([1601, 1611, 1621, 1631])
         elif ok in (9, 10):
             st["okind"] = rnd.choice([0, 1, 9450, 9610])
         elif ok == 11:
@@ -220,7 +244,8 @@ def main():
         m.w16(other + 4, st["oh"])
         setup = {2: "SetupBarrelSprite", 3: "SetupChairSprite", 4: "SetupPlantSprite", 5: "SetupCoolerSprite",
                  6: "SetupDoorSprite", 8: "SetupRampSprite", 11: "SetupEffectSprite", 12: "SetupStairsSprite",
-                 13: "SetupSlidingDoorSprite", 14: "SetupCoWorkerSprite"}.get(ok)
+                 13: "SetupSlidingDoorSprite", 14: "SetupCoWorkerSprite",
+                 15: "SetupMailGuySprite"}.get(ok)
         if setup:
             if ok == 11:
                 # the flames' setup comes with the fire pipes: an explosion's,
@@ -273,8 +298,10 @@ def main():
         busy[0] = st["busy"]
         st["seed2"] = rnd.randint(1, 0x7FFFFFFE)
         m.rand_seed = st["seed2"]
+        entries(m, base, rnd, st, sp, other)
         ev.clear()
         m.call("HitBarrelSprite" if kind == 550 else "HitChairSprite", sp, other)
+        entry_events(m, base, st, ev)
         out.write(f"{fmt(st)} -> {dump(m, sp, faces, tv)} || {dump(m, other, faces, tv)} | "
                   f"contact={m.r16(contact)} events={','.join(ev) or '-'}\n")
     out.close()

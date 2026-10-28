@@ -29,6 +29,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::Button) => "HandleButtonSprite",
         Some(Task::SlidingDoor) => "HandleSlidingDoorSprite",
         Some(Task::CoWorker) => "HandleCoWorkerSprite",
+        Some(Task::MailGuy) => "HandleMailGuySprite",
     }
 }
 
@@ -53,6 +54,7 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Stairs) => "HitStairsSprite",
         Some(HitTask::Button) => "HitButtonSprite",
         Some(HitTask::SlidingDoor) => "HitSlidingDoorSprite",
+        Some(HitTask::MailGuy) => "HitMailGuySprite",
     }
 }
 
@@ -66,6 +68,7 @@ pub fn tile_name(t: Option<HitTileTask>) -> &'static str {
         Some(HitTileTask::Ramp) => "HitRampTileSprite",
         Some(HitTileTask::Barrel) => "HitBarrelTileSprite",
         Some(HitTileTask::Chair) => "HitChairTileSprite",
+        Some(HitTileTask::MailGuy) => "HitMailGuyTileSprite",
     }
 }
 
@@ -79,6 +82,9 @@ pub fn event(e: &SpriteEvent) -> String {
         SpriteEvent::Sound3DPitched { id, rate } => format!("3d:{id}:{rate}"),
         SpriteEvent::Explosion { h, v, a, b } => format!("x:{h}:{v}:{a}:{b}"),
         SpriteEvent::MovingExplosion { h, v, speed, a, b } => format!("x:{h}:{v}:{}:{}:{a}:{b}", speed.h, speed.v),
+        SpriteEvent::DynamicSound { id, volume, speed } => format!("dyn:{id}:{volume}:{}:{}", speed.v, speed.h),
+        SpriteEvent::Score(n) => format!("score:{n}"),
+        SpriteEvent::Forget(i) => format!("forget:{i}"),
         SpriteEvent::Spawn { kind, h, v, speed } => {
             let s = speed.unwrap_or_default();
             format!("n:{kind}:{h}:{v}:{}:{}", s.v, s.h)

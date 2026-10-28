@@ -20,6 +20,7 @@ pub mod inventory;
 pub mod keys;
 pub mod kinds;
 pub mod level;
+pub mod mailguy;
 pub mod mask;
 pub mod moves;
 pub mod physics;

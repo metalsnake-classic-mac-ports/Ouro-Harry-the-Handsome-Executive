@@ -39,11 +39,13 @@
 - [x] Water cooler (12 000 cases)
 - [x] Plant movement and tiles (`HandleGlide`, 12 000 cases)
 - [x] Plant hit task with Harry, plant, cooler, doors, shots; `RectBounce` (20 000 cases)
-- [ ] Remaining `HitPlantSprite` branches with their kinds (mail guy, desk, robot, grate, stairs, sliding doors, co-workers)
+- [ ] Remaining `HitPlantSprite` branches with their kinds (desk, robot, grate)
 - [x] Barrel and chair: setup, task, tiles, hit tasks; in the plant's, enemy shots' and fans' tests (52 000 cases)
 - [x] Stairs: setup, `HandleStairsCollision` for Harry, plants, barrels, chairs (30 000 cases)
 - [x] Buttons and sliding doors (30 000 runs), sliding doors in the Harry, object and shot recorders
 - [x] Co-workers (15 000 runs), as partners of Harry and the objects
+- [x] Mail guy (6000 runs), its crash with objects, Harry run over; levels 2 and 3 have all their kinds
+- [ ] `STPlayDynamicSound` / `UpdateDynamicSounds`: move the sound's stereo position with the sprite
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
 - [ ] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
 - [x] Colliders: fans (`HandleRepulsions`), phone, copier, magnet, wall guns, vending machine, gate (20 000 cases)

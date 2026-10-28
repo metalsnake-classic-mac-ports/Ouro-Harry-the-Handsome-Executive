@@ -705,6 +705,36 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   `re/tools/emu_coworker.py`: 15 000 runs of 1–60 frames, all matching, 6
   of 6 mutations caught; co-workers are also in the Harry, plant and
   barrel / chair recorders.
+- **Mail guy** (1601 up, 1611 down, 1621 right, 1631 left; made directly
+  with its level index; layer 9, faces 3701–3704 from PICT 1601–1631, hot
+  rect = the face's bounds: (0, 0, 64, 34) upright, (0, 0, 34, 64)
+  across). Its state lives in its level entry: on its first frame (+0x8b)
+  `timer` = info #0, `dir` = info #1; every frame timer, dir and kind are
+  written back (the index unchecked). `timer` counts toward 0 - from above
+  reaching 0 it stops the cart (dir + 1). dir 0: running (only its own
+  speed component set to ±15); else stopped: speed 0, dir + 1, and from
+  41 on `SATRand(40)` = 1 turns it round - the opposite kind, dir 0,
+  timer −9, the old way's speed set once more (it moves 15 px on before
+  turning), `STPlayDynamicSound(400)` at its position with its speed
+  (half volume when 1631 turns). It moves in whole pixels (`pos`, `at`).
+  Tile task: running (timer and dir 0) into a wall shape that faces its
+  way - 1601 {1, 5, 6, 8, 11, 13, 14, 18, 21, 26, 29}, 1611 {3, 4, 7, 9,
+  10, 12, 15, 16, 23, 24, 31}, 1621 {2, 6, 7, 8, 9, 14, 15, 19, 22, 27,
+  30}, 1631 {0, 4, 5, 10, 11, 12, 13, 17, 20, 25, 28} - timer 6. Hit task:
+  shots stop (robots and blobs get +0x72 cleared). Harry touching a
+  running cart (dir 0, `_DAT_10065e40` = 0): that cooldown 18, `Ouch`,
+  comfort delta − 10, his speed + the cart's × 128. Plants, barrels,
+  chairs meeting it (`mail_guy_crash`): both frozen, sounds 602 and 401,
+  explosions at the cart (kind 1 frame 4 with its speed, kind 0 with half
+  of it) and at the object − 20 (frame −4, its speed / 256), both level
+  entries cleared, score + 5000. It presses buttons.
+  `re/tools/emu_mailguy.py`: 6000 runs of 1–150 frames at the mail guys'
+  places in Episode 1 with tile collisions, all matching, 8 of 8
+  mutations caught; the crash is in the plant and barrel / chair
+  recorders (with score and level entries now), Harry's in the touch
+  recorder (with `_DAT_10065e40`). The port plays the dynamic sound at
+  the cart without moving it (the original moves its stereo position
+  with the speed while it plays).
 - **Message** (21000 and up; layer 9, faces 3801–3805): the mode
   (`f6e`) is the level entry's info #1, read each frame: 0 a memo on the
   floor (hot rect (−8, −8, 32, 32), the face blinking 3801 → 3805 → 3801

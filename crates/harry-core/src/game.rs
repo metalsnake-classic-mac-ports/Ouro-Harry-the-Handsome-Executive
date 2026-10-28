@@ -277,6 +277,16 @@ impl Game {
                     let i = self.explosion(h, v, a, b);
                     self.world.sprites.recs[i].speed = speed;
                 }
+                SpriteEvent::DynamicSound { id, volume, speed: _ } => {
+                    // the port does not move the sound with the sprite yet
+                    self.play(id, volume, Some(at), RATE, Channel::Effect);
+                }
+                SpriteEvent::Score(n) => self.g.score = self.g.score.wrapping_add(n),
+                SpriteEvent::Forget(i) => {
+                    if let Some(e) = usize::try_from(i).ok().and_then(|i| self.level.sprites.get_mut(i)) {
+                        e.present = false;
+                    }
+                }
                 SpriteEvent::Sound3DPitched { id, rate } => self.play(id, 0x100, Some(at), rate, Channel::Effect),
                 SpriteEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
                 SpriteEvent::Sound3D(id) => self.play(id, 0x100, Some(at), RATE, Channel::Effect),
@@ -575,6 +585,7 @@ impl Game {
                 s.into_sprite(&mut sp);
             }
             Some(Task::Effect) => handle_effect(&mut sp),
+            Some(Task::MailGuy) => crate::mailguy::handle_mail_guy(&mut sp, &mut self.level, &mut self.rng, &mut events),
             Some(Task::CoWorker) => crate::coworker::handle_coworker(&mut sp, &mut self.rng),
             Some(Task::Button) => handle_button(&mut sp, &mut self.level, &mut events),
             Some(Task::SlidingDoor) => handle_sliding_door(&mut sp, &self.level, &mut events),
@@ -636,6 +647,7 @@ impl Game {
             Some(HitTask::DartEnemy) => hit_dart_enemy(&mut sp, &mut o, &mut self.g, &mut self.rng, &mut events),
             Some(HitTask::Ramp) => hit_ramp(&mut sp, &o, self.physics.bounce),
             Some(HitTask::PlayerShot) => hit_player_shot(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
+            Some(HitTask::MailGuy) => crate::mailguy::hit_mail_guy(&sp, &mut o),
             Some(HitTask::Button) => hit_button(&mut sp, &o, &mut events),
             Some(HitTask::Bonus | HitTask::Item | HitTask::Stairs | HitTask::SlidingDoor) | None => {}
             Some(t) => panic!("hit task {t:?} is not in the frame yet"),
@@ -751,6 +763,7 @@ impl Game {
                         let ms = ObjectMasks { plant: assets.barrel, walls, obstacle: &assets.player.obstacle };
                         hit_object_tile(sp, hit, &self.level, &ms, 12, &self.physics);
                     }
+                    HitTileTask::MailGuy => crate::mailguy::hit_mail_guy_tile(sp, hit),
                     HitTileTask::EnemyShot => {
                         let ms = ShotMasks { shot: assets.shot, walls, obstacle: &assets.player.obstacle };
                         hit_enemy_shot_tile(sp, hit, &self.level, &ms);

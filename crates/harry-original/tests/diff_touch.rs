@@ -16,6 +16,7 @@ use harry_core::ramp::setup_ramp;
 use harry_core::stairs::setup_stairs;
 use harry_core::button::setup_sliding_door;
 use harry_core::coworker::setup_coworker;
+use harry_core::mailguy::setup_mail_guy;
 use harry_core::kinds::{setup_bonus, setup_door, setup_item};
 use harry_core::physics::Speed;
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT, Player, TileState};
@@ -81,6 +82,7 @@ fn touching_matches_the_original() {
             comfort: w("comfort"),
             favor: w("favor"),
             t24: w("t24"),
+            t40: w("t40"),
             t28: w("t28"),
             ammo: Ammo { staple: w("staple"), badass: w("badass"), shrapnel: w("shrapnel") },
             cur_slot: w("curslot"),
@@ -102,6 +104,7 @@ fn touching_matches_the_original() {
             ..800 => setup_bonus(&mut other),
             951 | 961 => setup_sliding_door(&mut other),
             1301 | 1321 | 1441 => setup_coworker(&mut other),
+            1601 | 1611 | 1621 | 1631 => setup_mail_guy(&mut other),
             900..1000 => setup_door(&mut other),
             1011 | 1021 | 1031 | 1041 => setup_dart_enemy(&mut other),
             // the recorder's enemy shot kinds
@@ -112,6 +115,7 @@ fn touching_matches_the_original() {
             _ => setup_collider(&mut other, &mut Random::new(1)),
         }
         other.timer = w("otimer");
+        other.dir = w("omdir");
         if i["setospeed"] != "-" {
             let (v, h) = i["setospeed"].split_once(':').unwrap();
             other.speed = Speed { v: v.parse().unwrap(), h: h.parse().unwrap() };
@@ -143,6 +147,7 @@ fn touching_matches_the_original() {
             ("comfort", g.comfort.to_string()),
             ("t24", g.t24.to_string()),
             ("t28", g.t28.to_string()),
+            ("t40", g.t40.to_string()),
             ("staple", g.ammo.staple.to_string()),
             ("badass", g.ammo.badass.to_string()),
             ("shrapnel", g.ammo.shrapnel.to_string()),

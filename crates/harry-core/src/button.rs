@@ -106,7 +106,7 @@ pub fn hit_button(sp: &mut Sprite, other: &Sprite, events: &mut Vec<SpriteEvent>
     }
     let player = other.task == Some(Task::Player);
     let down = if sp.kind < PLATE { snd::BUTTON_DOWN } else { snd::PLATE_DOWN };
-    if (player && other.hot_rect[1] != 0) || matches!(other.task, Some(Task::Plant | Task::Barrel | Task::Chair)) {
+    if (player && other.hot_rect[1] != 0) || matches!(other.task, Some(Task::Plant | Task::Barrel | Task::Chair | Task::MailGuy)) {
         if sp.dir == 0 {
             events.push(SpriteEvent::Sound3D(down));
         }

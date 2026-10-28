@@ -36,6 +36,7 @@ pub enum Task {
     Button,
     SlidingDoor,
     CoWorker,
+    MailGuy,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -61,6 +62,7 @@ pub enum HitTask {
     Button,
     /// `HitSlidingDoorSprite`: does nothing.
     SlidingDoor,
+    MailGuy,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -73,6 +75,7 @@ pub enum HitTileTask {
     Ramp,
     Barrel,
     Chair,
+    MailGuy,
 }
 
 /// What a sprite routine asks of the rest of the game.
@@ -88,6 +91,13 @@ pub enum SpriteEvent {
     Explosion { h: i16, v: i16, a: i16, b: i16 },
     /// `EasyExplosion(h, v, speed h, speed v, a, b)`: a moving one.
     MovingExplosion { h: i16, v: i16, speed: Speed, a: i16, b: i16 },
+    /// `STPlayDynamicSound` at the sprite: a sound whose stereo position
+    /// moves on with `speed` (px a frame) while it plays.
+    DynamicSound { id: i16, volume: i16, speed: Speed },
+    /// Points for Harry.
+    Score(i32),
+    /// Level entry `i` is cleared (byte 0): the sprite will not come back.
+    Forget(i16),
     /// `SATNewSprite(kind, h, v, setup)`: a new sprite with the setup of
     /// its kind (enemy shots, the soda can item), then its speed set if
     /// the caller sets one.

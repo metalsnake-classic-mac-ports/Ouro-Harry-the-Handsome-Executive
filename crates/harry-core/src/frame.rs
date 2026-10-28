@@ -23,7 +23,8 @@ pub struct PlayerGlobals {
     pub tile: TileState,
     pub inv_switch_delay: i16,
     pub fire_delay: i16,
-    /// `_DAT_10065e40`, counted down; meaning unknown.
+    /// `_DAT_10065e40`, counted down: frames until the mail cart can run
+    /// Harry over again.
     pub t40: i16,
     pub item_use_delay: i16,
     pub recoil: i16,

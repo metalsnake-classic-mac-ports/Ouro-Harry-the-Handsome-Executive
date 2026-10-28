@@ -76,6 +76,16 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
             let p = &mut h.player;
             stairs_collision(&mut p.body, &mut p.air, &mut h.air.flip, 32, HOT_RECT, other, w.physics.bounce);
         }
+        Some(Task::MailGuy) => {
+            if g.t40 == 0 && other.dir == 0 {
+                g.t40 = 18;
+                events.push(TouchEvent::Ouch);
+                g.tile.comfort_delta = g.tile.comfort_delta.wrapping_sub(10);
+                let s = &mut h.player.body.speed;
+                s.h = s.h.wrapping_add(other.speed.h.wrapping_mul(0x80));
+                s.v = s.v.wrapping_add(other.speed.v.wrapping_mul(0x80));
+            }
+        }
         Some(Task::SlidingDoor) => {
             rect_bounce(&mut h.player.body, 32, i32::from(w.physics.bounce), HOT_RECT, other.at, other.hot_rect);
         }

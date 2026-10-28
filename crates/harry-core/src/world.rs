@@ -43,6 +43,7 @@ pub enum Setup {
     Button,
     SlidingDoor,
     CoWorker,
+    MailGuy,
 }
 
 /// Run a setup routine on a sprite.
@@ -67,6 +68,7 @@ pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random) {
         Setup::Button => crate::button::setup_button(sp),
         Setup::SlidingDoor => crate::button::setup_sliding_door(sp),
         Setup::CoWorker => crate::coworker::setup_coworker(sp),
+        Setup::MailGuy => crate::mailguy::setup_mail_guy(sp),
     }
 }
 
@@ -284,7 +286,6 @@ impl World {
         match kind {
             301..=319 | 1100..=1299 | 1700..=1849 | 1850..=1899 | 1900..=1999
             | 2000..=2099 | 2200..=2299 | 3001 | 3900..=3999 | 4200..=4299 | 5000..=5999 | 6000..=6099 => return false,
-            1601 | 1611 | 1621 | 1631 => return false,
             500 | 501 => idle(self, even(h), even(v), Setup::Cooler, rng),
             550 => idle(self, even(h), even(v), Setup::Barrel, rng),
             560 => idle(self, even(h), even(v), Setup::Chair, rng),
@@ -296,6 +297,10 @@ impl World {
                 None => idle(self, h, v, Setup::DartEnemy, rng),
             },
             1300..=1449 => idle(self, even(h) + 1, even(v), Setup::CoWorker, rng),
+            1601 | 1611 | 1621 | 1631 => {
+                let i = self.sprites.spawn(kind, h, v, Setup::MailGuy, rng);
+                self.sprites.recs[i].level_index = index;
+            }
             1600..=1699 => {
                 if let Some((true, face)) = prop_face(kind) {
                     self.fg_props.add((v, h), face);

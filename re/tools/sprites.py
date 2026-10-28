@@ -10,7 +10,7 @@ import struct
 
 
 class Faces:
-    """Stub Load1EncFaceFromCicn and LoadEncFaceSetFromPICT: each face gets
+    """Stub Load1EncFaceFromCicn / Load1EncFaceFromPICT and LoadEncFaceSetFromPICT: each face gets
     a 0x1c-byte record (the game writes its draw proc at +0x18) that maps
     back to the HrSp id it was loaded from."""
 
@@ -56,6 +56,7 @@ class Faces:
                 fill(recs + 0x1C * i, first + i, (lo or hi) and lo <= i <= hi)
             return recs
         m.stub_routine("Load1EncFaceFromCicn", one)
+        m.stub_routine("Load1EncFaceFromPICT", one)
         m.stub_routine("LoadEncFaceSetFromPICT", face_set)
 
     def name(self, p):

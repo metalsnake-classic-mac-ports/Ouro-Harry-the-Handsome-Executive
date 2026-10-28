@@ -1,5 +1,5 @@
 """Record HitPlayerSprite - Harry touching another sprite - for the kinds
-the port has (bonus, item, door, collider, dart enemy, ramp, stairs, sliding door, co-worker, enemy shot). The other sprite is made by its real
+the port has (bonus, item, door, collider, dart enemy, ramp, stairs, sliding door, co-worker, mail guy, enemy shot). The other sprite is made by its real
 setup; doors get a level entry (index, info #0) on level 1.
 
 Each line: "<name=value ...> -> <name=value ...>"
@@ -22,7 +22,8 @@ from sprites import Faces  # noqa: E402
 
 COMFORT, CUR_SLOT, INVENTORY = 0x1006856A, 0x1006857A, 0x10065AC4
 SLOTS = {"t24": 0x10065E24, "t28": 0x10065E28, "staple": 0x10065AEC, "badass": 0x10065AE8, "shrapnel": 0x10065AE4,
-         "contact": 0x10065E1C, "playerh": 0x100659B4, "playerv": 0x100659B0, "ouchcd": 0x10065E44, "cdelta": 0x10065E6C}
+         "contact": 0x10065E1C, "playerh": 0x100659B4, "playerv": 0x100659B0, "ouchcd": 0x10065E44, "cdelta": 0x10065E6C,
+         "t40": 0x10065E40}
 KICK_RESET, PHYSICS, BOUNCED, SCORE = 0x10065E20, 0x100659D8, 0x10065E50, 0x10065AF8
 VOICE, VOICE2, REMARK = 0x10068AA0, 0x10068AA4, 0x10068A98
 SOUNDS = {0x10065CC0: 212, 0x10065CC4: 211, 0x10065CC8: 210, 0x10065CB0: 216, 0x10065CB8: 214,
@@ -37,6 +38,7 @@ KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("
          ("SetupRampSprite", [9701, 9702, 9703, 9704]),
          ("SetupStairsSprite", [9901, 9902, 9903, 9904]), ("SetupSlidingDoorSprite", [951, 961]),
          ("SetupCoWorkerSprite", [1301, 1321, 1441]),
+         ("SetupMailGuySprite", [1601, 1611, 1621, 1631]),
          ("SetupEnemyShotSprite", [1018, 1038, 1051, 9610, 9450, 1800, 1950, 1150, 1299, 2281, 2291, 2500])]
 FRAME = STACK_TOP - 0x1000 - 0x140              # HitPlayerSprite's r1
 CASES = 30000
@@ -45,9 +47,9 @@ CASES = 30000
 def main():
     work = sys.argv[1] if len(sys.argv) > 1 else "re/work"
     m = Machine(f"{work}/ppc")
-    Faces(m)
+    Faces(m, work)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # mask loader (the ramps' masks)
-    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
+    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
         m.call(init)
     lvl = m.load_level(open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read())
     ev = []
@@ -84,7 +86,7 @@ def main():
         kind = rnd.choice(ids)
         st = {"kind": kind, "air": rnd.choice([0, 0, 0, 0, 5]), "pfrozen": int(rnd.random() < 0.03),
               "ofrozen": int(rnd.random() < 0.03), "comfort": rnd.choice([rnd.randint(0, 150), 143, 144, 140]),
-              "t24": rnd.choice([0, 0, rnd.randint(1, 200)]), "t28": rnd.choice([0, 0, rnd.randint(1, 25)]),
+              "t24": rnd.choice([0, 0, rnd.randint(1, 200)]), "t28": rnd.choice([0, 0, rnd.randint(1, 25)]), "t40": rnd.choice([0, 0, 5]),
               "staple": rnd.choice([0, 50, 99, 100, rnd.randint(0, 120)]),
               "badass": rnd.choice([0, 50, 99, 100, rnd.randint(0, 120)]),
               "shrapnel": rnd.choice([0, 50, 99, 100, rnd.randint(0, 120)]),
@@ -105,6 +107,10 @@ def main():
                    "favor": rnd.randint(0, 144)})
         if setup == "SetupEnemyShotSprite" and rnd.random() < 0.7:
             st["setospeed"] = f"{rnd.randint(-2000, 2000)}:{rnd.randint(-2000, 2000)}"
+        st["omdir"] = 0
+        if setup == "SetupMailGuySprite":
+            st["setospeed"] = rnd.choice(["15:0", "-15:0", "0:15", "0:-15", "0:0"])
+            st["omdir"] = rnd.choice([0, 0, 5])
         if setup in ("SetupRampSprite", "SetupStairsSprite"):
             # around the ramp, at any speed
             st["speedv"] = rnd.choice([st["speedv"], rnd.randint(-600, 600)])
@@ -141,6 +147,7 @@ def main():
         m.call(setup, other)
         m.w16(other + 0x68, st["levelindex"])
         m.w16(other + 0x74, st["otimer"])
+        m.w16(other + 0x66, st["omdir"])
         if st["setospeed"] != "-":
             sv, sh = map(int, st["setospeed"].split(":"))
             m.w16(other + 0x4E, sv)
@@ -183,7 +190,7 @@ def main():
                 events.append(("v:%d" if e[2] == voice else "r:%d" if e[2] == remark else "p:%d") % e[1])
         hot = struct.unpack(">hhhh", m.read(player + 6, 8))
         outs = {"ofrozen": m.read(other + 0x92, 1)[0], "comfort": m.r16(COMFORT),
-                **{n: m.r16(g[n]) for n in ("t24", "t28", "staple", "badass", "shrapnel", "contact")},
+                **{n: m.r16(g[n]) for n in ("t24", "t28", "t40", "staple", "badass", "shrapnel", "contact")},
                 "kickreset": m.read(kick_reset, 1)[0], "curslot": m.r16(CUR_SLOT),
                 "inv": ",".join("%d:%d" % (m.r16(inv + 4 * i), m.r16(inv + 4 * i + 2)) for i in range(12)),
                 "pv": m.r16(player + 2), "ph": m.r16(player + 4),

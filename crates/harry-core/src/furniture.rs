@@ -8,6 +8,7 @@ use crate::bounce::rect_bounce;
 use crate::effect::{FIRE, explode_radius, pe_distance};
 use crate::kinds::{door_open, plus_scaled, scaled};
 use crate::level::Level;
+use crate::mailguy::mail_guy_crash;
 use crate::mask::{Mask, mask_hit};
 use crate::physics::{Physics, Speed, apply_moded_impulse, find_desired_direction, handle_glide, inverse_mode};
 use crate::ramp::{Rider, handle_ramp_collision};
@@ -188,8 +189,8 @@ fn ride_ramp(sp: &mut Sprite, half: i16, ramp: &mut Sprite, physics: &Physics) {
 /// chairs: pushed out, with a plant or chair trading momentum. Doors (not
 /// open), sliding doors, colliders: `RectBounce`; ramps carry it. Shots stop on it and
 /// light it, the big shot (9450) pushes; explosions push it, and flames
-/// light it; stairs take it down. Mail guys, desks, grates and co-workers
-/// come with their kinds.
+/// light it; stairs take it down; a mail guy crashes into it
+/// (`mail_guy_crash`). Desks and grates come with their kinds.
 #[allow(clippy::too_many_arguments)]
 pub fn hit_barrel(
     sp: &mut Sprite,
@@ -231,6 +232,8 @@ pub fn hit_barrel(
                 ignite(sp, events);
             }
         }
+    } else if other.task == Some(Task::MailGuy) {
+        mail_guy_crash(sp, other, events);
     }
     if other.task == Some(Task::Barrel) {
         sp.timer = sp.timer.wrapping_add(8);
@@ -382,6 +385,7 @@ pub fn hit_chair(
                 explode_radius(sp.at, &mut sp.speed, &mut sp.blast_cooldown, 18, other);
             }
         }
+        Some(Task::MailGuy) => mail_guy_crash(sp, other, events),
         Some(Task::Player) => {
             let harry = (other.at.0.wrapping_add(32), other.at.1.wrapping_add(32));
             let chair = (sp.at.0.wrapping_add(16), sp.at.1.wrapping_add(16));
