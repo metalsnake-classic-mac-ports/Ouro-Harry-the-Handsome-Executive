@@ -40,6 +40,8 @@
 - [x] Plant movement and tiles (`HandleGlide`, 12 000 cases)
 - [x] Plant hit task with Harry, plant, cooler, doors, shots; `RectBounce` (20 000 cases)
 - [ ] Remaining `HitPlantSprite` branches with their kinds (effect, mail guy, barrel, desk, chair, robot, grate, ramp, stairs)
+- [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
+- [ ] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
 - [ ] Level 1 complete: collider, background props, dart enemy, message, ramp (+ their `HitPlayerSprite` branches)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one

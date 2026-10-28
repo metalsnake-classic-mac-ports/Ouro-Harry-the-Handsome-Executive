@@ -536,6 +536,28 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   plant, cooler, all door kinds, shots), all matching; 15 of 16
   mutations caught - the survivor shifts the jitter by 1/256 px, which the
   mask separation right after almost always overwrites.
+- **Message** (21000 and up; layer 9, faces 3801–3805): the mode
+  (`f6e`) is the level entry's info #1, read each frame: 0 a memo on the
+  floor (hot rect (−8, −8, 32, 32), the face blinking 3801 → 3805 → 3801
+  over 30 frames), else an invisible spot (hot rect (−32, −32, 64, 64), no
+  face); the kind is set to 21000 each frame. Harry walking (not kicking)
+  onto it: `ShowBalloon(sprite, text, mode)` with text = world text
+  #(info #0) (`Hwld` + 0x3c9 + n · 256, Pascal strings) or, in mode 3, a
+  `GenerateBuzzwords` sentence. Shown → the message is done (frozen,
+  except that `ShowBalloon` itself leaves mode 5 alive). Not shown (it
+  would not fit on the screen) and prefs +8 > 2 → kept pending (+0x6a,
+  a pointer to Harry) and tried every frame.
+- **`ShowBalloon`** (frontend part, not ported yet): TextEdit layout in
+  font 3 (Geneva) 9 pt, 195 px wide; the balloon (210 px wide, a tail
+  under it) goes over the sprite (mode 5: at its left, others: 57 px left
+  of it; mode 2 or no sprite: over Harry) and is shown only if it lies
+  inside the 448 × 448 view with a 32 px margin - else, with prefs +8 = 3,
+  the view is nudged 16 px. Shown: modes 1, 3, 5 play sound 217 pitched
+  56000 + `SATRand(16000)`, the game draws it and waits at least 60 ticks
+  (Return / Enter skip), then for any key.
+- `re/tools/emu_message.py`: 12 000 cases (frames, hit at a random
+  frame, ShowBalloon answers recorded), all matching; 9 of 9 mutations
+  caught.
 - **Exit** (9990–9999, layer 1): 9991–9994 with faces 3201–3204 and hot
   rects beside them (9991 (96, 0, 100, 64), 9992 (−40, 0, −32, 64), 9993
   (0, 40, 64, 100), 9994 (0, −32, 64, 0)), others no face, (0, 0, 32,

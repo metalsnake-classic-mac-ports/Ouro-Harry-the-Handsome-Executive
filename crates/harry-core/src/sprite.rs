@@ -24,6 +24,7 @@ pub enum Task {
     Effect,
     Cooler,
     Plant,
+    Message,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -37,6 +38,7 @@ pub enum HitTask {
     Door,
     Cooler,
     Plant,
+    Message,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -80,6 +82,9 @@ pub struct Sprite {
     pub dir: i16,
     /// Index in the level's sprite list, −1 none.
     pub level_index: i16,
+    /// +0x6a: a message waiting to be shown to the player (the original
+    /// keeps a pointer to his sprite).
+    pub balloon_pending: bool,
     pub f6e: i32,
     pub state: i16,
     pub timer: i16,

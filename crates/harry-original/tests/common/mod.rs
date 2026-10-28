@@ -18,6 +18,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::Effect) => "HandleEffectSprite",
         Some(Task::Cooler) => "HandleCoolerSprite",
         Some(Task::Plant) => "HandlePlantSprite",
+        Some(Task::Message) => "HandleMessageSprite",
     }
 }
 
@@ -32,6 +33,7 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Door) => "HitDoorSprite",
         Some(HitTask::Cooler) => "HitCoolerSprite",
         Some(HitTask::Plant) => "HitPlantSprite",
+        Some(HitTask::Message) => "HitMessageSprite",
     }
 }
 

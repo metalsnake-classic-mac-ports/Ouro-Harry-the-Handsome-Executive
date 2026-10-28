@@ -1,4 +1,5 @@
-//! Sprite kinds: bonuses, items, exits, doors, water coolers, plants. Each has a setup (run when
+//! Sprite kinds: bonuses, items, exits, doors, water coolers, plants,
+//! messages. Each has a setup (run when
 //! the sprite is made), a task (each frame) and a hit task (SAT's
 //! collision pass); what Harry does when he touches them is in
 //! `HitPlayerSprite`.
@@ -505,5 +506,98 @@ pub fn hit_plant(
             sp.speed.h = sp.speed.h.wrapping_add(other.speed.h >> 2);
             sp.speed.v = sp.speed.v.wrapping_add(other.speed.v >> 2);
         }
+    }
+}
+
+/// The text of a speech balloon.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BalloonText {
+    /// Text n of the world (`Hwld` + 0x3c9 + n · 256, Pascal strings).
+    World(i16),
+    /// A sentence from the buzzword generator (`GenerateBuzzwords`).
+    Buzzwords,
+}
+
+/// `ShowBalloon(sprite, text, mode)`: shows the balloon over the sprite
+/// (modal: the game waits for a key) if it fits on the screen and tells
+/// whether it did. Part of the frontend; when shown and mode ≠ 5 it also
+/// freezes the sprite, which the callers here do themselves.
+pub type ShowBalloon<'a> = dyn FnMut(&Sprite, BalloonText, i16) -> bool + 'a;
+
+/// Message faces: a blinking memo, HrSp 3801–3805.
+const MEMO_FACES: i16 = 3801;
+
+/// `SetupMessageSprite` (21000 and up): a memo on the floor or, with info
+/// #1 set, an invisible spot; layer 9, no hot rect until its first frame.
+pub fn setup_message(sp: &mut Sprite) {
+    sp.init();
+    sp.dir = 0;
+    sp.task = Some(Task::Message);
+    sp.hit_task = Some(HitTask::Message);
+    sp.hit_tile_task = None;
+    sp.face = MEMO_FACES;
+    sp.layer = 9;
+    sp.at_from_pos();
+    sp.b8b = false;
+    sp.f6e = 0;
+}
+
+fn balloon(sp: &Sprite, level: &Level) -> (BalloonText, i16) {
+    let text = usize::try_from(sp.level_index).ok().and_then(|i| level.sprites.get(i)).map_or(0, |e| e.info[0]);
+    let mode = sp.f6e as i16;
+    (if sp.f6e == 3 { BalloonText::Buzzwords } else { BalloonText::World(text) }, mode)
+}
+
+/// `HandleMessageSprite`: the mode (`f6e`) comes from the level entry's
+/// info #1 each frame - 0 a memo (hot rect (−8, −8, 32, 32), its face
+/// blinking up and down over 30 frames), else an invisible spot (hot rect
+/// (−32, −32, 64, 64)). A balloon that did not fit is tried again each
+/// frame; once shown the message is done.
+pub fn handle_message(sp: &mut Sprite, level: &Level, show: &mut ShowBalloon) {
+    if sp.frozen {
+        return;
+    }
+    sp.dir += 1;
+    sp.kind = 21000;
+    if let Some(e) = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map(|i| &level.sprites[i]) {
+        sp.f6e = i32::from(e.info[1]);
+    }
+    if sp.f6e == 0 {
+        sp.hot_rect = [-8, -8, 32, 32];
+        if sp.dir < 15 {
+            sp.face = MEMO_FACES + sp.dir / 3;
+        } else if sp.dir < 30 {
+            sp.face = MEMO_FACES + (29 - sp.dir) / 3;
+        } else {
+            sp.dir = 0;
+        }
+    } else {
+        sp.hot_rect = [-32, -32, 64, 64];
+        sp.face = 0;
+    }
+    if sp.balloon_pending {
+        let (text, mode) = balloon(sp, level);
+        if show(sp, text, mode) {
+            sp.frozen = true;
+            sp.balloon_pending = false;
+            sp.hit_task = None;
+        }
+    }
+}
+
+/// `HitMessageSprite`: Harry (not kicking) walks onto it - its balloon.
+/// If it does not fit and the balloon preference (prefs +8) is above 2,
+/// the message keeps trying (`balloon_pending`).
+pub fn hit_message(sp: &mut Sprite, other: &Sprite, level: &Level, retry: bool, show: &mut ShowBalloon) {
+    if sp.frozen || other.frozen || other.task != Some(Task::Player) || other.hot_rect[1] == 0 {
+        return;
+    }
+    let (text, mode) = balloon(sp, level);
+    if show(sp, text, mode) {
+        if mode != 5 {
+            sp.frozen = true;
+        }
+    } else if retry {
+        sp.balloon_pending = true;
     }
 }
