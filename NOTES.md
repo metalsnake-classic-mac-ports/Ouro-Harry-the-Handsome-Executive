@@ -644,6 +644,22 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   explosions with a flame's kind), all matching; 13 of 14 mutations
   caught - the survivor is the chair's lower spin limit (the upper one is
   caught; a turn past −9 needs Harry almost on the chair).
+- **Stairs** (9900–9909, idle at their position; layer 1, hot rect (0, 0,
+  32, 32), no task or hit task of their own (both empty), faces 4501–4504
+  for 9901–9904 from cicn 9901–9904; `SetupStairsSprite` also knows door
+  kinds 922 / 923 (face of 9903) and 932 / 933 (9904), which never reach
+  it). `HandleStairsCollision(sprite, half, hot, stairs)` - from Harry
+  (on the floor, centre + 32, his normal hot rect; after the ramp test),
+  plants and chairs (+ 18), barrels (+ 12): the sprite's centre against
+  the stairs' `at`. 9901 leads down: moving down with the centre above
+  at.v + 22 it starts down them once below at.v − 4 (`air` 200, speed h
+  0, `flipKind` = the kind, which `JumpScale` then plays out); 9902 up
+  (moving up, centre below at.v + 10, in once above at.v + 36); 9903 /
+  9904 the same to the right / left (speed v 0). From anywhere else:
+  `RectBounce` with the level's bounce. `re/tools/emu_stairs.py`: 30 000
+  cases (all kinds, Harry and objects from all sides), all matching, 9
+  of 9 mutations caught; stairs are also in the Harry, plant, barrel and
+  chair hit recorders.
 - **Message** (21000 and up; layer 9, faces 3801–3805): the mode
   (`f6e`) is the level entry's info #1, read each frame: 0 a memo on the
   floor (hot rect (−8, −8, 32, 32), the face blinking 3801 → 3805 → 3801

@@ -3,6 +3,7 @@
 //! One long chain by the other sprite's task; the branches come with the
 //! sprite kinds.
 
+use crate::stairs::stairs_collision;
 use crate::bounce::{Body, rect_bounce};
 use crate::frame::{Harry, PlayerGlobals};
 use crate::inventory::{current_item, get_item, item, remove_item};
@@ -70,6 +71,10 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
             if handle_ramp_collision(&mut r, 32, HOT_RECT, other, w.physics.bounce) {
                 events.push(TouchEvent::Sound(ramp::LAUNCH_SOUND));
             }
+        }
+        Some(Task::Stairs) if on_floor => {
+            let p = &mut h.player;
+            stairs_collision(&mut p.body, &mut p.air, &mut h.air.flip, 32, HOT_RECT, other, w.physics.bounce);
         }
         Some(Task::Door) => door(h, g, other, w, events),
         Some(Task::Collider) if on_floor && !matches!(other.kind, 3100 | 3101) => collider(h, g, other, w.physics),

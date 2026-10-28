@@ -5,7 +5,8 @@ enemy shots. Every sprite is made by its real setup.
 Each line: "<name=value ...> -> <plant dump> || <other dump> | contact=<kick contact> events=<...>"
   other   1 Harry, 2 plant, 3 cooler, 4 door, 5 player shot, 6 enemy shot,
           7 explosion (kind okind, frame odir; blast cooldown "blast"),
-          8 barrel, 9 chair, 10 ramp (kind okind), 11 collider (kind okind)
+          8 barrel, 9 chair, 10 ramp (kind okind), 11 collider (kind okind),
+          12 stairs (kind okind)
   events  p:<snd> (STPlayRegSound), 3d:<snd> (STPlay3DSound)
 Usage: python3 -I emu_planthit.py [re/work]
 """
@@ -38,7 +39,7 @@ def main():
     faces = Faces(m)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))
     for f in ("InitPlantSprite", "InitCoolerSprite", "InitDoorSprite", "InitPlayerKickRects", "InitEffectSprite",
-              "InitBarrelSprite", "InitChairSprite", "InitRampSprite"):
+              "InitBarrelSprite", "InitChairSprite", "InitRampSprite", "InitStairsSprite"):
         m.call(f)
     tv = tvectors(f"{work}/ppc")
     body = masks(work)["body"]
@@ -71,7 +72,7 @@ def main():
         m.w32(barrel_face + 0x1A, m.make_region(barrel_mask))
         m.w32(chair_face + 0x1A, m.make_region(plant_mask))
         v, h = rnd.randint(200, 3800), rnd.randint(200, 3800)
-        kind = rnd.choice([1, 1, 1, 2, 2, 3, 4, 4, 5, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11])
+        kind = rnd.choice([1, 1, 1, 2, 2, 3, 4, 4, 5, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 12, 12])
         st = {"v": v, "h": h, "other": kind, "okind": 0,
               "ov": v + rnd.randint(-40, 40), "oh": h + rnd.randint(-40, 40), "samefix": int(rnd.random() < 0.1),
               "speedh": rnd.randint(-2500, 2500), "speedv": rnd.randint(-2500, 2500),
@@ -90,6 +91,8 @@ def main():
             st["okind"] = rnd.choice([9701, 9702, 9703, 9704])
         elif kind == 11:
             st["okind"] = rnd.choice([3100, 9200, 9600, 2301])
+        elif kind == 12:
+            st["okind"] = rnd.choice([9901, 9902, 9903, 9904])
         st["blast"] = rnd.choice([0, 0, 0, 1, 5, -1])
         m.write(sp, bytes(0xA2))
         m.w16(sp, 601)
@@ -114,8 +117,8 @@ def main():
             m.call("SetupCoolerSprite", other)
         elif kind == 4:
             m.call("SetupDoorSprite", other)
-        elif kind in (8, 9, 10):
-            m.call({8: "SetupBarrelSprite", 9: "SetupChairSprite", 10: "SetupRampSprite"}[kind], other)
+        elif kind in (8, 9, 10, 12):
+            m.call({8: "SetupBarrelSprite", 9: "SetupChairSprite", 10: "SetupRampSprite", 12: "SetupStairsSprite"}[kind], other)
             m.w16(other + 0x5A, st["ov"])
             m.w16(other + 0x5C, st["oh"])
         else:

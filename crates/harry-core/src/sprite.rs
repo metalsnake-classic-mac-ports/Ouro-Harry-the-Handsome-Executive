@@ -32,6 +32,7 @@ pub enum Task {
     Ramp,
     Barrel,
     Chair,
+    Stairs,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -52,6 +53,8 @@ pub enum HitTask {
     Ramp,
     Barrel,
     Chair,
+    /// `HitStairsSprite`: does nothing.
+    Stairs,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).

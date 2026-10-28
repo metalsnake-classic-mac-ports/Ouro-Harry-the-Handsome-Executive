@@ -10,6 +10,7 @@ use crate::level::Level;
 use crate::physics::{Physics, apply_moded_impulse, handle_glide, inverse_mode};
 use crate::ramp::{Rider, handle_ramp_collision};
 use crate::random::Random;
+use crate::stairs::object_on_stairs;
 use crate::words::Words;
 use crate::mask::{Mask, mask_hit};
 use crate::sprite::{HitTask, Sprite, SpriteEvent, Task};
@@ -427,7 +428,7 @@ pub(crate) fn plus_scaled(a: i16, f: f64, b: i16) -> i16 {
 /// plant, barrel or chair trades momentum (0.4 each way, then both ×
 /// −0.4), a cooler stays and the plant bounces back × −0.4. Doors (not
 /// open), colliders and co-workers: `RectBounce`; ramps carry it (sound
-/// 1101 when it takes off). Shots stop on it and make it shake.
+/// 1101 when it takes off), stairs take it down. Shots stop on it and make it shake.
 /// `bump_playing`: is the plant's bump sound (1100) playing?
 #[allow(clippy::too_many_arguments)]
 pub fn hit_plant(
@@ -524,6 +525,9 @@ pub fn hit_plant(
             events.push(SpriteEvent::Sound(1101));
         }
         sp.set_body(body);
+    }
+    if other.task == Some(Task::Stairs) {
+        object_on_stairs(sp, 18, other, physics.bounce);
     }
     if matches!(other.task, Some(Task::PlayerShot | Task::EnemyShot)) && other.kind != 9610 {
         other.frozen = true;

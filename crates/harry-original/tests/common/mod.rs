@@ -25,6 +25,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::Ramp) => "HandleRampSprite",
         Some(Task::Barrel) => "HandleBarrelSprite",
         Some(Task::Chair) => "HandleChairSprite",
+        Some(Task::Stairs) => "HandleStairsSprite",
     }
 }
 
@@ -46,6 +47,7 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Ramp) => "HitRampSprite",
         Some(HitTask::Barrel) => "HitBarrelSprite",
         Some(HitTask::Chair) => "HitChairSprite",
+        Some(HitTask::Stairs) => "HitStairsSprite",
     }
 }
 

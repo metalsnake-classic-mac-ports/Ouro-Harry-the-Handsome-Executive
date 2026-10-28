@@ -13,6 +13,7 @@ use harry_core::collider::setup_collider;
 use harry_core::dart_enemy::setup_dart_enemy;
 use harry_core::enemy_shot::setup_enemy_shot;
 use harry_core::ramp::setup_ramp;
+use harry_core::stairs::setup_stairs;
 use harry_core::kinds::{setup_bonus, setup_door, setup_item};
 use harry_core::physics::Speed;
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT, Player, TileState};
@@ -102,6 +103,7 @@ fn touching_matches_the_original() {
             // the recorder's enemy shot kinds
             1018 | 1038 | 1051 | 9610 | 9450 | 1800 | 1950 | 1150 | 1299 | 2281 | 2291 | 2500 => setup_enemy_shot(&mut other),
             9700..9800 => setup_ramp(&mut other),
+            9900..9910 => setup_stairs(&mut other),
             11000.. => setup_item(&mut other),
             _ => setup_collider(&mut other, &mut Random::new(1)),
         }
@@ -158,6 +160,7 @@ fn touching_matches_the_original() {
             ("otimer", other.timer.to_string()),
             ("pf94", h.ramp_cooldown.to_string()),
             ("pair", h.player.air.to_string()),
+            ("pflip", h.air.flip.to_string()),
             ("ospeedv", other.speed.v.to_string()),
             ("ospeedh", other.speed.h.to_string()),
             ("opv", other.pos.0.to_string()),

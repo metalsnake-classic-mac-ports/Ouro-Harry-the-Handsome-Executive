@@ -39,6 +39,7 @@ pub enum Setup {
     Effect,
     Barrel,
     Chair,
+    Stairs,
 }
 
 /// Run a setup routine on a sprite.
@@ -59,6 +60,7 @@ pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random) {
         Setup::Effect => crate::effect::setup_effect(sp),
         Setup::Barrel => crate::furniture::setup_barrel(sp),
         Setup::Chair => crate::furniture::setup_chair(sp, rng),
+        Setup::Stairs => crate::stairs::setup_stairs(sp),
     }
 }
 
@@ -275,8 +277,7 @@ impl World {
         let idle = |w: &mut World, h: i16, v: i16, setup: Setup, rng: &mut Random| w.add_idle(kind, h, v, index, 0, setup, rng);
         match kind {
             301..=319 | 950..=999 | 1100..=1299 | 1300..=1449 | 1700..=1849 | 1850..=1899 | 1900..=1999
-            | 2000..=2099 | 2200..=2299 | 3001 | 3900..=3999 | 4200..=4299 | 5000..=5999 | 6000..=6099 | 9500..=9599
-            | 9900..=9909 => return false,
+            | 2000..=2099 | 2200..=2299 | 3001 | 3900..=3999 | 4200..=4299 | 5000..=5999 | 6000..=6099 | 9500..=9599 => return false,
             1601 | 1611 | 1621 | 1631 => return false,
             500 | 501 => idle(self, even(h), even(v), Setup::Cooler, rng),
             550 => idle(self, even(h), even(v), Setup::Barrel, rng),
@@ -299,6 +300,7 @@ impl World {
             }
             3100 | 3101 | 9199 | 9200 | 9300 | 9600 | 9800 | 9401..=9499 => idle(self, h, v, Setup::Collider, rng),
             9700..=9799 => idle(self, h, v, Setup::Ramp, rng),
+            9900..=9909 => idle(self, h, v, Setup::Stairs, rng),
             9990..=9999 => idle(self, h, v, Setup::Exit, rng),
             11001..=19999 => idle(self, h, v, Setup::Item, rng),
             21000.. => idle(self, h, v, Setup::Message, rng),

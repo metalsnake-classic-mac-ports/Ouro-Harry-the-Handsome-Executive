@@ -574,7 +574,7 @@ impl Game {
                 s.into_sprite(&mut sp);
             }
             Some(Task::Effect) => handle_effect(&mut sp),
-            Some(Task::Exit | Task::PlayerDeath) | None => {}
+            Some(Task::Exit | Task::PlayerDeath | Task::Stairs) | None => {}
         }
         let at = sp.at;
         self.world.sprites.recs[i] = sp;
@@ -632,7 +632,7 @@ impl Game {
             Some(HitTask::DartEnemy) => hit_dart_enemy(&mut sp, &mut o, &mut self.g, &mut self.rng, &mut events),
             Some(HitTask::Ramp) => hit_ramp(&mut sp, &o, self.physics.bounce),
             Some(HitTask::PlayerShot) => hit_player_shot(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
-            Some(HitTask::Bonus | HitTask::Item) | None => {}
+            Some(HitTask::Bonus | HitTask::Item | HitTask::Stairs) | None => {}
             Some(t) => panic!("hit task {t:?} is not in the frame yet"),
         }
         let at = sp.at;

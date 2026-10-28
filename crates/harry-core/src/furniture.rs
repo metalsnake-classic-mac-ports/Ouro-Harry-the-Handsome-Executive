@@ -12,6 +12,7 @@ use crate::mask::{Mask, mask_hit};
 use crate::physics::{Physics, Speed, apply_moded_impulse, find_desired_direction, handle_glide, inverse_mode};
 use crate::ramp::{Rider, handle_ramp_collision};
 use crate::random::Random;
+use crate::stairs::object_on_stairs;
 use crate::sprite::{HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{KICK_RECTS, offset, sect};
 
@@ -187,8 +188,8 @@ fn ride_ramp(sp: &mut Sprite, half: i16, ramp: &mut Sprite, physics: &Physics) {
 /// chairs: pushed out, with a plant or chair trading momentum. Doors (not
 /// open), colliders: `RectBounce`; ramps carry it. Shots stop on it and
 /// light it, the big shot (9450) pushes; explosions push it, and flames
-/// light it. Mail guys, desks, grates, stairs, sliding doors and co-workers
-/// come with their kinds.
+/// light it; stairs take it down. Mail guys, desks, grates, sliding doors
+/// and co-workers come with their kinds.
 #[allow(clippy::too_many_arguments)]
 pub fn hit_barrel(
     sp: &mut Sprite,
@@ -252,6 +253,9 @@ pub fn hit_barrel(
     }
     if other.task == Some(Task::Ramp) {
         ride_ramp(sp, 12, other, physics);
+    }
+    if other.task == Some(Task::Stairs) {
+        object_on_stairs(sp, 12, other, physics.bounce);
     }
     if matches!(other.task, Some(Task::Cooler | Task::Plant | Task::Chair)) {
         let other_mask = if other.task == Some(Task::Cooler) { masks.barrel } else { masks.plant };
@@ -357,7 +361,8 @@ fn turn(a: i16, b: i16) -> i16 {
 /// speed, he keeps −0.3, and it spins by the angle between his path and
 /// the chair × his speed / 32. Coolers, barrels, chairs: pushed out, a
 /// barrel or chair trading momentum. Doors (not open), colliders:
-/// `RectBounce`; ramps carry it. Shots stop on it (sound 258).
+/// `RectBounce`; ramps carry it, stairs take it down. Shots stop on it
+/// (sound 258).
 #[allow(clippy::too_many_arguments)]
 pub fn hit_chair(
     sp: &mut Sprite,
@@ -438,6 +443,9 @@ pub fn hit_chair(
     }
     if other.task == Some(Task::Ramp) {
         ride_ramp(sp, 18, other, physics);
+    }
+    if other.task == Some(Task::Stairs) {
+        object_on_stairs(sp, 18, other, physics.bounce);
     }
     if matches!(other.task, Some(Task::PlayerShot | Task::EnemyShot)) {
         other.frozen = true;

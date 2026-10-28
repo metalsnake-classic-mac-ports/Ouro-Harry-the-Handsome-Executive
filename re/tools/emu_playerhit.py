@@ -1,5 +1,5 @@
 """Record HitPlayerSprite - Harry touching another sprite - for the kinds
-the port has (bonus, item, door, collider, dart enemy, ramp, enemy shot). The other sprite is made by its real
+the port has (bonus, item, door, collider, dart enemy, ramp, stairs, enemy shot). The other sprite is made by its real
 setup; doors get a level entry (index, info #0) on level 1.
 
 Each line: "<name=value ...> -> <name=value ...>"
@@ -35,6 +35,7 @@ KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("
          ("SetupColliderSprite", [9600, 9600, 9800, 9800, 9199, 9200, 2301, 3100, 3101, 9300, 9411]),
          ("SetupDartEnemySprite", [1011, 1021, 1031, 1041]), ("SetupRampSprite", [9701, 9702, 9703, 9704]),
          ("SetupRampSprite", [9701, 9702, 9703, 9704]),
+         ("SetupStairsSprite", [9901, 9902, 9903, 9904]),
          ("SetupEnemyShotSprite", [1018, 1038, 1051, 9610, 9450, 1800, 1950, 1150, 1299, 2281, 2291, 2500])]
 FRAME = STACK_TOP - 0x1000 - 0x140              # HitPlayerSprite's r1
 CASES = 30000
@@ -45,7 +46,7 @@ def main():
     m = Machine(f"{work}/ppc")
     Faces(m)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # mask loader (the ramps' masks)
-    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
+    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
         m.call(init)
     lvl = m.load_level(open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read())
     ev = []
@@ -103,7 +104,7 @@ def main():
                    "favor": rnd.randint(0, 144)})
         if setup == "SetupEnemyShotSprite" and rnd.random() < 0.7:
             st["setospeed"] = f"{rnd.randint(-2000, 2000)}:{rnd.randint(-2000, 2000)}"
-        if setup == "SetupRampSprite":
+        if setup in ("SetupRampSprite", "SetupStairsSprite"):
             # around the ramp, at any speed
             st["speedv"] = rnd.choice([st["speedv"], rnd.randint(-600, 600)])
             st["speedh"] = rnd.choice([st["speedh"], rnd.randint(-600, 600)])
@@ -190,7 +191,7 @@ def main():
                 "pav": m.r16(player + 0x5A), "pah": m.r16(player + 0x5C),
                 "bounced": m.read(bounced, 1)[0], "score": struct.unpack(">i", m.read(score, 4))[0],
                 "ouchcd": m.r16(g["ouchcd"]), "cdelta": m.r16(g["cdelta"]), "favor": m.r16(0x1006856E),
-                "otimer": m.r16(other + 0x74), "pf94": m.r16(player + 0x94), "pair": m.r16(player + 0x8E),
+                "otimer": m.r16(other + 0x74), "pf94": m.r16(player + 0x94), "pair": m.r16(player + 0x8E), "pflip": m.r16(player + 0x90),
                 "ospeedv": m.r16(other + 0x4E), "ospeedh": m.r16(other + 0x50), "opv": m.r16(other + 2), "oph": m.r16(other + 4),
                 "speedv": m.r16(player + 0x4E), "speedh": m.r16(player + 0x50), "hot": "%d:%d:%d:%d" % hot,
                 "okind": m.r16(other), "odir": m.r16(other + 0x66), "ob8a": m.read(other + 0x8A, 1)[0],
