@@ -9,7 +9,10 @@
 //! previous level (for testing).
 //!
 //! `ouro-harry --screenshot out.bmp [level] [frames]` runs the frames
-//! without keys and writes the picture, without a window.
+//! without keys and writes the picture, without a window. With
+//! `HARRY_STATS` set the game prints its loop timing once a second;
+//! `cargo run -p harry --example audio_probe` shows how SDL drives the
+//! audio callback.
 
 mod audio;
 mod balloon;
@@ -267,7 +270,11 @@ fn main() -> Result<()> {
     // a balloon being shown and since when (the game waits meanwhile)
     let mut shown: Option<(balloon::Shown, Instant)> = None;
     let mut text_texture: Option<(sdl3::render::Texture, Vec<text::Line>, (u32, u32))> = None;
+    // HARRY_STATS: loop timing once a second
+    let stats = std::env::var_os("HARRY_STATS").is_some();
+    let (mut loops, mut frames_run, mut busy, mut stat_start) = (0u32, 0u32, Duration::ZERO, Instant::now());
     'run: loop {
+        let loop_start = Instant::now();
         let mut jump: Option<usize> = None;
         for e in events.poll_iter() {
             match e {
@@ -310,6 +317,7 @@ fn main() -> Result<()> {
             };
             let mut save = || false;
             let end = game.frame(&keys, &assets, &mut show, &mut save);
+            frames_run += 1;
             mixer.events(&game.sounds, game.level.own_sounds);
             score.step(game.g.score);
             if let Some(b) = asked {
@@ -360,6 +368,14 @@ fn main() -> Result<()> {
             canvas.copy(t, None, None)?;
         }
         canvas.present();
+        if stats {
+            loops += 1;
+            busy += loop_start.elapsed();
+            if stat_start.elapsed() >= Duration::from_secs(1) {
+                eprintln!("{loops} loops, {frames_run} frames, {:.1} ms per loop", busy.as_secs_f64() * 1000.0 / f64::from(loops));
+                (loops, frames_run, busy, stat_start) = (0, 0, Duration::ZERO, Instant::now());
+            }
+        }
         std::thread::sleep(next.saturating_duration_since(Instant::now()).min(FRAME));
     }
     Ok(())
