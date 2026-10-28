@@ -15,6 +15,7 @@
 //! - `levels/NN.txt`: the levels of Episode 1 (`level`)
 //! - `words/ID.txt`: the word lists of the memo and phone sentences
 //!   (`STR#` 6900–6905, 6800–6801), one string per line (UTF-8)
+//! - `sounds/ID.wav`, `world_sounds/ID.wav`: the sounds (8-bit mono WAV)
 //! - `texts.txt`: the world's texts, `n text` per line (UTF-8; a line
 //!   break inside a text is `\r`, a backslash `\\`)
 
@@ -24,7 +25,7 @@ use std::io::{Cursor, Read, Write};
 use harry_core::mask::Mask;
 use zip::write::SimpleFileOptions;
 
-use crate::{Face, GameData, Image, MaskImages, Result, TileSet, clut8, corrupt, level};
+use crate::{Face, GameData, Image, MaskImages, Result, Sound, TileSet, clut8, corrupt, level};
 
 /// The first line of `pack.txt`.
 pub const FORMAT: &str = "Harry the Handsome Executive data pack 1";
@@ -154,6 +155,11 @@ pub fn write(data: &GameData) -> Result<Vec<u8>> {
         let lines: Vec<String> = list.iter().map(|w| harry_core::text::mac_roman(w)).collect();
         put(&format!("words/{id}.txt"), format!("{}\n", lines.join("\n")).as_bytes())?;
     }
+    for (dir, set) in [("sounds", &data.sounds), ("world_sounds", &data.world_sounds)] {
+        for (id, snd) in set {
+            put(&format!("{dir}/{id}.wav"), &wav(snd))?;
+        }
+    }
     let cursor = zip.finish().map_err(|e| corrupt(e.to_string()))?;
     Ok(cursor.into_inner())
 }
@@ -246,11 +252,71 @@ pub fn read(bytes: &[u8]) -> Result<GameData> {
             words.phone[k - 6] = list;
         }
     }
-    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, levels, texts, words })
+    let names: Vec<String> = zip.file_names().filter_map(|n| n.ok().map(|n| n.into_owned())).collect();
+    let mut sound_set = |dir: &str| -> Result<BTreeMap<i16, Sound>> {
+        let mut set = BTreeMap::new();
+        for name in names.iter().filter(|n| n.starts_with(&format!("{dir}/")) && n.ends_with(".wav")) {
+            let id: i16 = name[dir.len() + 1..name.len() - 4].parse().map_err(|_| corrupt(format!("{name}: bad name")))?;
+            let mut f = zip.by_name(name).map_err(|e| corrupt(e.to_string()))?;
+            let mut d = Vec::new();
+            f.read_to_end(&mut d).map_err(|e| corrupt(format!("{name}: {e}")))?;
+            set.insert(id, unwav(&d).ok_or_else(|| corrupt(format!("{name}: not an 8-bit mono WAV")))?);
+        }
+        Ok(set)
+    };
+    let sounds = sound_set("sounds")?;
+    let world_sounds = sound_set("world_sounds")?;
+    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, levels, texts, words, sounds, world_sounds })
 }
 
 fn word_lists(w: &harry_core::words::Words) -> Vec<(i16, &Vec<Vec<u8>>)> {
     let mut v: Vec<(i16, &Vec<Vec<u8>>)> = w.buzz.iter().enumerate().map(|(i, l)| (6900 + i as i16, l)).collect();
     v.extend(w.phone.iter().enumerate().map(|(i, l)| (6800 + i as i16, l)));
     v
+}
+
+/// An 8-bit mono WAV file.
+fn wav(s: &Sound) -> Vec<u8> {
+    let n = s.samples.len() as u32;
+    let mut w = Vec::with_capacity(44 + s.samples.len());
+    w.extend_from_slice(b"RIFF");
+    w.extend_from_slice(&(36 + n).to_le_bytes());
+    w.extend_from_slice(b"WAVEfmt ");
+    w.extend_from_slice(&16u32.to_le_bytes());
+    w.extend_from_slice(&1u16.to_le_bytes());
+    w.extend_from_slice(&1u16.to_le_bytes());
+    w.extend_from_slice(&s.rate.to_le_bytes());
+    w.extend_from_slice(&s.rate.to_le_bytes());
+    w.extend_from_slice(&1u16.to_le_bytes());
+    w.extend_from_slice(&8u16.to_le_bytes());
+    w.extend_from_slice(b"data");
+    w.extend_from_slice(&n.to_le_bytes());
+    w.extend_from_slice(&s.samples);
+    w
+}
+
+/// Read an 8-bit mono WAV file.
+fn unwav(d: &[u8]) -> Option<Sound> {
+    if d.get(..4)? != b"RIFF" || d.get(8..12)? != b"WAVE" {
+        return None;
+    }
+    let le16 = |o: usize| Some(u16::from_le_bytes(d.get(o..o + 2)?.try_into().ok()?));
+    let le32 = |o: usize| Some(u32::from_le_bytes(d.get(o..o + 4)?.try_into().ok()?));
+    let mut p = 12;
+    let mut rate = None;
+    while p + 8 <= d.len() {
+        let size = le32(p + 4)? as usize;
+        match d.get(p..p + 4)? {
+            b"fmt " => {
+                if le16(p + 8)? != 1 || le16(p + 10)? != 1 || le16(p + 22)? != 8 {
+                    return None;
+                }
+                rate = le32(p + 12);
+            }
+            b"data" => return Some(Sound { rate: rate?, samples: d.get(p + 8..p + 8 + size)?.to_vec() }),
+            _ => {}
+        }
+        p += 8 + size + (size & 1);
+    }
+    None
 }

@@ -80,7 +80,10 @@
 - [x] `harry-data`: data pack; extract tool `ouro-harry-extract` in `harry-original`
 - [x] Frontend (SDL3): level 1 drawn and playable at 30 fps (`ouro-harry`)
 - [x] Frontend: panel texts (level name, score), balloons (world texts, buzzwords, phone)
-- [ ] Frontend: meter ends (cicn 10135–10137), sprite tints (draw procs), sound, music, menus, preferences
+- [x] Frontend: sound (all `snd`s, 3-D volumes, rates, channels)
+- [ ] Frontend: meter ends (cicn 10135–10137), sprite tints (draw procs), music (`Tune`), menus, preferences
+- [ ] Sound feedback into the game: "is a voice / the fan / the bump playing" (the original asks its channels; the port answers no)
+- [ ] `KeyEvent::Balloon` (the random messages of the B-E-N sequence and other keys) in the frontend
 - [ ] `Hwld` 0: decode the fields before the texts (0–0x3c8)
 
 ## Phase 3: emulator

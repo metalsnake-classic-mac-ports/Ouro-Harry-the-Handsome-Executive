@@ -3,7 +3,7 @@
 //! and the tile collisions (`CheckTileCollisions`, a separate pass of the
 //! main loop).
 
-use crate::air::{Air, AirSound, UNSET_SCALE, half_pipe, jump_scale};
+use crate::air::{Air, AirSound, JumpEffects, UNSET_SCALE, half_pipe, jump_scale};
 use crate::bounce::Body;
 use crate::keys::Ammo;
 use crate::inventory::{EMPTY, current_item};
@@ -128,7 +128,8 @@ pub enum FrameSound {
     Chatter(i16),
 }
 
-/// `HandlePlayerSprite`. `keys` stands for `HandleKeys` (called after the
+/// `HandlePlayerSprite`; returns what `JumpScale` asks of the view and
+/// the screen (falling into a hole). `keys` stands for `HandleKeys` (called after the
 /// position sanity check, before anything else). The original asks the
 /// sound channels whether a voice is playing before the idle chatter; the
 /// port assumes not (a frontend that knows better can veto the sound, but
@@ -141,9 +142,9 @@ pub fn handle_player(
     rng: &mut Random,
     keys: impl FnOnce(&mut Harry, &mut PlayerGlobals, &mut Random),
     sounds: &mut Vec<FrameSound>,
-) {
+) -> JumpEffects {
     if h.frozen {
-        return;
+        return JumpEffects::default();
     }
     let b = &mut h.player.body;
     if b.fix.0 < 1 || b.fix.1 < 1 || b.fix.0 > 0x100000 || b.fix.1 > 0x100000 {
@@ -226,7 +227,7 @@ pub fn handle_player(
         p.dir = 35;
     }
     p.face = p.dir + g.moves.pose;
-    jump_scale(&mut p.body, &mut h.air, &mut p.dir, 32, true, level, rng, &mut g.comfort, UNSET_SCALE, &mut air_sounds);
+    let effects = jump_scale(&mut p.body, &mut h.air, &mut p.dir, 32, true, level, rng, &mut g.comfort, UNSET_SCALE, &mut air_sounds);
     p.air = h.air.air;
     sounds.extend(air_sounds.into_iter().map(FrameSound::Air));
     if g.tile.wet > 0 && (i32::from(p.body.speed.h).abs() >= 201 || i32::from(p.body.speed.v).abs() >= 201) {
@@ -252,6 +253,7 @@ pub fn handle_player(
     if (g.comfort_shown < 1 || g.favor_shown < 1) && p.air == 0 {
         h.dead = true;
     }
+    effects
 }
 
 /// Integrate the speed: `fix += speed`, `pos = at = fix >> 8`.

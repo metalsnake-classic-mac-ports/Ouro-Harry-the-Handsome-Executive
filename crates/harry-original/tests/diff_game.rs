@@ -119,6 +119,7 @@ fn level_1_frames_match_the_original() {
             gun: 0,
             harry: None,
             words: words.clone(),
+            sounds: Vec::new(),
         };
         let missing = game.start(w("h") as i16, w("v") as i16, w("dir") as i16, &assets);
         assert!(missing.is_empty());

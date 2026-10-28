@@ -53,6 +53,12 @@ fn pack_holds_the_original_data() {
         assert_eq!(data.texts.get(&(n as i16)).map_or(&[][..], |v| v.as_slice()), t, "text {n}");
     }
     assert_eq!(data.words, harry_original::words::words(&app).unwrap());
+    let Some(sounds) = installed("Harry Sounds.bin") else { return };
+    for id in sounds.ids(b"snd ") {
+        let s = harry_original::snd::decode(sounds.get(b"snd ", id).unwrap()).unwrap();
+        assert_eq!((data.sounds[&id].rate, &data.sounds[&id].samples), (s.rate, &s.samples), "snd {id}");
+    }
+    assert_eq!(data.world_sounds.keys().copied().collect::<Vec<_>>(), [200, 201, 203]);
     let screen = &data.pictures[&129];
     assert_eq!((screen.width, screen.height), (640, 480));
     let meters = &data.pictures[&150];

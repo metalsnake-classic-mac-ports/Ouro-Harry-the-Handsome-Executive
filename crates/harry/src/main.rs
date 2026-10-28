@@ -2,7 +2,7 @@
 //! [level]`; without a path the data pack `harry-data.zip` is looked for
 //! next to the program, in the current folder and in `re/work`.
 //!
-//! The game runs at the original's 30 frames per second. Keys as on the
+//! The game runs at the original's 30 frames per second, with its sounds. Keys as on the
 //! Mac (the default bindings): ← → turn, ↓ scoot, ↑ inch, space kick,
 //! control select item, option / alt use item, 1–4 pick a weapon or the
 //! swivel. Escape quits, F11 toggles full screen; N / P jump to the next /
@@ -11,6 +11,7 @@
 //! `ouro-harry --screenshot out.bmp [level] [frames]` runs the frames
 //! without keys and writes the picture, without a window.
 
+mod audio;
 mod balloon;
 mod render;
 mod text;
@@ -159,6 +160,7 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
         gun: 0,
         harry: None,
         words: data.words.clone(),
+        sounds: Vec::new(),
     }
 }
 
@@ -244,6 +246,7 @@ fn main() -> Result<()> {
     }
 
     let sdl = sdl3::init()?;
+    let mut mixer = audio::Mixer::open(&sdl, &data);
     let video = sdl.video()?;
     let window = video
         .window("Harry the Handsome Executive", 2 * render::SCREEN_WIDTH as u32, 2 * render::SCREEN_HEIGHT as u32)
@@ -307,6 +310,7 @@ fn main() -> Result<()> {
             };
             let mut save = || false;
             let end = game.frame(&keys, &assets, &mut show, &mut save);
+            mixer.events(&game.sounds, game.level.own_sounds);
             score.step(game.g.score);
             if let Some(b) = asked {
                 shown = Some((b, Instant::now()));
@@ -326,6 +330,7 @@ fn main() -> Result<()> {
                 }
             }
         }
+        mixer.fill();
         let (image, lines) = picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b));
         image.to_rgb24(&palette, &mut rgb);
         let w = render::SCREEN_WIDTH;

@@ -8,5 +8,6 @@ pub mod hrsp;
 pub mod masks;
 pub mod pict;
 pub mod resfork;
+pub mod snd;
 pub mod text;
 pub mod words;

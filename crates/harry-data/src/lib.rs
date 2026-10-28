@@ -73,6 +73,18 @@ pub struct GameData {
     pub texts: BTreeMap<i16, Vec<u8>>,
     /// The sentence generators' word lists (`STR#` 6900–6905, 6800–6801).
     pub words: harry_core::words::Words,
+    /// Sounds by `snd` id (`Harry Sounds`).
+    pub sounds: BTreeMap<i16, Sound>,
+    /// The world's own sounds, used instead in levels that bring their own
+    /// (`Level::own_sounds`).
+    pub world_sounds: BTreeMap<i16, Sound>,
+}
+
+/// A sound: 8-bit unsigned mono samples (0x80 silence) at a rate.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Sound {
+    pub rate: u32,
+    pub samples: Vec<u8>,
 }
 
 /// The pictures the pack holds.

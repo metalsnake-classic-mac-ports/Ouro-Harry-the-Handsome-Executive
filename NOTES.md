@@ -1146,6 +1146,26 @@ QuickTime Musical Instruments.
   measures with the system's Geneva, so the line count of a text can
   differ from the bitmap font's (the level 1 memo breaks the same).
   The world's 87 texts come from `Hwld` 0 (`texts.txt` in the pack).
+- **Sound**: `STPlayRegSound(snd, priority, volume)` - volume 0x100 =
+  full (scooting: wetness / 2, floor sounds 0x80 − wetness / 2);
+  `STPlay3DSound(snd, priority, volume, at)` and `…Pitched` (a Fixed rate,
+  0x10000 = as recorded: water 55000, the balloon 56000 + `SATRand(16000)`,
+  the gulp 50000). `CalcStereoVolume`: an ear at each side of the view (h
+  and h + 448, at the middle's height), per ear (1024 − `PEDistance`) / 8
+  of 128 within 1024 px, times the volume. All 103 `snd`s (100 in `Harry
+  Sounds`, 200 / 201 / 203 in the episode for levels with their own
+  sounds: `LoadLevelSounds` loads them with the world file first) are
+  8-bit mono, 11025 / 22050 / 22254 / 5563 Hz, format 1 (one format 2).
+  Sounds the routines name by event: chatter 150–152 (`SATRand(3)` 0 →
+  150, 1 → 151, 2 → 152), `Ouch` 220 / 225 / 226 (`SATRand(100)` < 43,
+  < 86, else), scoot 200 / 202 / 201 (floor kind 1 / 2 / 3), wet scoot
+  215, kick hit 203, half pipe 209, landing 207, bounce 208, falling into
+  a hole 4901, back from it 224, water 215, balloon 217; plants use 1101
+  for all three of their jump sounds. `harry_core::game` collects a
+  frame's sounds (`sound::SoundEvent`: volumes per ear, rate, the
+  original's voice / chatter / remark / charge channels); the frontend
+  mixes up to 8 at 22254 Hz stereo. Falling into a hole also moves the
+  view onto Harry (`JumpScale` frame 1030) - now applied by the game.
 - `re/tools/emu_physics.py` runs `ApplyModedImpulse`, `EnforceMaxSpeed`,
   `HandlePlayerGlide` and `MoveChair` (with `DoScoot`, `DoKick`,
   `DoInch`; `STPlayRegSound` stubbed and counted) of the PPC build in

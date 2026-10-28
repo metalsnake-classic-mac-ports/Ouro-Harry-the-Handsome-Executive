@@ -26,6 +26,7 @@ pub mod ramp;
 pub mod random;
 pub mod sat;
 pub mod shots;
+pub mod sound;
 pub mod sprite;
 pub mod tiles;
 pub mod text;

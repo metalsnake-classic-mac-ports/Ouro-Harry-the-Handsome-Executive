@@ -36,6 +36,9 @@ use crate::sprite::{Face, HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{sect, touched_tiles};
 use crate::touch::{TouchEvent, TouchWorld, touch};
 use crate::view::{View, find_upper_left_corner};
+use crate::air::AirSound;
+use crate::moves::MoveSound;
+use crate::sound::{Channel, RATE, SoundEvent, snd, stereo};
 use crate::words::Words;
 use crate::world::{Setup, World};
 
@@ -95,6 +98,8 @@ pub struct Game {
     pub harry: Option<usize>,
     /// The sentence generators' word lists and last picks.
     pub words: Words,
+    /// The sounds of the last frame, in order.
+    pub sounds: Vec<SoundEvent>,
 }
 
 /// What a `ShowBalloon` call ended with: (shown, mode, the sprite's `pos`).
@@ -257,26 +262,70 @@ impl Game {
         r.kind = kind;
     }
 
-    fn sprite_events(&mut self, events: Vec<SpriteEvent>) {
+    /// The events of a sprite's routine; its 3-D sounds at `at`.
+    fn sprite_events(&mut self, events: Vec<SpriteEvent>, at: (i16, i16)) {
         for e in events {
             match e {
                 SpriteEvent::Spawn { kind, h, v, speed } => self.spawn(kind, h, v, speed),
                 SpriteEvent::Explosion { h, v, a, b } => self.explosion(h, v, a, b),
-                _ => {}
+                SpriteEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
+                SpriteEvent::Sound3D(id) => self.play(id, 0x100, Some(at), RATE, Channel::Effect),
             }
         }
     }
 
-    fn weapon_events(&mut self, events: Vec<WeaponEvent>) {
+    fn weapon_events(&mut self, events: Vec<WeaponEvent>, at: (i16, i16)) {
         for e in events {
-            if let WeaponEvent::Explosion { h, v, a, b } = e {
-                self.explosion(h, v, a, b);
+            match e {
+                WeaponEvent::Explosion { h, v, a, b } => self.explosion(h, v, a, b),
+                WeaponEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
+                WeaponEvent::Sound3D(id) => self.play(id, 0x100, Some(at), RATE, Channel::Effect),
+            }
+        }
+    }
+
+    /// A sound: `STPlayRegSound` (`at` none) or `STPlay3DSound(Pitched)`.
+    fn play(&mut self, id: i16, volume: i16, at: Option<(i16, i16)>, rate: u32, channel: Channel) {
+        let (left, right) = match at {
+            Some(at) => stereo(self.view.corner, at, volume),
+            None => (volume.max(0) as u16, volume.max(0) as u16),
+        };
+        self.sounds.push(SoundEvent::Play { id, left, right, rate, channel });
+    }
+
+    /// Harry's sounds of his frame.
+    fn player_sounds(&mut self, sounds: Vec<FrameSound>) {
+        for s in sounds {
+            match s {
+                FrameSound::Move(MoveSound::ScootWater { volume }) => self.play(snd::SCOOT_WET, volume, None, RATE, Channel::Effect),
+                FrameSound::Move(MoveSound::ScootFloor { kind, pitch }) => {
+                    if let Some(&id) = usize::try_from(kind - 1).ok().and_then(|k| snd::SCOOT.get(k)) {
+                        self.play(id, pitch, None, RATE, Channel::Effect);
+                    }
+                }
+                FrameSound::Move(MoveSound::KickHit) => self.play(snd::KICK_HIT, 0x100, None, RATE, Channel::Effect),
+                FrameSound::Air(a) => {
+                    let id = match a {
+                        AirSound::HalfPipeOut => snd::HALF_PIPE_OUT,
+                        AirSound::Land => snd::LAND,
+                        AirSound::Bounce => snd::BOUNCE,
+                        AirSound::Fall => snd::FALL,
+                        AirSound::Return => snd::RETURN,
+                    };
+                    self.play(id, 0x100, None, RATE, Channel::Effect);
+                }
+                FrameSound::Chatter(n) => {
+                    if let Some(&id) = snd::CHATTER.get(n as usize) {
+                        self.play(id, 0x100, None, RATE, Channel::Chatter);
+                    }
+                }
             }
         }
     }
 
     /// One frame. `keys` are the keys held this frame.
     pub fn frame(&mut self, keys: &KeyMap, assets: &Assets, show: &mut ShowBalloonFn, save: &mut CopierSave) -> FrameEnd {
+        self.sounds.clear();
         self.world.handle_idle_sprites(self.view.corner);
         // SATRun: the tasks in list order
         let mut k = 0;
@@ -358,7 +407,7 @@ impl Game {
                 let input = KeyInput { keys, bindings: &self.prefs.bindings, debug: false, gulp_playing: false, voice_playing: false };
                 let mut key_events = Vec::new();
                 let mut sounds: Vec<FrameSound> = Vec::new();
-                handle_player(
+                let effects = handle_player(
                     &mut h,
                     &mut self.g,
                     &self.level,
@@ -373,6 +422,12 @@ impl Game {
                     sp.task = Some(Task::PlayerDeath);
                     sp.timer = 0;
                 }
+                if let Some(c) = effects.recentre {
+                    // JumpScale moves the view onto Harry where he comes back
+                    self.view.corner = c;
+                    self.view.target = c;
+                }
+                let at = sp.at;
                 self.world.sprites.recs[i] = std::mem::take(&mut sp);
                 for e in key_events {
                     match e {
@@ -382,9 +437,15 @@ impl Game {
                         }
                         KeyEvent::Explosion { h, v, flag } => self.explosion(h, v, flag, 0),
                         KeyEvent::Ripple(_) => panic!("the ripple is not ported into the frame yet"),
-                        _ => {}
+                        KeyEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
+                        KeyEvent::ChargeSound(id) => self.play(id, 0x100, None, RATE, Channel::Charge),
+                        KeyEvent::StopCharge => self.sounds.push(SoundEvent::StopCharge),
+                        KeyEvent::VoiceSound(id) => self.play(id, 0x100, None, RATE, Channel::Voice),
+                        KeyEvent::Sound3D { snd, pitch } => self.play(snd, 0x100, Some(at), u32::from(pitch), Channel::Effect),
+                        KeyEvent::Balloon(_) => {}
                     }
                 }
+                self.player_sounds(sounds);
                 sp = std::mem::take(&mut self.world.sprites.recs[i]);
             }
             Some(Task::HeldWeapon) => {
@@ -409,11 +470,12 @@ impl Game {
                     sp.face = weapon_face(w.face);
                 }
                 self.gun = w.gun;
+                let at = sp.at;
                 self.world.sprites.recs[i] = std::mem::take(&mut sp);
                 for s in shots {
                     self.spawn_with(s.kind, s.h, s.v, Setup::PlayerShot, Some(s.speed));
                 }
-                self.weapon_events(wev);
+                self.weapon_events(wev, at);
                 sp = std::mem::take(&mut self.world.sprites.recs[i]);
             }
             Some(Task::Bonus) => handle_bonus(&mut sp),
@@ -423,6 +485,12 @@ impl Game {
             Some(Task::Plant) => {
                 let mut s = Vec::new();
                 handle_plant(&mut sp, &self.level, &self.physics, &mut self.rng, &mut self.plant_flag, &mut s);
+                for a in s {
+                    // HandleHalfPipe / JumpScale with the bump sound (none for falling)
+                    if a != AirSound::Fall {
+                        self.play(snd::PLANT, 0x100, None, RATE, Channel::Effect);
+                    }
+                }
             }
             Some(Task::Message) => {
                 let (view, player) = (self.view.corner, self.g.player_pos);
@@ -432,7 +500,7 @@ impl Game {
                     calls.push((r, m, s.pos));
                     r
                 });
-                self.balloons(calls);
+                self.balloons(calls, sp.at);
             }
             Some(Task::Collider) => {
                 let p = self.harry;
@@ -473,8 +541,9 @@ impl Game {
             Some(Task::Effect) => handle_effect(&mut sp),
             Some(Task::Exit | Task::PlayerDeath) | None => {}
         }
+        let at = sp.at;
         self.world.sprites.recs[i] = sp;
-        self.sprite_events(events);
+        self.sprite_events(events, at);
         died
     }
 
@@ -503,7 +572,7 @@ impl Game {
                     calls.push((r, m, s.pos));
                     r
                 });
-                self.balloons(calls);
+                self.balloons(calls, sp.at);
             }
             Some(HitTask::Collider) => {
                 let (view, player) = (self.view.corner, self.g.player_pos);
@@ -513,7 +582,7 @@ impl Game {
                     calls.push((r, m, s.pos));
                     r
                 });
-                self.balloons(calls);
+                self.balloons(calls, sp.at);
             }
             Some(HitTask::EnemyShot) => hit_enemy_shot(&mut sp, &mut o, &mut events),
             Some(HitTask::DartEnemy) => hit_dart_enemy(&mut sp, &mut o, &mut self.g, &mut self.rng, &mut events),
@@ -522,20 +591,25 @@ impl Game {
             Some(HitTask::Bonus | HitTask::Item) | None => {}
             Some(t) => panic!("hit task {t:?} is not in the frame yet"),
         }
+        let at = sp.at;
         self.world.sprites.recs[a] = sp;
         self.world.sprites.recs[b] = o;
-        self.sprite_events(events);
+        self.sprite_events(events, at);
     }
 
     /// The game's part of `ShowBalloon` after the frontend's: a shown
     /// balloon of mode 1, 3 or 5 plays its sound at a random pitch
     /// (`SATRand(16000)`); one that did not fit, with the page scroll (3)
     /// not paging, nudges the view 16 px toward the sprite.
-    fn balloons(&mut self, calls: Vec<BalloonCall>) {
+    fn balloons(&mut self, calls: Vec<BalloonCall>, at: (i16, i16)) {
         for (shown, mode, pos) in calls {
             if shown {
+                if mode == 5 {
+                    self.sounds.push(SoundEvent::Stop(snd::PHONE_RING));
+                }
                 if matches!(mode, 1 | 3 | 5) {
-                    self.rng.below(16000);
+                    let pitch = 56000 + self.rng.below(16000) as u32;
+                    self.play(snd::BALLOON, 0x100, Some(at), pitch, Channel::Effect);
                 }
             } else if self.prefs.scroll == 3 && self.view.steps == 0 {
                 let (ph, pv) = (i32::from(self.g.player_pos.0) + 32, i32::from(self.g.player_pos.1) + 32);
@@ -549,8 +623,11 @@ impl Game {
     /// `Ouch`: it halts the voices, so (unless caffeine works) it always
     /// picks one of its three with the random generator.
     fn ouch(&mut self) {
+        self.sounds.push(SoundEvent::HaltVoices);
         if self.g.caffeine == 0 {
-            self.rng.below(100);
+            let r = self.rng.below(100);
+            let id = snd::OUCH[if r < 43 { 0 } else if r < 86 { 1 } else { 2 }];
+            self.play(id, 0x100, None, RATE, Channel::Voice);
         }
     }
 
@@ -574,8 +651,12 @@ impl Game {
             let mut events = Vec::new();
             touch(&mut h, &mut self.g, &mut other, &mut w, &mut events);
             for e in events {
-                if e == TouchEvent::Ouch {
-                    self.ouch();
+                match e {
+                    TouchEvent::Ouch => self.ouch(),
+                    TouchEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
+                    TouchEvent::VoiceSound(id) => self.play(id, 0x100, None, RATE, Channel::Voice),
+                    TouchEvent::HaltTalking => self.sounds.push(SoundEvent::HaltVoices),
+                    TouchEvent::Remark(id) => self.play(id, 0x100, None, RATE, Channel::Remark),
                 }
             }
             self.world.sprites.recs[o] = other;
@@ -601,9 +682,11 @@ impl Game {
                         let mut sounds = Vec::new();
                         hit_player_tile(&mut h.player, &mut self.g.tile, &self.level, assets.player, &self.physics, hit, &mut sounds);
                         harry_into(&h, sp);
+                        let at = sp.at;
                         for s in sounds {
-                            if s == TileSound::Ouch {
-                                self.ouch();
+                            match s {
+                                TileSound::Ouch => self.ouch(),
+                                TileSound::Water => self.play(snd::WATER, 0x100, Some(at), 55000, Channel::Effect),
                             }
                         }
                     }
@@ -624,7 +707,8 @@ impl Game {
                         let mut wev = Vec::new();
                         hit_shot_tile(&mut s, assets.player_shot, walls, hit, &mut wev);
                         s.into_sprite(sp);
-                        self.weapon_events(wev);
+                        let at = sp.at;
+                        self.weapon_events(wev, at);
                     }
                 }
             }

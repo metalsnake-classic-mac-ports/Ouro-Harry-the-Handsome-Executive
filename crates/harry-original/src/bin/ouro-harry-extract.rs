@@ -1,7 +1,7 @@
 //! Make the data pack from the original files: `ouro-harry-extract
 //! <folder with the installed game> [pack.zip]`. The folder holds the
 //! game's files as MacBinary (`Harry 1.0.1.bin`, `Harry Graphics.bin`,
-//! `Harry Titles.bin`, `Episode 1.bin`).
+//! `Harry Titles.bin`, `Harry Sounds.bin`, `Episode 1.bin`).
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -10,7 +10,7 @@ use std::process::ExitCode;
 use harry_core::mask::Mask;
 use harry_data::{Face, GameData, Image, MaskImages, TileSet, clut8};
 use harry_original::resfork::{MacBinary, Resources};
-use harry_original::{hlvl, hrsp, masks, pict};
+use harry_original::{hlvl, hrsp, masks, pict, snd};
 
 fn open(dir: &Path, name: &str) -> Result<Resources, String> {
     let bytes = std::fs::read(dir.join(name)).map_err(|e| format!("{name}: {e}"))?;
@@ -46,6 +46,7 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
     let gfx = open(dir, "Harry Graphics.bin")?;
     let ep = open(dir, "Episode 1.bin")?;
     let titles = open(dir, "Harry Titles.bin")?;
+    let sound_file = open(dir, "Harry Sounds.bin")?;
     let clut: HashMap<[u8; 3], u8> = clut8().iter().enumerate().map(|(i, c)| (*c, i as u8)).collect();
     let mut faces = BTreeMap::new();
     for id in gfx.ids(b"HrSp") {
@@ -87,16 +88,31 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
         }
     }
     let words = harry_original::words::words(&app).map_err(|e| format!("word lists: {e}"))?;
-    let data = GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, levels, texts, words };
+    let sound_set = |r: &Resources| -> BTreeMap<i16, harry_data::Sound> {
+        r.ids(b"snd ")
+            .into_iter()
+            .filter_map(|id| {
+                let s = r.get(b"snd ", id).ok().and_then(snd::decode);
+                if s.is_none() {
+                    eprintln!("snd {id}: not a sampled sound, left out");
+                }
+                s.map(|s| (id, harry_data::Sound { rate: s.rate, samples: s.samples }))
+            })
+            .collect()
+    };
+    let (sounds, world_sounds) = (sound_set(&sound_file), sound_set(&ep));
+    let data =
+        GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, levels, texts, words, sounds, world_sounds };
     let bytes = harry_data::pack::write(&data).map_err(|e| e.to_string())?;
     std::fs::write(out, &bytes).map_err(|e| format!("{}: {e}", out.display()))?;
     println!(
-        "{}: {} faces, {} tile sets, {} levels, {} texts, {} KB",
+        "{}: {} faces, {} tile sets, {} levels, {} texts, {} sounds, {} KB",
         out.display(),
         data.faces.len(),
         data.tile_sets.len(),
         data.levels.len(),
         data.texts.len(),
+        data.sounds.len() + data.world_sounds.len(),
         bytes.len() / 1024
     );
     Ok(())
