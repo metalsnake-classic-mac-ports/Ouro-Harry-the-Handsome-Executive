@@ -8,7 +8,7 @@ use harry_core::air::Air;
 use harry_core::bounce::Body;
 use harry_core::frame::{Harry, PlayerGlobals, handle_player};
 use harry_core::physics::Speed;
-use harry_core::player::{HOT_RECT, Player};
+use harry_core::player::Player;
 use harry_core::random::Random;
 use harry_core::{Physics, moves::Moves, player::TileState};
 use harry_original::hlvl;

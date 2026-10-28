@@ -103,6 +103,18 @@ option) and why.
   the frame he is no longer kicking (e.g. in `CheckTileCollisions`).
   Port: keep.
 
+- **A cancelled copier save still uses up the copier in the level.**
+  `HitColliderSprite` sets the copier's level entry to 9199 (used) before
+  `CopierSave` runs and leaves it there when the dialog is cancelled; only
+  the sprite stays 9200 (and waits 300 frames). A level built again from
+  its entries (a later save, a restored game) has the copier used.
+  Port: keep.
+- **Wall guns other than 9401 / 9411 / 9421 / 9431 fire from garbage.**
+  `HandleColliderSprite` takes every id 9401–9449 as a gun, but sets the
+  shot's offset only for those four; the others use registers r27 / r28
+  as the caller left them (and speed 0). None are in Episode 1. Port:
+  offset 0.
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

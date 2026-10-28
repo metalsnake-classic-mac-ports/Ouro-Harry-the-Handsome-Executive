@@ -11,7 +11,7 @@ use harry_core::Physics;
 use harry_core::kinds::{PlantHitMasks, hit_plant, setup_cooler, setup_door, setup_plant};
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT};
 use harry_core::random::Random;
-use harry_core::sprite::{Sprite, SpriteEvent, Task};
+use harry_core::sprite::{Sprite, Task};
 use harry_original::masks;
 use harry_original::resfork::{MacBinary, Resources};
 
@@ -77,19 +77,11 @@ fn plant_hits_match_the_original() {
         let mut rng = Random::new(w("seed") as u32);
         let mut events = Vec::new();
         hit_plant(&mut sp, &mut o, &ms, &physics, &mut rng, &mut contact, w("busy") != 0, &mut events);
-        let ev: Vec<String> = events
-            .iter()
-            .map(|e| match *e {
-                SpriteEvent::Sound(s) => format!("p:{s}"),
-                SpriteEvent::Sound3D(s) => format!("3d:{s}"),
-                SpriteEvent::Explosion { h, v, a, b } => format!("x:{h}:{v}:{a}:{b}"),
-            })
-            .collect();
         let got = format!(
             "{} || {} | contact={contact} events={}",
             dump(&sp),
             dump(&o),
-            if ev.is_empty() { "-".into() } else { ev.join(",") }
+            common::events(&events)
         );
         n += 1;
         if got != b {

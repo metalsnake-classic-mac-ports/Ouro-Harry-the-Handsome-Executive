@@ -42,7 +42,9 @@
 - [ ] Remaining `HitPlantSprite` branches with their kinds (effect, mail guy, barrel, desk, chair, robot, grate, ramp, stairs)
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
 - [ ] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
-- [ ] Level 1 complete: collider, background props, dart enemy, message, ramp (+ their `HitPlayerSprite` branches)
+- [x] Colliders: fans (`HandleRepulsions`), phone, copier, magnet, wall guns, vending machine, gate (20 000 cases)
+- [ ] Level 1 complete: collider `HitPlayerSprite` branch, background props, dart enemy, ramp (+ their `HitPlayerSprite` branches)
+- [ ] Enemy shots (`SetupEnemyShotSprite`, `HandleEnemyShotSprite`: gun shot 9450, can 9610)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one
 

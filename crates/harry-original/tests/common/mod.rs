@@ -2,7 +2,7 @@
 //! (`re/tools/sprites.py`).
 #![allow(dead_code)]
 
-use harry_core::sprite::{HitTask, HitTileTask, Sprite, Task};
+use harry_core::sprite::{HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 
 pub fn task_name(t: Option<Task>) -> &'static str {
     match t {
@@ -19,6 +19,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::Cooler) => "HandleCoolerSprite",
         Some(Task::Plant) => "HandlePlantSprite",
         Some(Task::Message) => "HandleMessageSprite",
+        Some(Task::Collider) => "HandleColliderSprite",
     }
 }
 
@@ -34,7 +35,25 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Cooler) => "HitCoolerSprite",
         Some(HitTask::Plant) => "HitPlantSprite",
         Some(HitTask::Message) => "HitMessageSprite",
+        Some(HitTask::Collider) => "HitColliderSprite",
     }
+}
+
+/// The recorders' event names: p:<snd>, 3d:<snd>, x:<h>:<v>:<a>:<b>
+/// (EasyExplosion), n:<kind>:<h>:<v>:<speed v>:<speed h> (SATNewSprite).
+pub fn event(e: &SpriteEvent) -> String {
+    match *e {
+        SpriteEvent::Sound(s) => format!("p:{s}"),
+        SpriteEvent::Sound3D(s) => format!("3d:{s}"),
+        SpriteEvent::Explosion { h, v, a, b } => format!("x:{h}:{v}:{a}:{b}"),
+        SpriteEvent::Spawn { kind, h, v, speed } => format!("n:{kind}:{h}:{v}:{}:{}", speed.v, speed.h),
+    }
+}
+
+/// The events joined by commas, "-" for none.
+pub fn events(events: &[SpriteEvent]) -> String {
+    let ev: Vec<String> = events.iter().map(event).collect();
+    if ev.is_empty() { "-".into() } else { ev.join(",") }
 }
 
 /// The recorder's dump (`re/tools/sprites.py`).

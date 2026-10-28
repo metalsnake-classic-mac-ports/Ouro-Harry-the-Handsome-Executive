@@ -25,6 +25,7 @@ pub enum Task {
     Cooler,
     Plant,
     Message,
+    Collider,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -39,6 +40,7 @@ pub enum HitTask {
     Cooler,
     Plant,
     Message,
+    Collider,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -58,6 +60,8 @@ pub enum SpriteEvent {
     Sound3D(i16),
     /// `EasyExplosion(h, v, 0, 0, a, b)`.
     Explosion { h: i16, v: i16, a: i16, b: i16 },
+    /// `SATNewSprite(kind, h, v, SetupEnemyShotSprite)`, then its speed set.
+    Spawn { kind: i16, h: i16, v: i16, speed: Speed },
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

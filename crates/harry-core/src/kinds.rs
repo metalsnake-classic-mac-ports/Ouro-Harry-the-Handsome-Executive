@@ -516,6 +516,8 @@ pub enum BalloonText {
     World(i16),
     /// A sentence from the buzzword generator (`GenerateBuzzwords`).
     Buzzwords,
+    /// A sentence from the phone word generator (`GeneratePhonewords`).
+    Phonewords,
 }
 
 /// `ShowBalloon(sprite, text, mode)`: shows the balloon over the sprite

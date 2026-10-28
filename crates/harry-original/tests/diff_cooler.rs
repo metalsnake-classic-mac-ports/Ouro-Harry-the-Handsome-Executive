@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use common::dump;
 use harry_core::kinds::{CoolerMasks, handle_cooler, hit_cooler, setup_cooler};
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT};
-use harry_core::sprite::{Sprite, SpriteEvent, Task};
+use harry_core::sprite::{Sprite, Task};
 use harry_original::resfork::{MacBinary, Resources};
 use harry_original::{hlvl, hrsp, masks};
 
@@ -76,14 +76,6 @@ fn cooler_matches_the_original() {
         o.hot_rect = if w("kicking") != 0 { KICK_HOT_RECT } else { HOT_RECT };
         let mut contact = w("contact");
         hit_cooler(&mut sp, &mut o, &ms, &mut contact, &mut events);
-        let ev: Vec<String> = events
-            .iter()
-            .map(|e| match *e {
-                SpriteEvent::Sound(s) => format!("p:{s}"),
-                SpriteEvent::Sound3D(s) => format!("3d:{s}"),
-                SpriteEvent::Explosion { h, v, a, b } => format!("x:{h}:{v}:{a}:{b}"),
-            })
-            .collect();
         let present = if li >= 0 { i16::from(level.sprites[li as usize].present) } else { 9 };
         let got_out = format!(
             "present={present} contact={contact} ofrozen={} opv={} oph={} oav={} oah={} ofixh={} ofixv={} ospeedv={} ospeedh={} events={}",
@@ -96,7 +88,7 @@ fn cooler_matches_the_original() {
             o.fix.1,
             o.speed.v,
             o.speed.h,
-            if ev.is_empty() { "-".into() } else { ev.join(",") }
+            common::events(&events)
         );
         let got_dump = dump(&sp);
         n += 1;

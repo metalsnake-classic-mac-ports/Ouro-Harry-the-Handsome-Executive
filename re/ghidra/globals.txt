@@ -53,3 +53,11 @@
 10066074   gShotFaces4                  7 frames, soda can
 @1006613c gShotMaskFace            face 4021, its region is the shots' wall mask
 @10065b70 gSAT                     SAT's globals; first sprite at +0x78
+1006c4ac   gMagnetDelay:short           frames until the magnets (9300) pull again
+@10065980  gPlayerSprite                the player's sprite record
+@10066000  gGateFace                    collider faces: 9800 (HrSp 1901)
+@10065ffc  gVendingFace                 9600 (1902); @10065ff8 kicked (1903)
+@10065ff4  gPhoneRingFace               3100 bell (1904); @10065ff0 phone (1905)
+@10065fec  gCopierFace                  9199 / 9200 (1906); @10065fe4 magnet (1907)
+@10065fe0  gGunFaces                    9401, 9411, 9421, 9431: fe0, fdc, fd8, fd4 (1908-1911)
+@10065fcc  gFanFaces                    4 faces (1921-1924)

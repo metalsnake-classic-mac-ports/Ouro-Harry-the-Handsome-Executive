@@ -565,6 +565,54 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   = current, current = the exit's info #0 or current + 1, timer 69 (never
   counted down - once only). The level end itself is noticed elsewhere.
 
+- **Colliders** (`SetupColliderSprite`, layer 5, state 5, `f78` = −1;
+  Episode 1: fans 2301 / 2302 / 2303, phones 3100, copiers 9200, magnets
+  9300, wall guns 9401 / 9411 / 9421 / 9431, vending machines 9600, one
+  gate 9800). Hot rects (top, left, bottom, right): fan (4, 4, 28, 28),
+  phone (−18, −18, 34, 34), copier (0, 12, 30, 40), magnet (1, 1, 22,
+  22), gun (2, 2, 14, 14), vending (4, 0, 30, 32), gate (0, 8, 64, 56);
+  1019 / 1029 / 1039 / 1049 / 2001 only get a hot rect (the props come
+  from `AddBGProp`). Faces HrSp 1901–1911, fans 1921–1924. Task by id:
+  - **Fan** (2301 up, 2302 down, 2303 left, 2304 right): only while Harry
+    is within 448 px on both axes. First time: reach (`f6e`, −69 =
+    unset) = info #0 or 125, strength (timer) = info #1 or 256. Sound
+    1303 when the fan sound is not playing, the face turns (4 frames),
+    then `HandleRepulsions` goes through the SAT list: Harry, shots,
+    barrels, blobs, ghosts, plants, chairs, reversors and robots whose
+    hot rect centre (`SpriteCenter`) is in front of the fan (at + 16),
+    nearer along the wind than across and nearer than the reach, get
+    (reach − distance) × strength >> 8 added to their speed.
+  - **Phone** 3100: quiet 100–299 frames (timer < 0, start −100 −
+    `SATRand(100)`), then rings 1–3 × 90 frames (sound 301 at 270 / 180 /
+    90), the bell face 1904 flickering in the last 30 of each ring. Harry
+    touching it while the bell face shows: `ShowBalloon` with
+    `GeneratePhonewords`, mode 5; shown → 3101 (silent).
+  - **Copier** 9200: Harry touching it with timer 0 sets its level entry
+    to 9199 and calls `CopierSave` (the save game dialog); saved → the
+    sprite becomes 9199 (used, no more saves), cancelled → timer 300.
+  - **Magnet** 9300: Harry above it (his v + 32 < at.v + 12), less than
+    96 px to the side (centres), with any ammo: every third frame (one
+    counter for all magnets, `_DAT_1006c4ac`) sound 602, his speed v =
+    2500, comfort − 5 unless on caffeine.
+  - **Wall gun** 9401 up, 9411 down, 9421 right, 9431 left: fires while
+    its switch is on - the switch is the level entry named by info #0
+    (negative: on while its info #1 ≠ 0, else while it is 0) - or while
+    its own info #1 ≠ 0; every 60 frames sound 250 and an enemy shot 9450
+    at (at.h + 2, at.v − 12) / (2, 8) / (12, 2) / (−12, 2), speed 1500.
+  - **Vending machine** 9600: entry info #0 = kicks until a can (2–4 when
+    unset), info #1 = cans (2–4 when unset, −1 = empty). A kick
+    (`HitPlayerSprite`) sets timer 3: kicked face for 3 frames, the first
+    counts the kick; the last one with cans left plays 1302, resets the
+    kicks and 25 frames later throws a can (enemy shot 9610 at (at.h +
+    12, at.v + 28), speed v 1500–2299, h −1000…999); else sound 1301.
+  - **Gate** 9800: once item 11199 is used on it (`HitPlayerSprite`,
+    timer + 1), it loses its hit task, rises 1 px a frame (sound 700 at
+    timer 3) and is gone after timer 64.
+- `re/tools/emu_collider.py`: 20 000 cases (setup, up to 400 frames, the
+  hit at a random frame, up to four sprites in the fan's list), all
+  matching; 31 of 34 mutations caught, the other 3 equivalent (push 0 at
+  the reach, the unsigned shift truncated to 16 bits, the centre line).
+
 ### Harry touches a sprite (`HitPlayerSprite`)
 
 - Called by `CheckPlayerCollision`; nothing when Harry or the other

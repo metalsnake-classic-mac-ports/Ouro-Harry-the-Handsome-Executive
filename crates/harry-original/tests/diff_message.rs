@@ -51,6 +51,7 @@ fn message_matches_the_original() {
             let name = match t {
                 BalloonText::World(n) => n.to_string(),
                 BalloonText::Buzzwords => "buzz".into(),
+                BalloonText::Phonewords => "phone".into(),
             };
             calls.push(format!("b:{name}:{mode}:{}", u8::from(ans)));
             ans
