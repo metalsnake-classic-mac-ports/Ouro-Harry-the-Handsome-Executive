@@ -43,6 +43,7 @@
 - [x] Barrel and chair: setup, task, tiles, hit tasks; in the plant's, enemy shots' and fans' tests (52 000 cases)
 - [x] Stairs: setup, `HandleStairsCollision` for Harry, plants, barrels, chairs (30 000 cases)
 - [x] Buttons and sliding doors (30 000 runs), sliding doors in the Harry, object and shot recorders
+- [x] Co-workers (15 000 runs), as partners of Harry and the objects
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
 - [ ] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
 - [x] Colliders: fans (`HandleRepulsions`), phone, copier, magnet, wall guns, vending machine, gate (20 000 cases)

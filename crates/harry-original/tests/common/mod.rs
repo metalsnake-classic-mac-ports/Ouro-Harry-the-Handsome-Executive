@@ -28,6 +28,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::Stairs) => "HandleStairsSprite",
         Some(Task::Button) => "HandleButtonSprite",
         Some(Task::SlidingDoor) => "HandleSlidingDoorSprite",
+        Some(Task::CoWorker) => "HandleCoWorkerSprite",
     }
 }
 

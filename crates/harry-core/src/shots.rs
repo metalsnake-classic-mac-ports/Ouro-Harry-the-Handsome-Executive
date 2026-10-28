@@ -344,7 +344,7 @@ pub fn hit_player_shot(sp: &mut Sprite, other: &mut Sprite, favor: &mut i16, rng
             events.push(SpriteEvent::Sound3D(4700));
             sp.frozen = true;
         }
-        Some(Task::DartEnemy) => {
+        Some(Task::DartEnemy | Task::CoWorker) => {
             sp.frozen = true;
             *favor = favor.wrapping_sub(2);
             if rng.below(100) < 50 {

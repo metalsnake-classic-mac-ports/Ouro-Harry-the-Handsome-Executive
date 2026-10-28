@@ -35,6 +35,7 @@ pub enum Task {
     Stairs,
     Button,
     SlidingDoor,
+    CoWorker,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).

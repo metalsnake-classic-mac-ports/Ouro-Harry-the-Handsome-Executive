@@ -9,6 +9,7 @@ pub mod air;
 pub mod bounce;
 pub mod button;
 pub mod collider;
+pub mod coworker;
 pub mod dart_enemy;
 pub mod effect;
 pub mod enemy_shot;

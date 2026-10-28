@@ -42,6 +42,7 @@ pub enum Setup {
     Stairs,
     Button,
     SlidingDoor,
+    CoWorker,
 }
 
 /// Run a setup routine on a sprite.
@@ -65,6 +66,7 @@ pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random) {
         Setup::Stairs => crate::stairs::setup_stairs(sp),
         Setup::Button => crate::button::setup_button(sp),
         Setup::SlidingDoor => crate::button::setup_sliding_door(sp),
+        Setup::CoWorker => crate::coworker::setup_coworker(sp),
     }
 }
 
@@ -280,7 +282,7 @@ impl World {
     pub fn generate_sprite(&mut self, h: i16, v: i16, kind: i16, index: i16, rng: &mut Random) -> bool {
         let idle = |w: &mut World, h: i16, v: i16, setup: Setup, rng: &mut Random| w.add_idle(kind, h, v, index, 0, setup, rng);
         match kind {
-            301..=319 | 1100..=1299 | 1300..=1449 | 1700..=1849 | 1850..=1899 | 1900..=1999
+            301..=319 | 1100..=1299 | 1700..=1849 | 1850..=1899 | 1900..=1999
             | 2000..=2099 | 2200..=2299 | 3001 | 3900..=3999 | 4200..=4299 | 5000..=5999 | 6000..=6099 => return false,
             1601 | 1611 | 1621 | 1631 => return false,
             500 | 501 => idle(self, even(h), even(v), Setup::Cooler, rng),
@@ -293,6 +295,7 @@ impl World {
                 Some((_, face)) => self.bg_props.add((v, h), face),
                 None => idle(self, h, v, Setup::DartEnemy, rng),
             },
+            1300..=1449 => idle(self, even(h) + 1, even(v), Setup::CoWorker, rng),
             1600..=1699 => {
                 if let Some((true, face)) = prop_face(kind) {
                     self.fg_props.add((v, h), face);

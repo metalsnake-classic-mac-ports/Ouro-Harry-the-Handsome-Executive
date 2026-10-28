@@ -575,6 +575,7 @@ impl Game {
                 s.into_sprite(&mut sp);
             }
             Some(Task::Effect) => handle_effect(&mut sp),
+            Some(Task::CoWorker) => crate::coworker::handle_coworker(&mut sp, &mut self.rng),
             Some(Task::Button) => handle_button(&mut sp, &mut self.level, &mut events),
             Some(Task::SlidingDoor) => handle_sliding_door(&mut sp, &self.level, &mut events),
             Some(Task::Exit | Task::PlayerDeath | Task::Stairs) | None => {}

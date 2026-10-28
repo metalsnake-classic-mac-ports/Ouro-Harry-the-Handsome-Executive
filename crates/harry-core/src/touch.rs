@@ -81,7 +81,7 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
         }
         Some(Task::Door) => door(h, g, other, w, events),
         Some(Task::Collider) if on_floor && !matches!(other.kind, 3100 | 3101) => collider(h, g, other, w.physics),
-        Some(Task::DartEnemy) if on_floor => collider(h, g, other, w.physics),
+        Some(Task::DartEnemy | Task::CoWorker) if on_floor => collider(h, g, other, w.physics),
         Some(Task::EnemyShot) if on_floor => enemy_shot(h, g, other, events),
         Some(Task::Effect) if on_floor => effect(h, g, other, events),
         Some(Task::Bonus) if on_floor => bonus(g, other, voice_playing, events),

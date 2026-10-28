@@ -270,7 +270,7 @@ pub fn hit_barrel(
         }
     }
     let door = other.task == Some(Task::Door) && !door_open(other.kind);
-    if door || matches!(other.task, Some(Task::Collider | Task::SlidingDoor)) {
+    if door || matches!(other.task, Some(Task::Collider | Task::SlidingDoor | Task::CoWorker)) {
         let mut body = sp.body();
         rect_bounce(&mut body, 12, i32::from(physics.bounce), sp.hot_rect, other.at, other.hot_rect);
         sp.set_body(body);
@@ -436,7 +436,7 @@ pub fn hit_chair(
         }
     }
     let door = other.task == Some(Task::Door) && !door_open(other.kind);
-    if door || matches!(other.task, Some(Task::Collider | Task::SlidingDoor)) {
+    if door || matches!(other.task, Some(Task::Collider | Task::SlidingDoor | Task::CoWorker)) {
         let mut body = sp.body();
         rect_bounce(&mut body, 18, i32::from(physics.bounce), sp.hot_rect, other.at, other.hot_rect);
         sp.set_body(body);

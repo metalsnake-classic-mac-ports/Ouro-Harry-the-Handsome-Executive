@@ -692,6 +692,19 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   frames with the linked entry changing, all matching; 12 of 12
   mutations caught (a 13th was equivalent). Sliding doors are also in the
   Harry, plant, barrel / chair and enemy shot recorders.
+- **Co-workers** (1300–1449, idle with h even + 1 and v even; layer 5,
+  hot rect (2, 2, 40, 40), no hit task). Faces from a table of 12 per
+  group of 20 kinds: 1301–1320 the eleven frames 2101–2111 (cicn
+  1301–1311), the seven groups from 1321 on only their first, 2302–2308
+  (cicn 1321, 1341, …, 1441). Only 1301 moves: at dir 0 a 1-in-15 chance
+  each frame (`SATRand(15)` = 1) to start, then dir + 1 a frame, holding
+  at 12 (1 in 60 to go on), up to 32, then back to 0; face = dir / 3. A
+  co-worker on layer 10 (just hit by a shot) goes back to 5. Harry (on the
+  floor; `RectBounce` once a frame like colliders), plants, barrels and
+  chairs bounce off them; a player shot costs 2 favor like a dart enemy.
+  `re/tools/emu_coworker.py`: 15 000 runs of 1–60 frames, all matching, 6
+  of 6 mutations caught; co-workers are also in the Harry, plant and
+  barrel / chair recorders.
 - **Message** (21000 and up; layer 9, faces 3801–3805): the mode
   (`f6e`) is the level entry's info #1, read each frame: 0 a memo on the
   floor (hot rect (−8, −8, 32, 32), the face blinking 3801 → 3805 → 3801
