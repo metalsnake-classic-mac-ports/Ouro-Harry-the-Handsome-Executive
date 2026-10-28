@@ -48,6 +48,7 @@ fn level_1_frames_match_the_original() {
     let barrel = masks::from_cicn(&gfx, 598).unwrap();
     let cooler = masks::from_face(&face(2002));
     let shot = masks::from_cicn(&gfx, 1299).unwrap();
+    let player_shot = masks::from_face(&face(4021));
     let ramps: Vec<_> = (571..=574).map(|id| masks::from_cicn(&gfx, id).unwrap()).collect();
     let bounds: HashMap<i16, [i16; 4]> =
         gfx.ids(b"HrSp").into_iter().map(|id| (id, hrsp::decode(gfx.get(b"HrSp", id).unwrap()).unwrap().bounds)).collect();
@@ -59,6 +60,7 @@ fn level_1_frames_match_the_original() {
         cooler: &cooler,
         shot: &shot,
         ramps: [&ramps[0], &ramps[1], &ramps[2], &ramps[3]],
+        player_shot: &player_shot,
         face_bounds: &face_bounds,
     };
     let level1 = hlvl::read(ep.get(b"Hlvl", 1).unwrap()).unwrap();
@@ -89,6 +91,16 @@ fn level_1_frames_match_the_original() {
             ..Default::default()
         };
         g.inventory = [(-1, 0); 12];
+        if i["inv"] != "-" {
+            for (slot, e) in g.inventory.iter_mut().zip(i["inv"].split(',')) {
+                let (a, b) = e.split_once(':').unwrap();
+                *slot = (a.parse().unwrap(), b.parse().unwrap());
+            }
+        }
+        g.cur_slot = w("curslot") as i16;
+        g.ammo.staple = w("staple") as i16;
+        g.ammo.badass = w("badass") as i16;
+        g.ammo.shrapnel = w("shrapnel") as i16;
         // the data section's value (HandlePlayerSprite sets it each frame)
         g.tile.floor_kind = 1;
         let mut game = Game {
@@ -104,6 +116,7 @@ fn level_1_frames_match_the_original() {
             plant_flag: false,
             magnet: 0,
             gun: 0,
+            harry: None,
         };
         let missing = game.start(w("h") as i16, w("v") as i16, w("dir") as i16, &assets);
         assert!(missing.is_empty());
@@ -118,6 +131,12 @@ fn level_1_frames_match_the_original() {
                     's' => km.press(0x7D),
                     'i' => km.press(0x7E),
                     'k' => km.press(0x31),
+                    'e' => km.press(0x3B),
+                    'u' => km.press(0x3A),
+                    '1' => km.press(0x12),
+                    '2' => km.press(0x13),
+                    '3' => km.press(0x14),
+                    '4' => km.press(0x15),
                     _ => {}
                 }
             }
@@ -139,13 +158,17 @@ fn level_1_frames_match_the_original() {
                 log.push("uplevel");
                 break;
             }
+            if end == FrameEnd::Died {
+                log.push("died");
+                break;
+            }
         }
         let gl = &game.g;
         let list: Vec<String> =
             game.world.sprites.list.iter().map(|&r| format!("{r}/{}", dump(game.world.rec(r)).replace(' ', ":"))).collect();
         let free: Vec<String> = game.world.sprites.free.iter().rev().map(|r| r.to_string()).collect();
         let got = format!(
-            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} harry={} list={} free={}",
+            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} harry={} list={} free={}",
             harry.len(),
             game.rng.seed,
             game.view.corner.0,
@@ -161,6 +184,11 @@ fn level_1_frames_match_the_original() {
             gl.tile.kick_contact,
             game.counter.current,
             if log.is_empty() { "-".to_string() } else { log.join(",") },
+            gl.inventory.iter().map(|(a, b)| format!("{a}:{b}")).collect::<Vec<_>>().join(","),
+            gl.cur_slot,
+            gl.ammo.staple,
+            gl.ammo.badass,
+            gl.ammo.shrapnel,
             harry.join(","),
             list.join(";"),
             if free.is_empty() { "-".to_string() } else { free.join(",") }

@@ -3,7 +3,8 @@ walking into it), another plant, a water cooler, a door, and player /
 enemy shots. Every sprite is made by its real setup.
 
 Each line: "<name=value ...> -> <plant dump> || <other dump> | contact=<kick contact> events=<...>"
-  other   1 Harry, 2 plant, 3 cooler, 4 door, 5 player shot, 6 enemy shot
+  other   1 Harry, 2 plant, 3 cooler, 4 door, 5 player shot, 6 enemy shot,
+          7 explosion (kind okind, frame odir; blast cooldown "blast")
   events  p:<snd> (STPlayRegSound), 3d:<snd> (STPlay3DSound)
 Usage: python3 -I emu_planthit.py [re/work]
 """
@@ -35,7 +36,7 @@ def main():
     m = Machine(f"{work}/ppc")
     faces = Faces(m)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))
-    for f in ("InitPlantSprite", "InitCoolerSprite", "InitDoorSprite", "InitPlayerKickRects"):
+    for f in ("InitPlantSprite", "InitCoolerSprite", "InitDoorSprite", "InitPlayerKickRects", "InitEffectSprite"):
         m.call(f)
     tv = tvectors(f"{work}/ppc")
     body = masks(work)["body"]
@@ -67,7 +68,7 @@ def main():
         m.w32(plant_face + 0x1A, m.make_region(plant_mask))
         m.w32(barrel_face + 0x1A, m.make_region(barrel_mask))
         v, h = rnd.randint(200, 3800), rnd.randint(200, 3800)
-        kind = rnd.choice([1, 1, 1, 2, 2, 3, 4, 4, 5, 6])
+        kind = rnd.choice([1, 1, 1, 2, 2, 3, 4, 4, 5, 6, 7, 7])
         st = {"v": v, "h": h, "other": kind, "okind": 0,
               "ov": v + rnd.randint(-40, 40), "oh": h + rnd.randint(-40, 40), "samefix": int(rnd.random() < 0.1),
               "speedh": rnd.randint(-2500, 2500), "speedv": rnd.randint(-2500, 2500),
@@ -80,6 +81,9 @@ def main():
             st["okind"] = rnd.choice(DOORS)
         elif kind in (5, 6):
             st["okind"] = rnd.choice([0, 1, 9450, 9610])
+        elif kind == 7:
+            st["okind"] = rnd.choice([0, 14, 12, -1])
+        st["blast"] = rnd.choice([0, 0, 0, 1, 5, -1])
         m.write(sp, bytes(0xA2))
         m.w16(sp, 601)
         m.w16(sp + 2, v)
@@ -92,7 +96,10 @@ def main():
         m.w16(other, {2: 601, 3: 500}.get(kind, st["okind"]))
         m.w16(other + 2, st["ov"])
         m.w16(other + 4, st["oh"])
-        if kind == 2:
+        if kind == 7:
+            m.call("SetupEffectSprite", other)
+            m.w16(other, st["okind"])
+        elif kind == 2:
             m.call("SetupPlantSprite", other)
         elif kind == 3:
             m.call("SetupCoolerSprite", other)
@@ -117,7 +124,10 @@ def main():
             m.w16(s + 0x4E, st[pre + "speedv"])
             m.w16(s + 0x8E, st[pre + "air"])
             m.write(s + 0x92, bytes([st[pre + "frozen"]]))
+        if kind == 7:
+            st["odir"] = rnd.randint(0, 26)
         m.w16(other + 0x66, st["odir"])
+        m.w16(sp + 0x96, st["blast"])
         # what the setups and the perturbations left, as inputs
         for s_, pre in ((sp, ""), (other, "o")):
             st[pre + "pv"], st[pre + "ph"] = m.r16(s_ + 2), m.r16(s_ + 4)

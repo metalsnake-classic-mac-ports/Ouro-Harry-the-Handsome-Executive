@@ -8,6 +8,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
     match t {
         None => "-",
         Some(Task::Player) => "HandlePlayerSprite",
+        Some(Task::PlayerDeath) => "HandlePlayerSpriteDeath",
         Some(Task::HeldWeapon) => "HandleHeldWeaponSprite",
         Some(Task::PlayerShot) => "HandlePlayerShotSprite",
         Some(Task::Bonus) => "HandleBonusSprite",

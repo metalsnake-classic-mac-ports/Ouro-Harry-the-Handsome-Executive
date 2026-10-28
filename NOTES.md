@@ -782,13 +782,45 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   Mac; zeros in the recorder and the port). The data section starts with
   `gFloorKind` = 1 (and `gImpulse` = 16, which `SetupPlayerSprite`
   clears).
-- `re/tools/emu_game.py`: 600 runs of up to 300 frames on level 1 with
-  Harry's move keys held at random (start or next to a random sprite;
-  the globals restored to the post-init data section per run), all 596
-  comparable runs matching - list, free list, every record, Harry's path,
-  view, meters, random seed. The other 4 kick the locked door 913, which
-  reads stale stack values (BUGS.md). Not covered yet: weapons and items
-  (player shots), explosions, death, the ripple, the frontend.
+- `re/tools/emu_game.py`: 900 runs of up to 300 frames on level 1 with
+  Harry's keys held at random - moves, and in most runs an inventory of
+  guns, the power of the swivel, soda cans, caffeine and the mystery vial
+  with use / select / 1–4 (start or next to a random sprite; the globals
+  restored to the post-init data section per run; a run ends when Harry
+  dies). All 892 comparable runs match - list, free list, every record,
+  Harry's path, view, meters, inventory, ammo, random seed. The other 8
+  kick the locked door 913, which reads stale stack values (BUGS.md). Not
+  covered yet: Harry's death itself, the ripple, the frontend.
+- **Player shots in the frame**: records with `SetupPlayerShotSprite`
+  (layer 11, timer 3, hot rect (−2, −2, 10, 10), the swivel (10) (27, 27,
+  37, 37), +0x8b); faces staple 4001 + frame, B.A.D.A.S.S. 4011 + frame,
+  soda can 3061 + frame (the can's set), swivel Harry's 1101 + dir; the
+  held weapon's faces 3501 + dir, recoiling 3551 + dir (the gun is only a
+  tint), at the level start 3501 + `gPlayerDir` whatever he holds.
+- **`HitPlayerShotSprite`**: colliders and sliding doors stop the shot
+  (3-D sound 4700); dart enemies, co-workers and scientists stop it too,
+  cost 2 corporate favor and half of the time say one of 253–256; the hit
+  one gets layer 10 and +0x8a. A soda can (kind 4) bursts on anything
+  except Harry, his weapon and effects: sound 500 and `EasyExplosion` at
+  its position − 28, kind 14. (Robots, blobs and grates: with their
+  kinds.)
+- **Explosions** (`EasyExplosion(h, v, speed h, speed v, kind, dir)` =
+  `SATNewSprite(kind, …, SetupEffectSprite)`, then speed, dir and kind):
+  layer 20, no hit task, hot rect (4, 4, 60, 60) for kinds ≥ 0 (none for
+  −1, the robots' and the mystery vial's); 13 faces 2701…, frame `dir` /
+  2, gone after frame 26; they drift by their speed in whole pixels.
+  `HandleExplodeRadius(sprite, half, effect)`: once per 30 frames
+  (+0x96) a sprite within 32 px (`PEDistance` = larger + smaller / 3 of
+  the centre distances; the effect's centre at + 32) is pushed away by
+  (32 − d, at most 16) × 128. Plants (half 18; only by explosions with a
+  hot rect) also lose a state and go to layer 10; Harry (half 32, on the
+  floor) in the explosion's frames 6–19 loses 8 comfort (ouch, cooldown
+  15). The fire pipes' flames (`f7c` ≥ 4200) come with the fire pipes.
+- **Harry's death**: `HandlePlayerSprite` sets the task to
+  `HandlePlayerSpriteDeath` and the timer to 0 when a shown meter is
+  below 1 on the floor; from then on `CheckPlayerCollision` finds no
+  player. The weapon, the enemy shots and the colliders find Harry
+  through `*_DAT_10065980`, not his task.
 - **`HitPlayerSprite`, enemy shots** (on the floor): most stop on Harry;
   unless the ouch cooldown (`PTR_DAT_10065e44`) runs, `Ouch`, comfort
   delta and a share of the shot's speed: darts / paper (< 1100) −12,

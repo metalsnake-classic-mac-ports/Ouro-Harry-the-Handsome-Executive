@@ -75,6 +75,7 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
         Some(Task::Collider) if on_floor && !matches!(other.kind, 3100 | 3101) => collider(h, g, other, w.physics),
         Some(Task::DartEnemy) if on_floor => collider(h, g, other, w.physics),
         Some(Task::EnemyShot) if on_floor => enemy_shot(h, g, other, events),
+        Some(Task::Effect) if on_floor => effect(h, g, other, events),
         Some(Task::Bonus) if on_floor => bonus(g, other, voice_playing, events),
         Some(Task::Item) if on_floor => pick_up(g, other, events),
         _ => {}
@@ -232,6 +233,28 @@ fn enemy_shot(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, events: 
             }
             push(5);
         }
+    }
+}
+
+/// Effects: an explosion pushes Harry (`HandleExplodeRadius`, half 32)
+/// and, in its frames 6–19 and unless he was hurt lately, costs 8 comfort
+/// (ouch, cooldown 15). A flame (`f7c` from 4200) in its frames 7–24
+/// costs 10 (cooldown 15) and is set to `f6e` 3.
+fn effect(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, events: &mut Vec<TouchEvent>) {
+    let st = &mut g.tile;
+    if other.f7c < crate::effect::FIRE {
+        let b = &mut h.player.body;
+        crate::effect::explode_radius(b.at, &mut b.speed, &mut h.blast_cooldown, 32, other);
+        if st.ouch_cooldown == 0 && 5 < other.dir && other.dir < 20 {
+            st.comfort_delta = st.comfort_delta.wrapping_sub(8);
+            st.ouch_cooldown = 15;
+            events.push(TouchEvent::Ouch);
+        }
+    } else if 6 < other.dir && other.dir < 25 && st.ouch_cooldown == 0 {
+        st.comfort_delta = st.comfort_delta.wrapping_sub(10);
+        st.ouch_cooldown = 15;
+        other.f6e = 3;
+        events.push(TouchEvent::Ouch);
     }
 }
 

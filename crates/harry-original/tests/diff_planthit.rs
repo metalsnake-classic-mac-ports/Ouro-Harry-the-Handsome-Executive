@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use common::dump;
 use harry_core::Physics;
+use harry_core::effect::setup_effect;
 use harry_core::kinds::{PlantHitMasks, hit_plant, setup_cooler, setup_door, setup_plant};
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT};
 use harry_core::random::Random;
@@ -46,11 +47,16 @@ fn plant_hits_match_the_original() {
             3 => 500,
             _ => w("okind") as i16,
         };
+        let blast = w("blast") as i16;
         let mut o = Sprite::new(okind, w("oh") as i16, w("ov") as i16);
         match kind {
             2 => setup_plant(&mut o),
             3 => setup_cooler(&mut o),
             4 => setup_door(&mut o),
+            7 => {
+                setup_effect(&mut o);
+                o.kind = okind;
+            }
             _ => {
                 o.task = Some(match kind {
                     1 => Task::Player,
@@ -73,6 +79,7 @@ fn plant_hits_match_the_original() {
             s.frozen = k("frozen") != 0;
         }
         o.dir = w("odir") as i16;
+        sp.blast_cooldown = blast;
         let mut contact = w("contact") as i16;
         let mut rng = Random::new(w("seed") as u32);
         let mut events = Vec::new();

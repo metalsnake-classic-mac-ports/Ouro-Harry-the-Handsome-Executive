@@ -434,6 +434,14 @@ pub fn hit_plant(
         return;
     }
     match other.task {
+        // an explosion with a hot rect pushes it and knocks it about
+        Some(Task::Effect) => {
+            if other.hot_rect != [0; 4] {
+                crate::effect::explode_radius(sp.at, &mut sp.speed, &mut sp.blast_cooldown, 18, other);
+                sp.state = sp.state.wrapping_sub(1);
+                sp.layer = 10;
+            }
+        }
         Some(Task::Player) => {
             if other.hot_rect[1] == 0 {
                 let kick = offset(KICK_RECTS[other.dir as usize], other.at.0, other.at.1);

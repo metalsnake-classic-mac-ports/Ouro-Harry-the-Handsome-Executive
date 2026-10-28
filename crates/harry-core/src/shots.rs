@@ -11,6 +11,7 @@ use crate::inventory::{current_item, item};
 use crate::mask::{Mask, mask_hit};
 use crate::physics::Speed;
 use crate::random::Random;
+use crate::sprite::{Sprite, SpriteEvent, Task};
 use crate::tiles::{TileHit, fg_rect, offset, sect};
 
 /// A shot's speed (h, v) per direction (`AssignShotSpeed`; 2200 · cos /
@@ -324,4 +325,116 @@ pub fn hit_shot_tile(s: &mut Shot, shot_mask: &Mask, walls: &[Mask], hit: TileHi
     } else {
         events.push(WeaponEvent::Sound3D(4700));
     }
+}
+
+/// `HitPlayerShotSprite` (the shot is `sp`): it stops at colliders (and
+/// sliding doors; 3-D sound 4700) and at dart enemies (co-workers,
+/// scientists), which costs Harry 2 corporate favor and, half of the
+/// time, makes them say one of four things; the struck sprite flinches
+/// (layer 10, +0x8a). A soda can (kind 4) bursts on anything but Harry,
+/// his weapon and effects: sound 500 and an explosion (kind 14) at its
+/// position − 28. Robots, blobs and grates take damage here too - with
+/// their kinds.
+pub fn hit_player_shot(sp: &mut Sprite, other: &mut Sprite, favor: &mut i16, rng: &mut Random, events: &mut Vec<SpriteEvent>) {
+    if sp.frozen || other.frozen {
+        return;
+    }
+    match other.task {
+        Some(Task::Collider) => {
+            events.push(SpriteEvent::Sound3D(4700));
+            sp.frozen = true;
+        }
+        Some(Task::DartEnemy) => {
+            sp.frozen = true;
+            *favor = favor.wrapping_sub(2);
+            if rng.below(100) < 50 {
+                let remark = match rng.below(4) {
+                    0 => 253,
+                    1 => 254,
+                    2 => 255,
+                    _ => 256,
+                };
+                events.push(SpriteEvent::Sound3D(remark));
+            }
+            other.layer = 10;
+            other.b8a = true;
+        }
+        _ => {}
+    }
+    if sp.kind == 4 && !matches!(other.task, Some(Task::Player | Task::HeldWeapon | Task::Effect)) {
+        sp.frozen = true;
+        events.push(SpriteEvent::Sound(500));
+        events.push(SpriteEvent::Explosion { h: sp.pos.1.wrapping_sub(28), v: sp.pos.0.wrapping_sub(28), a: 14, b: 0 });
+    }
+}
+
+/// HrSp ids of the faces: the held weapon (`dir`, `dir` + 36 recoiling)
+/// and the shots (staple 0, B.A.D.A.S.S. 1, soda can 4: 7 frames each).
+pub mod face {
+    pub const WEAPON: i16 = 3501;
+    pub const WEAPON_RECOIL: i16 = 3551;
+    pub const STAPLE: i16 = 4001;
+    pub const BADASS: i16 = 4011;
+    pub const CAN: i16 = 3061;
+}
+
+/// The HrSp id of a held weapon face.
+pub fn weapon_face(f: Option<i16>) -> i16 {
+    match f {
+        Some(f) if f >= 36 => face::WEAPON_RECOIL + f - 36,
+        Some(f) => face::WEAPON + f,
+        None => 0,
+    }
+}
+
+impl Shot {
+    /// The shot from its record.
+    pub fn from_sprite(r: &Sprite) -> Shot {
+        let face = match (r.kind, r.face) {
+            (_, 0) => ShotFace::None,
+            (10.., f) => ShotFace::Harry(f - crate::game::PLAYER_FACES),
+            (_, _) => ShotFace::Frame(r.dir),
+        };
+        Shot {
+            kind: r.kind,
+            pos: r.pos,
+            at: r.at,
+            fix: r.fix,
+            speed: r.speed,
+            dir: r.dir,
+            timer: r.timer,
+            face,
+            hot_rect: r.hot_rect,
+            flag8b: r.b8b,
+            frozen: r.frozen,
+        }
+    }
+
+    /// Back into its record.
+    pub fn into_sprite(&self, r: &mut Sprite) {
+        (r.kind, r.pos, r.at, r.fix, r.speed, r.dir, r.timer, r.hot_rect, r.b8b, r.frozen) =
+            (self.kind, self.pos, self.at, self.fix, self.speed, self.dir, self.timer, self.hot_rect, self.flag8b, self.frozen);
+        r.face = match self.face {
+            ShotFace::None => 0,
+            ShotFace::Harry(f) => crate::game::PLAYER_FACES + f,
+            ShotFace::Frame(n) => match self.kind {
+                0 => face::STAPLE + n,
+                1 => face::BADASS + n,
+                4 => face::CAN + n,
+                _ => r.face,
+            },
+        };
+    }
+}
+
+/// `SetupPlayerShotSprite` on a record (as `new_shot`).
+pub fn setup_player_shot(sp: &mut Sprite) {
+    sp.init();
+    let s = new_shot(sp.kind, sp.pos, Speed::default(), 0);
+    s.into_sprite(sp);
+    sp.layer = 11;
+    sp.task = Some(Task::PlayerShot);
+    sp.hit_task = Some(crate::sprite::HitTask::PlayerShot);
+    sp.hit_tile_task = Some(crate::sprite::HitTileTask::PlayerShot);
+    sp.face = 0;
 }

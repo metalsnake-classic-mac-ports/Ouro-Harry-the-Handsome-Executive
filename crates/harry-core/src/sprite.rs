@@ -14,6 +14,8 @@ pub type Face = i16;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Task {
     Player,
+    /// `HandlePlayerSpriteDeath` (not ported yet).
+    PlayerDeath,
     HeldWeapon,
     PlayerShot,
     Bonus,

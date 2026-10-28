@@ -32,17 +32,30 @@ WALLS, OBSTACLE, PREFS, INVENTORY, LEVEL_COUNTER, SEEN_LEVEL = 0x100658D4, 0x100
 COMFORT, FAVOR, SURFACE, COMFORT_SHOWN, SURFACE_SHOWN, FAVOR_SHOWN, CUR_SLOT = (0x1006856A, 0x1006856E, 0x1006856C, 0x10068570,
                                                                              0x10068572, 0x10068574, 0x1006857A)
 KICK_CONTACT = 0x10065E1C
+TV_DEATH = 0x10066FAC                               # HandlePlayerSpriteDeath
 INITS = ("InitPlayerSprite", "InitHeldWeaponSprite", "InitBonusSprite", "InitItemSprite", "InitExitSprite", "InitDoorSprite",
          "InitCoolerSprite", "InitPlantSprite", "InitMessageSprite", "InitColliderSprite", "InitDartEnemySprite",
-         "InitRampSprite", "InitEnemyShotSprite", "InitTileHotRects", "InitPlayerKickRects")
+         "InitRampSprite", "InitEnemyShotSprite", "InitPlayerShotSprite", "InitEffectSprite", "InitTileHotRects",
+         "InitPlayerKickRects")
 BINDINGS = [0x7B, 0x7C, 0x7D, 0x7E, 0x31, 0x3B, 0x3A]
-KEYS = {"l": 0x7B, "r": 0x7C, "s": 0x7D, "i": 0x7E, "k": 0x31}
+KEYS = {"l": 0x7B, "r": 0x7C, "s": 0x7D, "i": 0x7E, "k": 0x31, "e": 0x3B, "u": 0x3A, "1": 0x12, "2": 0x13, "3": 0x14,
+        "4": 0x15}
 PROP_FACES = {0x10065A60: 6034, 0x10065A5C: 6035, 0x10065A58: 6036, 0x10065A54: 6037,
               0x10065A40: 6051, 0x10065A3C: 6052, 0x10065A38: 6053, 0x10065A34: 6054}
-CASES = 600
+CASES = 900
+ITEMS = [11299, 11599, 11799, 11999, 11899, 11499, 11699]
+AMMO = {"staple": 0x10065AEC, "badass": 0x10065AE8, "shrapnel": 0x10065AE4}
+
+
+def iter_list(m, sat):
+    a = m.r32(sat + 0x78)
+    while a:
+        yield a
+        a = m.r32(a + 0x2E)
 
 
 def main():
+    debug_seed = int(os.environ.get("SEED", "0"))
     work = sys.argv[1] if len(sys.argv) > 1 else "re/work"
     m = Machine(f"{work}/ppc")
     # a sprite without a face makes CheckTileCollisions read its bounds at
@@ -87,7 +100,6 @@ def main():
     m.stub_routine("ShowBalloon", lambda mm: log.append("balloon") or 0)
     m.stub_routine("CopierSave", lambda mm: log.append("save") or 0)
     m.stub_routine("UpLevel", lambda mm: log.append("uplevel") or 0)
-    m.stub_routine("EasyExplosion", lambda mm: log.append("explosion") or 0)
     for n in ("UnionRect", "ForeColor", "BackColor", "PaintRect", "RGBForeColor", "TextFont", "TextSize", "TextFace",
               "MoveTo", "DrawString", "NumToString", "LineTo", "FrameRect", "EraseRect", "InvertRect", "CopyBits"):
         m.stub(n, m.tb_nop)
@@ -120,7 +132,14 @@ def main():
         m.write(data_start, globals_after_init)
         lvl = m.load_level(data)
         st = {"seed": rnd.randint(1, 0x7FFFFFFE), "scroll": rnd.choice([0, 1, 2, 2, 3, 4]),
-              "comfort": rnd.choice([144, 100, 20]), "favor": rnd.choice([144, 60]), "frames": rnd.choice([rnd.randint(1, 60), rnd.randint(1, 300)]), "h": 0, "v": 0, "dir": 0}
+              "comfort": rnd.choice([144, 100, 20]), "favor": rnd.choice([144, 60]), "frames": rnd.choice([rnd.randint(1, 60), rnd.randint(1, 300)]), "h": 0, "v": 0, "dir": 0,
+              "inv": "-", "curslot": -1, "staple": 0, "badass": 0, "shrapnel": 0}
+        if rnd.random() < 0.6:
+            items = rnd.sample(ITEMS, rnd.randint(1, 4))
+            st["inv"] = ",".join(f"{i}:{rnd.randint(1, 3)}" for i in items)
+            st["curslot"] = rnd.randint(0, len(items) - 1)
+            for k in AMMO:
+                st[k] = rnd.choice([0, 3, 50, 100])
         # Harry at the level's start or next to one of its sprites
         if rnd.random() < 0.3:
             st["h"], st["v"], st["dir"] = start_h - 32, start_v - 32, start_dir
@@ -131,7 +150,8 @@ def main():
         held, keys = "", []
         for _f in range(st["frames"]):
             if rnd.random() < 0.15:
-                held = "".join(sorted(rnd.sample("llrrsssssiikk", rnd.choice([0, 1, 1, 1, 2]))))
+                pool = "llrrsssssiikk" + ("uuuue1234" if st["inv"] != "-" else "")
+                held = "".join(sorted(set(rnd.sample(pool, rnd.choice([0, 1, 1, 1, 2])))))
             keys.append(held or "-")
         st["keys"] = ",".join(keys)
         m.w32(sat + 0x78, 0)
@@ -140,10 +160,14 @@ def main():
         m.w16(prefs + 8, st["scroll"])
         for i, b in enumerate(BINDINGS):
             m.w16(prefs + 0x10 + 2 * i, b)
-        for i in range(12):
-            m.w16(inv + 4 * i, -1)
-            m.w16(inv + 4 * i + 2, 0)
-        m.w16(CUR_SLOT, -1)
+        slots = [tuple(map(int, x.split(":"))) for x in st["inv"].split(",")] if st["inv"] != "-" else []
+        slots += [(-1, 0)] * (12 - len(slots))
+        for i, (oid, cnt) in enumerate(slots):
+            m.w16(inv + 4 * i, oid)
+            m.w16(inv + 4 * i + 2, cnt)
+        m.w16(CUR_SLOT, st["curslot"])
+        for k, slot in AMMO.items():
+            m.w16(m.glob(slot), st[k])
         for a, v in ((COMFORT, st["comfort"]), (COMFORT_SHOWN, st["comfort"]), (FAVOR, st["favor"]),
                      (FAVOR_SHOWN, st["favor"]), (SURFACE, 75), (SURFACE_SHOWN, 75)):
             m.w16(a, v)
@@ -179,7 +203,13 @@ def main():
             m.call("UpdateMeters", 1)
             m.call("CheckGameEvents")
             harry.append("%d:%d" % (m.r16(p + 0x5A), m.r16(p + 0x5C)))
+            if debug_seed == st["seed"]:
+                print(f, keys[f], dump(m, p, faces, tv), "comfort", m.r16(COMFORT), "slot", m.r16(CUR_SLOT), "rand", m.rand_seed,
+                      "log", log[-3:], "list", ",".join(str(m.r16(a)) for a in iter_list(m, sat)))
             if "uplevel" in log:
+                break
+            if m.r32(p + 0x1A) == TV_DEATH:
+                log.append("died")
                 break
         lst, a = [], m.r32(sat + 0x78)
         while a:
@@ -194,7 +224,9 @@ def main():
              "target": "%d:%d" % struct.unpack(">hh", m.read(target, 4)),
              "meters": ":".join(str(m.r16(x)) for x in (COMFORT, COMFORT_SHOWN, SURFACE, SURFACE_SHOWN, FAVOR, FAVOR_SHOWN)),
              "contact": m.r16(m.glob(KICK_CONTACT)), "counter": m.r16(m.glob(LEVEL_COUNTER)),
-             "log": ",".join(log) or "-", "staledoor": int(stale[0]), "harry": ",".join(harry),
+             "log": ",".join(log) or "-", "staledoor": int(stale[0]),
+             "inv": ",".join("%d:%d" % (m.r16(inv + 4 * i), m.r16(inv + 4 * i + 2)) for i in range(12)),
+             "curslot": m.r16(CUR_SLOT), "ammo": ":".join(str(m.r16(m.glob(a))) for a in AMMO.values()), "harry": ",".join(harry),
              "list": ";".join(f"{ids[a]}/{dump(m, a, faces, tv).replace(' ', ':')}" for a in lst),
              "free": ",".join(str(ids[a]) for a in free) or "-"}
         out.write(" ".join(f"{k}={v}" for k, v in st.items()) + " -> " + " ".join(f"{k}={v}" for k, v in o.items()) + "\n")

@@ -35,6 +35,8 @@ pub enum Setup {
     DartEnemy,
     Ramp,
     EnemyShot,
+    PlayerShot,
+    Effect,
 }
 
 /// Run a setup routine on a sprite.
@@ -51,6 +53,8 @@ pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random) {
         Setup::DartEnemy => setup_dart_enemy(sp),
         Setup::Ramp => setup_ramp(sp),
         Setup::EnemyShot => setup_enemy_shot(sp),
+        Setup::PlayerShot => crate::shots::setup_player_shot(sp),
+        Setup::Effect => crate::effect::setup_effect(sp),
     }
 }
 

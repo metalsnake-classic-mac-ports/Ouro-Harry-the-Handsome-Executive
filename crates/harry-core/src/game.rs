@@ -30,7 +30,8 @@ use crate::player::{Masks, Player, TileSound, hit_player_tile};
 use crate::ramp::{RampMasks, handle_ramp, hit_ramp, hit_ramp_tile};
 use crate::random::Random;
 use crate::sat::{absolute, collisions, sort_pass};
-use crate::shots::{HeldWeapon, Holder, handle_held_weapon};
+use crate::effect::handle_effect;
+use crate::shots::{HeldWeapon, Holder, Shot, WeaponEvent, handle_held_weapon, handle_shot, hit_player_shot, hit_shot_tile, weapon_face};
 use crate::sprite::{Face, HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{sect, touched_tiles};
 use crate::touch::{TouchEvent, TouchWorld, touch};
@@ -64,6 +65,8 @@ pub struct Assets<'a> {
     pub shot: &'a Mask,
     /// The ramps' masks (cicn 571–574).
     pub ramps: [&'a Mask; 4],
+    /// The player shots' mask (HrSp 4021).
+    pub player_shot: &'a Mask,
     /// The bounds (top, left, bottom, right) of a face; (0, 0, 0, 0) for
     /// none.
     pub face_bounds: &'a dyn Fn(Face) -> Rect,
@@ -87,6 +90,8 @@ pub struct Game {
     pub magnet: i16,
     /// The drawn gun (`PTR_DAT_100660dc`).
     pub gun: u8,
+    /// Harry's record (`*_DAT_10065980`), set by `start`.
+    pub harry: Option<usize>,
 }
 
 /// What a frame ended with.
@@ -168,8 +173,7 @@ pub fn setup_held_weapon(sp: &mut Sprite, holder: &Holder, g: &PlayerGlobals) {
     sp.hit_tile_task = None;
     sp.layer = 11;
     sp.hot_rect = [-4, -4, 16, 16];
-    // the face of gPlayerDir in the current gun's set; level 1 has no gun
-    sp.face = 0;
+    sp.face = crate::shots::face::WEAPON + g.player_dir;
     sp.pos = crate::shots::held_weapon_pos(holder, g.player_dir);
     sp.at = sp.pos;
 }
@@ -182,6 +186,7 @@ impl Game {
     pub fn start(&mut self, h: i16, v: i16, dir: i16, assets: &Assets) -> Vec<i16> {
         let missing = self.world.setup_level_sprites(&self.level, &mut self.rng);
         let p = self.world.sprites.new_sprite(0, h, v);
+        self.harry = Some(p);
         setup_player(&mut self.world.sprites.recs[p], &mut self.g);
         self.world.sprites.recs[p].dir = dir;
         self.g.player_pos = (h.wrapping_sub(32), v.wrapping_sub(32));
@@ -208,18 +213,41 @@ impl Game {
     /// A sprite a task asked for (at the front of the list).
     fn spawn(&mut self, kind: i16, h: i16, v: i16, speed: Option<crate::physics::Speed>) {
         let setup = if (11001..=19999).contains(&kind) { Setup::Item } else { Setup::EnemyShot };
+        self.spawn_with(kind, h, v, setup, speed);
+    }
+
+    fn spawn_with(&mut self, kind: i16, h: i16, v: i16, setup: Setup, speed: Option<crate::physics::Speed>) -> usize {
         let i = self.world.sprites.spawn(kind, h, v, setup, &mut self.rng);
         let r = &mut self.world.sprites.recs[i];
+        r.hot_rect2 = absolute(r.hot_rect, r.pos);
         if let Some(s) = speed {
             r.speed = s;
         }
-        r.hot_rect2 = absolute(r.hot_rect, r.pos);
+        i
+    }
+
+    /// `EasyExplosion(h, v, 0, 0, kind, dir)`.
+    fn explosion(&mut self, h: i16, v: i16, kind: i16, dir: i16) {
+        let i = self.spawn_with(kind, h, v, Setup::Effect, Some(Default::default()));
+        let r = &mut self.world.sprites.recs[i];
+        r.dir = dir;
+        r.kind = kind;
     }
 
     fn sprite_events(&mut self, events: Vec<SpriteEvent>) {
         for e in events {
-            if let SpriteEvent::Spawn { kind, h, v, speed } = e {
-                self.spawn(kind, h, v, speed);
+            match e {
+                SpriteEvent::Spawn { kind, h, v, speed } => self.spawn(kind, h, v, speed),
+                SpriteEvent::Explosion { h, v, a, b } => self.explosion(h, v, a, b),
+                _ => {}
+            }
+        }
+    }
+
+    fn weapon_events(&mut self, events: Vec<WeaponEvent>) {
+        for e in events {
+            if let WeaponEvent::Explosion { h, v, a, b } = e {
+                self.explosion(h, v, a, b);
             }
         }
     }
@@ -316,12 +344,28 @@ impl Game {
                     |h, g, rng| handle_keys(h, g, &input, rng, &mut key_events),
                     &mut sounds,
                 );
-                assert!(!key_events.iter().any(|e| matches!(e, KeyEvent::Shot { .. })), "player shots are not ported yet");
                 died = h.dead;
                 harry_into(&h, &mut sp);
+                if died {
+                    sp.task = Some(Task::PlayerDeath);
+                    sp.timer = 0;
+                }
+                self.world.sprites.recs[i] = std::mem::take(&mut sp);
+                for e in key_events {
+                    match e {
+                        KeyEvent::Shot { h, v, dir, speed } => {
+                            let s = self.spawn_with(10, h, v, Setup::PlayerShot, Some(speed));
+                            self.world.sprites.recs[s].dir = dir;
+                        }
+                        KeyEvent::Explosion { h, v, flag } => self.explosion(h, v, flag, 0),
+                        KeyEvent::Ripple(_) => panic!("the ripple is not ported into the frame yet"),
+                        _ => {}
+                    }
+                }
+                sp = std::mem::take(&mut self.world.sprites.recs[i]);
             }
             Some(Task::HeldWeapon) => {
-                let holder = match self.player() {
+                let holder = match self.harry {
                     Some(p) => self.holder(p, assets),
                     None => Holder { at: (0, 0), scale0: 0x100, scale1: 0x100, face_bounds: [0; 4] },
                 };
@@ -335,11 +379,19 @@ impl Game {
                     frozen: sp.frozen,
                 };
                 let (mut shots, mut wev) = (Vec::new(), Vec::new());
+                let frozen = w.frozen;
                 handle_held_weapon(&mut w, &holder, &mut self.g, &mut self.rng, &mut shots, &mut wev);
-                assert!(w.face.is_none() && shots.is_empty(), "guns are not ported into the frame yet");
-                (sp.pos, sp.at, sp.b8a, sp.b8b) = (w.pos, w.at, w.charging, w.flag8b);
-                sp.face = 0;
+                if !frozen {
+                    (sp.pos, sp.at, sp.b8a, sp.b8b) = (w.pos, w.at, w.charging, w.flag8b);
+                    sp.face = weapon_face(w.face);
+                }
                 self.gun = w.gun;
+                self.world.sprites.recs[i] = std::mem::take(&mut sp);
+                for s in shots {
+                    self.spawn_with(s.kind, s.h, s.v, Setup::PlayerShot, Some(s.speed));
+                }
+                self.weapon_events(wev);
+                sp = std::mem::take(&mut self.world.sprites.recs[i]);
             }
             Some(Task::Bonus) => handle_bonus(&mut sp),
             Some(Task::Item) => handle_item(&mut sp),
@@ -351,7 +403,7 @@ impl Game {
             }
             Some(Task::Message) => handle_message(&mut sp, &self.level, show),
             Some(Task::Collider) => {
-                let p = self.player();
+                let p = self.harry;
                 let mut speed = p.map(|p| self.world.rec(p).speed).unwrap_or_default();
                 let mut w = ColliderWorld {
                     level: &mut self.level,
@@ -378,11 +430,16 @@ impl Game {
             Some(Task::DartEnemy) => handle_dart_enemy(&mut sp, self.view.corner, &self.level, &mut self.rng, &mut events),
             Some(Task::Ramp) => handle_ramp(&mut sp, &self.level, &self.physics),
             Some(Task::EnemyShot) => {
-                let harry = self.player().map_or((0, 0), |p| centre(self.world.rec(p)));
+                let harry = self.harry.map_or((0, 0), |p| centre(self.world.rec(p)));
                 handle_enemy_shot(&mut sp, harry, &mut events);
             }
-            Some(Task::Exit) | None => {}
-            Some(t) => panic!("task {t:?} is not in the frame yet"),
+            Some(Task::PlayerShot) => {
+                let mut s = Shot::from_sprite(&sp);
+                handle_shot(&mut s);
+                s.into_sprite(&mut sp);
+            }
+            Some(Task::Effect) => handle_effect(&mut sp),
+            Some(Task::Exit | Task::PlayerDeath) | None => {}
         }
         self.world.sprites.recs[i] = sp;
         self.sprite_events(events);
@@ -411,6 +468,7 @@ impl Game {
             Some(HitTask::EnemyShot) => hit_enemy_shot(&mut sp, &mut o, &mut events),
             Some(HitTask::DartEnemy) => hit_dart_enemy(&mut sp, &mut o, &mut self.g, &mut self.rng, &mut events),
             Some(HitTask::Ramp) => hit_ramp(&mut sp, &o, self.physics.bounce),
+            Some(HitTask::PlayerShot) => hit_player_shot(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
             Some(HitTask::Bonus | HitTask::Item) | None => {}
             Some(t) => panic!("hit task {t:?} is not in the frame yet"),
         }
@@ -492,7 +550,13 @@ impl Game {
                         let ms = RampMasks { ramps: assets.ramps, walls, obstacle: &assets.player.obstacle };
                         hit_ramp_tile(sp, hit, &self.level, &ms, self.physics.bounce);
                     }
-                    HitTileTask::PlayerShot => panic!("player shots are not ported into the frame yet"),
+                    HitTileTask::PlayerShot => {
+                        let mut s = Shot::from_sprite(sp);
+                        let mut wev = Vec::new();
+                        hit_shot_tile(&mut s, assets.player_shot, walls, hit, &mut wev);
+                        s.into_sprite(sp);
+                        self.weapon_events(wev);
+                    }
                 }
             }
         }
