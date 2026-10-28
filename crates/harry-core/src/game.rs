@@ -17,6 +17,7 @@ use crate::bounce::Rect;
 use crate::collider::{ColliderWorld, CopierSave, centre, handle_collider, hit_collider, is_repelled, repel};
 use crate::dart_enemy::{handle_dart_enemy, hit_dart_enemy};
 use crate::enemy_shot::{ShotMasks, handle_enemy_shot, hit_enemy_shot, hit_enemy_shot_tile};
+use crate::button::{handle_button, handle_sliding_door, hit_button};
 use crate::furniture::{self, FurnitureMasks, handle_barrel, handle_chair, hit_barrel, hit_chair};
 use crate::frame::{FrameSound, Harry, PlayerGlobals, handle_player};
 use crate::keys::{Bindings, KeyEvent, KeyInput, KeyMap, handle_keys};
@@ -574,6 +575,8 @@ impl Game {
                 s.into_sprite(&mut sp);
             }
             Some(Task::Effect) => handle_effect(&mut sp),
+            Some(Task::Button) => handle_button(&mut sp, &mut self.level, &mut events),
+            Some(Task::SlidingDoor) => handle_sliding_door(&mut sp, &self.level, &mut events),
             Some(Task::Exit | Task::PlayerDeath | Task::Stairs) | None => {}
         }
         let at = sp.at;
@@ -632,7 +635,8 @@ impl Game {
             Some(HitTask::DartEnemy) => hit_dart_enemy(&mut sp, &mut o, &mut self.g, &mut self.rng, &mut events),
             Some(HitTask::Ramp) => hit_ramp(&mut sp, &o, self.physics.bounce),
             Some(HitTask::PlayerShot) => hit_player_shot(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
-            Some(HitTask::Bonus | HitTask::Item | HitTask::Stairs) | None => {}
+            Some(HitTask::Button) => hit_button(&mut sp, &o, &mut events),
+            Some(HitTask::Bonus | HitTask::Item | HitTask::Stairs | HitTask::SlidingDoor) | None => {}
             Some(t) => panic!("hit task {t:?} is not in the frame yet"),
         }
         let at = sp.at;

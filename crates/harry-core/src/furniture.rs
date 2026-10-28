@@ -186,10 +186,10 @@ fn ride_ramp(sp: &mut Sprite, half: i16, ramp: &mut Sprite, physics: &Physics) {
 /// count up the timer by 8 (past 25 they light), are pushed apart and
 /// bounce (× −0.4, then each adds the other's speed). Coolers, plants and
 /// chairs: pushed out, with a plant or chair trading momentum. Doors (not
-/// open), colliders: `RectBounce`; ramps carry it. Shots stop on it and
+/// open), sliding doors, colliders: `RectBounce`; ramps carry it. Shots stop on it and
 /// light it, the big shot (9450) pushes; explosions push it, and flames
-/// light it; stairs take it down. Mail guys, desks, grates, sliding doors
-/// and co-workers come with their kinds.
+/// light it; stairs take it down. Mail guys, desks, grates and co-workers
+/// come with their kinds.
 #[allow(clippy::too_many_arguments)]
 pub fn hit_barrel(
     sp: &mut Sprite,
@@ -270,7 +270,7 @@ pub fn hit_barrel(
         }
     }
     let door = other.task == Some(Task::Door) && !door_open(other.kind);
-    if door || other.task == Some(Task::Collider) {
+    if door || matches!(other.task, Some(Task::Collider | Task::SlidingDoor)) {
         let mut body = sp.body();
         rect_bounce(&mut body, 12, i32::from(physics.bounce), sp.hot_rect, other.at, other.hot_rect);
         sp.set_body(body);
@@ -360,8 +360,8 @@ fn turn(a: i16, b: i16) -> i16 {
 /// new speed); walking into it he is pushed out, it takes 0.6 of his
 /// speed, he keeps −0.3, and it spins by the angle between his path and
 /// the chair × his speed / 32. Coolers, barrels, chairs: pushed out, a
-/// barrel or chair trading momentum. Doors (not open), colliders:
-/// `RectBounce`; ramps carry it, stairs take it down. Shots stop on it
+/// barrel or chair trading momentum. Doors (not open), sliding doors,
+/// colliders: `RectBounce`; ramps carry it, stairs take it down. Shots stop on it
 /// (sound 258).
 #[allow(clippy::too_many_arguments)]
 pub fn hit_chair(
@@ -436,7 +436,7 @@ pub fn hit_chair(
         }
     }
     let door = other.task == Some(Task::Door) && !door_open(other.kind);
-    if door || other.task == Some(Task::Collider) {
+    if door || matches!(other.task, Some(Task::Collider | Task::SlidingDoor)) {
         let mut body = sp.body();
         rect_bounce(&mut body, 18, i32::from(physics.bounce), sp.hot_rect, other.at, other.hot_rect);
         sp.set_body(body);

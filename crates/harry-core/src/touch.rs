@@ -76,6 +76,9 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
             let p = &mut h.player;
             stairs_collision(&mut p.body, &mut p.air, &mut h.air.flip, 32, HOT_RECT, other, w.physics.bounce);
         }
+        Some(Task::SlidingDoor) => {
+            rect_bounce(&mut h.player.body, 32, i32::from(w.physics.bounce), HOT_RECT, other.at, other.hot_rect);
+        }
         Some(Task::Door) => door(h, g, other, w, events),
         Some(Task::Collider) if on_floor && !matches!(other.kind, 3100 | 3101) => collider(h, g, other, w.physics),
         Some(Task::DartEnemy) if on_floor => collider(h, g, other, w.physics),

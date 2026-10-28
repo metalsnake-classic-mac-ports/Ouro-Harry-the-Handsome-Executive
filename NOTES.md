@@ -660,6 +660,38 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   cases (all kinds, Harry and objects from all sides), all matching, 9
   of 9 mutations caught; stairs are also in the Harry, plant, barrel and
   chair hit recorders.
+- **Buttons** (9501 / 9511 / 9521 / 9531 on walls, 9541 a floor plate;
+  idle at their position; layer 1; hot rects (−8, 0, 8, 24) for 9501 /
+  9511, (0, −8, 24, 8) for 9521 / 9531, (0, 0, 18, 18) for the plate;
+  faces 1701… / 1711… / 1721… / 1731… four each, 1741–1745 the plate).
+  The state lives in the level entry: info #1 = 1 while the button is up
+  (dir < 7), 0 while down. `dir` = how far it is pressed (0–9): each
+  frame it springs back by 1 unless it is at 8 or more and the entry's
+  info #0 is 1 (it latches). On its first frame (+0x8b) a button whose
+  entry has info #1 ≠ 0 starts at 9 (read without checking the index).
+  Coming up through 5 (last frame's dir in `f6e` = 5, now less): release
+  sound 4707 (plate 4705). Face dir / 2, the wall buttons' last face from
+  8 on. `HitButtonSprite`: Harry not kicking, plants, barrels, chairs
+  (robots, reversors, mail guys): dir + 2, sound 4706 (plate 4704) when
+  it was up; shots: a wall button to 9 (sound 4706); Harry's kick rect on
+  a wall button: dir + 10 (sound 4706).
+- **Sliding doors** (950–999 idle, position even, 951 one pixel lower;
+  951 across with hot rect (0, 0, 6, 32), faces 4401–4408 (PICT 851); 961
+  upright (0, 0, 32, 6), faces 4451–4458; layer 5; no hit task of their
+  own). With a level entry (index 0–255) each frame: the entry's info #0
+  names the entry it follows - that entry's info #1 = 0 (its button down)
+  opens it, a negative info #0 follows the opposite of entry −info #0
+  (other indexes than 0–255 read past the list). Opening: dir + 1 up to
+  14 (sound 4708 as it starts); closing: dir − 1 (sound 4709 as it
+  leaves 14). Face dir / 2; from dir 8 on no hot rect. Harry (`RectBounce`
+  with his hot rect, centre + 32, in the air too), plants, barrels and
+  chairs bounce off it; player shots stop at it (sound 4700), enemy shots
+  too (sound 4701, the wall guns' shot as well).
+- `re/tools/emu_button.py`: 15 000 button runs of 1–20 frames with random
+  partners hitting it in between, and 15 000 sliding door runs of 1–25
+  frames with the linked entry changing, all matching; 12 of 12
+  mutations caught (a 13th was equivalent). Sliding doors are also in the
+  Harry, plant, barrel / chair and enemy shot recorders.
 - **Message** (21000 and up; layer 9, faces 3801–3805): the mode
   (`f6e`) is the level entry's info #1, read each frame: 0 a memo on the
   floor (hot rect (−8, −8, 32, 32), the face blinking 3801 → 3805 → 3801

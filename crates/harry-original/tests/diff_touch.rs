@@ -14,6 +14,7 @@ use harry_core::dart_enemy::setup_dart_enemy;
 use harry_core::enemy_shot::setup_enemy_shot;
 use harry_core::ramp::setup_ramp;
 use harry_core::stairs::setup_stairs;
+use harry_core::button::setup_sliding_door;
 use harry_core::kinds::{setup_bonus, setup_door, setup_item};
 use harry_core::physics::Speed;
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT, Player, TileState};
@@ -98,6 +99,7 @@ fn touching_matches_the_original() {
         let mut other = Sprite::new(kind, w("oh"), w("ov"));
         match kind {
             ..800 => setup_bonus(&mut other),
+            951 | 961 => setup_sliding_door(&mut other),
             900..1000 => setup_door(&mut other),
             1011 | 1021 | 1031 | 1041 => setup_dart_enemy(&mut other),
             // the recorder's enemy shot kinds

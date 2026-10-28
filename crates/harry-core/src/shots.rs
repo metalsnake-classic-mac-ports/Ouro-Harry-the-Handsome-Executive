@@ -340,7 +340,7 @@ pub fn hit_player_shot(sp: &mut Sprite, other: &mut Sprite, favor: &mut i16, rng
         return;
     }
     match other.task {
-        Some(Task::Collider) => {
+        Some(Task::Collider | Task::SlidingDoor) => {
             events.push(SpriteEvent::Sound3D(4700));
             sp.frozen = true;
         }

@@ -49,7 +49,7 @@ def main():
     faces = Faces(m)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # the mask loader; filled below
     for f in ("InitEnemyShotSprite", "InitTileHotRects", "InitColliderSprite", "InitCoolerSprite",
-              "InitPlantSprite", "InitBonusSprite", "InitBarrelSprite", "InitChairSprite"):
+              "InitPlantSprite", "InitBonusSprite", "InitBarrelSprite", "InitChairSprite", "InitSlidingDoorSprite"):
         m.call(f)
     tv = tvectors(f"{work}/ppc")
     ms = masks(work)
@@ -173,7 +173,7 @@ def main():
         v, hh = rnd.randint(200, 3800), rnd.randint(200, 3800)
         st = {"v": v, "h": hh, **inputs(kind),
               "other": rnd.choice(["collider", "collider", "cooler", "plant", "enemyshot", "enemyshot", "playershot",
-                                   "bonus", "barrel", "chair"]),
+                                   "bonus", "barrel", "chair", "sliding"]),
               "okind": 0, "ov": v + rnd.randint(-30, 30), "oh": hh + rnd.randint(-30, 30),
               "frozen": int(rnd.random() < 0.05), "ofrozen": int(rnd.random() < 0.05)}
         if st["other"] == "collider":
@@ -186,6 +186,8 @@ def main():
             st["okind"] = rnd.choice(KINDS)
         elif st["other"] == "bonus":
             st["okind"] = 700
+        elif st["other"] == "sliding":
+            st["okind"] = rnd.choice([951, 961])
         elif st["other"] in ("barrel", "chair"):
             st["okind"] = 550 if st["other"] == "barrel" else 560
         setup(kind, v, hh, st)
@@ -203,7 +205,7 @@ def main():
             m.rand_seed = 1
             m.call({"collider": "SetupColliderSprite", "cooler": "SetupCoolerSprite", "plant": "SetupPlantSprite",
                     "enemyshot": "SetupEnemyShotSprite", "bonus": "SetupBonusSprite", "barrel": "SetupBarrelSprite",
-                    "chair": "SetupChairSprite"}[st["other"]], other)
+                    "chair": "SetupChairSprite", "sliding": "SetupSlidingDoorSprite"}[st["other"]], other)
         if st["other"] == "enemyshot" and 1101 <= st["okind"] <= 1299:
             m.w16(other + 0x74, 0)
         m.write(other + 0x92, bytes([st["ofrozen"]]))

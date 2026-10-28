@@ -42,6 +42,7 @@
 - [ ] Remaining `HitPlantSprite` branches with their kinds (mail guy, desk, robot, grate, stairs, sliding doors, co-workers)
 - [x] Barrel and chair: setup, task, tiles, hit tasks; in the plant's, enemy shots' and fans' tests (52 000 cases)
 - [x] Stairs: setup, `HandleStairsCollision` for Harry, plants, barrels, chairs (30 000 cases)
+- [x] Buttons and sliding doors (30 000 runs), sliding doors in the Harry, object and shot recorders
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
 - [ ] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
 - [x] Colliders: fans (`HandleRepulsions`), phone, copier, magnet, wall guns, vending machine, gate (20 000 cases)
@@ -54,7 +55,7 @@
 - [x] Whole frames with weapons and items: player shots as records, `HitPlayerShotSprite`, effects (explosions), 900 runs
 - [ ] Harry's death (`HandlePlayerSpriteDeath`), `UpLevel`, the ripple, `CheckGameEvents`' other flag
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
-- [ ] Enemy shots hitting robots, grates, sliding doors - with those kinds
+- [ ] Enemy shots hitting robots, grates - with those kinds
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one
 

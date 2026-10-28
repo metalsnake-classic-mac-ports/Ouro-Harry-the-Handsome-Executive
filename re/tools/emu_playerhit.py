@@ -1,5 +1,5 @@
 """Record HitPlayerSprite - Harry touching another sprite - for the kinds
-the port has (bonus, item, door, collider, dart enemy, ramp, stairs, enemy shot). The other sprite is made by its real
+the port has (bonus, item, door, collider, dart enemy, ramp, stairs, sliding door, enemy shot). The other sprite is made by its real
 setup; doors get a level entry (index, info #0) on level 1.
 
 Each line: "<name=value ...> -> <name=value ...>"
@@ -35,7 +35,7 @@ KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("
          ("SetupColliderSprite", [9600, 9600, 9800, 9800, 9199, 9200, 2301, 3100, 3101, 9300, 9411]),
          ("SetupDartEnemySprite", [1011, 1021, 1031, 1041]), ("SetupRampSprite", [9701, 9702, 9703, 9704]),
          ("SetupRampSprite", [9701, 9702, 9703, 9704]),
-         ("SetupStairsSprite", [9901, 9902, 9903, 9904]),
+         ("SetupStairsSprite", [9901, 9902, 9903, 9904]), ("SetupSlidingDoorSprite", [951, 961]),
          ("SetupEnemyShotSprite", [1018, 1038, 1051, 9610, 9450, 1800, 1950, 1150, 1299, 2281, 2291, 2500])]
 FRAME = STACK_TOP - 0x1000 - 0x140              # HitPlayerSprite's r1
 CASES = 30000
@@ -46,7 +46,7 @@ def main():
     m = Machine(f"{work}/ppc")
     Faces(m)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # mask loader (the ramps' masks)
-    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
+    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
         m.call(init)
     lvl = m.load_level(open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read())
     ev = []

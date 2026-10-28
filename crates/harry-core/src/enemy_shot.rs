@@ -292,11 +292,10 @@ pub fn hit_enemy_shot_tile(sp: &mut Sprite, hit: TileHit, level: &Level, masks: 
 
 /// `HitEnemyShotSprite`. The can bounces off colliders, coolers,
 /// plants, barrels and chairs (and grates) like `RectBounce` with half 4 and
-/// bounce 255. Other shots stop at colliders (sound 4701) - the wall
+/// bounce 255. Other shots stop at colliders and sliding doors (sound 4701) - the wall
 /// guns' shot passes through the guns - and a homing shot meeting
 /// another enemy or player shot bursts, taking a plain shot with it or
-/// bursting a homing one too. (Robots, grates and sliding doors come with
-/// their kinds.)
+/// bursting a homing one too. (Robots and grates come with their kinds.)
 pub fn hit_enemy_shot(sp: &mut Sprite, other: &mut Sprite, events: &mut Vec<SpriteEvent>) {
     if sp.frozen || other.frozen {
         return;
@@ -307,8 +306,8 @@ pub fn hit_enemy_shot(sp: &mut Sprite, other: &mut Sprite, events: &mut Vec<Spri
             rect_bounce(&mut body, 4, 0xff, sp.hot_rect, other.at, other.hot_rect);
             sp.set_body(body);
         }
-    } else if other.task == Some(Task::Collider) {
-        if !((9401..=9499).contains(&other.kind) && sp.kind == 9450) {
+    } else if matches!(other.task, Some(Task::Collider | Task::SlidingDoor)) {
+        if !(other.task == Some(Task::Collider) && (9401..=9499).contains(&other.kind) && sp.kind == 9450) {
             events.push(SpriteEvent::Sound3D(snd::HIT));
             sp.frozen = true;
         }

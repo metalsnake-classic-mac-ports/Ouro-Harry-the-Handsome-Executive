@@ -15,6 +15,7 @@ use harry_core::kinds::{ObjectMasks, hit_object_tile, setup_cooler, setup_door, 
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT};
 use harry_core::ramp::setup_ramp;
 use harry_core::stairs::setup_stairs;
+use harry_core::button::setup_sliding_door;
 use harry_core::random::Random;
 use harry_core::sprite::{Sprite, Task};
 use harry_core::tiles::touched_tiles;
@@ -171,6 +172,7 @@ fn barrel_and_chair_hits_match_the_original() {
             6 => setup_door(&mut o),
             8 => setup_ramp(&mut o),
             12 => setup_stairs(&mut o),
+            13 => setup_sliding_door(&mut o),
             11 => {
                 o.kind = 0;
                 setup_effect(&mut o);

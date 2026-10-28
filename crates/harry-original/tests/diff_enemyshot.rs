@@ -10,6 +10,7 @@ use common::dump;
 use harry_core::collider::setup_collider;
 use harry_core::enemy_shot::{ShotMasks, handle_enemy_shot, hit_enemy_shot, hit_enemy_shot_tile, setup_enemy_shot};
 use harry_core::kinds::{setup_bonus, setup_cooler, setup_plant};
+use harry_core::button::setup_sliding_door;
 use harry_core::furniture::{setup_barrel, setup_chair};
 use harry_core::random::Random;
 use harry_core::sprite::{Sprite, Task};
@@ -139,6 +140,7 @@ fn enemy_shot_hits_match_the_original() {
             "plant" => setup_plant(&mut o),
             "barrel" => setup_barrel(&mut o),
             "chair" => setup_chair(&mut o, &mut Random::new(1)),
+            "sliding" => setup_sliding_door(&mut o),
             "enemyshot" => {
                 setup_enemy_shot(&mut o);
                 if (1101..=1299).contains(&okind) {

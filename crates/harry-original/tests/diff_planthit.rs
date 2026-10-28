@@ -12,6 +12,7 @@ use harry_core::effect::setup_effect;
 use harry_core::furniture::{setup_barrel, setup_chair};
 use harry_core::ramp::setup_ramp;
 use harry_core::stairs::setup_stairs;
+use harry_core::button::setup_sliding_door;
 use harry_core::kinds::{PlantHitMasks, hit_plant, setup_cooler, setup_door, setup_plant};
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT};
 use harry_core::random::Random;
@@ -63,6 +64,7 @@ fn plant_hits_match_the_original() {
             9 => setup_chair(&mut o, &mut rng),
             10 => setup_ramp(&mut o),
             12 => setup_stairs(&mut o),
+            13 => setup_sliding_door(&mut o),
             7 => {
                 setup_effect(&mut o);
                 o.kind = okind;
