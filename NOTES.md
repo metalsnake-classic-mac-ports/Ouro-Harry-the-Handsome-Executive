@@ -570,17 +570,80 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   plant only bounces back (× −0.4). Doors (not open), colliders,
   co-workers: `RectBounce` (centre + 18, the level's bounce). Player and
   enemy shots (except kind 9610) stop on it, 3-D sound 1101, it shakes;
-  kind 9450 also pushes it (speed / 4). Not yet: effects
-  (`HandleExplodeRadius`), mail guy, barrel, desk, chair, robot, grate,
-  ramp, stairs.
+  kind 9450 also pushes it (speed / 4). Barrels and chairs count as
+  plants (barrel: cicn 598, chair: cicn 599; both trade momentum); ramps:
+  `HandleRampCollision` (centre + 18, sound 1101 when it takes off).
+  (The port missed the colliders' `RectBounce` until the recorder had
+  colliders.) Not yet: mail guy, desk, robot, grate, stairs, sliding
+  doors, co-workers.
 - `RectBounce` (PPC 0x1001e4bc): if the hot rects (at `at`) overlap, the
   side is chosen from the centres (h distance against v distance), the
   sprite put just outside, and the speed across reflected (both × bounce
   / 256) only when it moves into the rect.
-- `re/tools/emu_planthit.py`: 20 000 cases (Harry kicking / walking,
-  plant, cooler, all door kinds, shots), all matching; 15 of 16
-  mutations caught - the survivor shifts the jitter by 1/256 px, which the
-  mask separation right after almost always overwrites.
+- `re/tools/emu_planthit.py`: 30 000 cases (Harry kicking / walking,
+  plant, cooler, all door kinds, shots, explosions, barrel, chair, ramps,
+  colliders), all matching; 15 of 16 mutations caught - the survivor
+  shifts the jitter by 1/256 px, which the mask separation right after
+  almost always overwrites; the five later ones (barrel mask, momentum,
+  ramp, collider, ramp sound) all caught.
+- **Barrel** (550; `harry_core::furniture`; layer 6, hot rect (0, 0, 24,
+  24), faces 1301 whole / 1302 burning from cicn 550 / 551, mask cicn
+  598; `at` is not set by the setup): dir 1 = whole. Burning (dir 2–18)
+  it flickers between its faces each frame and clears its level entry
+  (it will not come back); at dir 19 it explodes: four `EasyExplosion`s
+  at pos + (−20, −20), (−20, 0), (−20, −36), (0, −20) (h, v) with kind 0,
+  frame 0 / −3 / −8 / −5 and its speed / 256 (toward 0), the view shakes
+  32 frames (`_DAT_10065ad0`); next frame it shows the burning face and
+  freezes (the switch falls through into case 30, so 21–29 never run).
+  `timer` counts down each frame. Then `HandleGlide` / `HandleHalfPipe`
+  (sound 0: none) / `JumpScale` (sound 800) with centre + 12. Tile task:
+  `WallBounce` / `BGTileBounce` with cicn 598, centre + 12.
+  Hit task (both on the floor): Harry's kick → 13 × kick thrust away from
+  him, kick contact 128, then `SATRand(100)` < 50 and whole → it lights
+  (3-D sound 801 at 62000 + `SATRand(6000)`), else sound 800 (if not
+  playing). Harry walking in: pushed out (his pos and fix only, not his
+  `at`), sound 800, the barrel takes 0.6 of his speed, he keeps −0.3; on
+  caffeine it lights (sound 801). Another barrel: timer + 8 (past 25 it
+  lights), both `pos` = `at`, the other pushed out, both × −0.4, then
+  mine += other's, other's += my new. Cooler / plant / chair: pushed out
+  (cicn 598 against 598 / 599), sound 800, a cooler bounces it back (×
+  −0.4), plant and chair trade momentum (0.4, then × −0.4). Doors (not
+  open), colliders: `RectBounce` (+ 12); ramps: `HandleRampCollision` (+
+  12, sound 0). Shots (not the can 9610) stop on it, explosions push it
+  (`HandleExplodeRadius` with + 18); either lights it, 9450 also pushes
+  (speed / 4). Flames (effect kind ≥ 4200) set their +0x6e to 3 and light
+  it. Not yet: mail guy (both explode, score + 5000), desk, grate,
+  stairs, sliding doors, co-workers.
+- **Chair** (560; layer 7, hot rect (8, 8, 28, 28), faces 1801–1836 (36
+  directions, PICT 560), mask cicn 599): the setup takes a random
+  direction (`SATRand(35)`); `f6e` = direction × 256, `timer` = spin.
+  Each frame `f6e` += timer, timer × 0.9 (truncated), `f6e` wrapped into
+  0…0x23ff, dir = `f6e` >> 8, face 1801 + dir; then glide / half pipe
+  (sound 258) / jump (sound 257) with centre + 18 and the straight move.
+  Tile task: the plant's. Hit task: explosions push it (+ 18). Harry's
+  kick: 3-D sound 257, its speed is set to 13 × kick thrust away from him
+  (kick contact 128), the spin −= turn × (new speed's `PEDistance` / 8),
+  turn = direction from Harry's centre (at + 32) to his centre + the new
+  speed minus that to the chair's centre (at + 16), the short way round,
+  at most ±9; then the old speed is added back. Walking in: like the
+  plant (Harry's `at` and fix moved, sound 258, 0.6 / −0.3), the spin +=
+  turn (no limit) × (his new speed's `PEDistance` / 32). Cooler / barrel
+  / chair: pushed out (599 against 598 / 599), sound 258, cooler × −0.4,
+  barrel and chair trade momentum. Doors, colliders: `RectBounce` (+ 18);
+  ramps carry it. Shots (all, even the can) stop on it: 3-D sound 258,
+  9450 pushes. Plants are not handled here (the plant's hit task does it).
+  Not yet: mail guy, desk, grate, stairs, sliding doors, co-workers.
+- Both are blown by fans (`HandleRepulsions`) and bounce the vending
+  machine's can; `HandleBarrelSprite` / `HandleChairSprite` clear a flag
+  (`PTR_DAT_10065ee0` / `PTR_DAT_10065fb0`) nothing reads. Sounds: 800
+  barrel bump, 801 barrel fire, 257 chair kick, 258 chair bump.
+- `re/tools/emu_furniture.py`: 12 000 task runs of 1–8 frames on all
+  levels (with tile collisions, explosions, level entries, the shake) and
+  40 000 hit cases (Harry kicking / walking, barrel, chair, plant,
+  cooler, doors, colliders, ramps, shots, explosions, flames made as
+  explosions with a flame's kind), all matching; 13 of 14 mutations
+  caught - the survivor is the chair's lower spin limit (the upper one is
+  caught; a turn past −9 needs Harry almost on the chair).
 - **Message** (21000 and up; layer 9, faces 3801–3805): the mode
   (`f6e`) is the level entry's info #1, read each frame: 0 a memo on the
   floor (hot rect (−8, −8, 32, 32), the face blinking 3801 → 3805 → 3801

@@ -37,6 +37,8 @@ pub enum Setup {
     EnemyShot,
     PlayerShot,
     Effect,
+    Barrel,
+    Chair,
 }
 
 /// Run a setup routine on a sprite.
@@ -55,6 +57,8 @@ pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random) {
         Setup::EnemyShot => setup_enemy_shot(sp),
         Setup::PlayerShot => crate::shots::setup_player_shot(sp),
         Setup::Effect => crate::effect::setup_effect(sp),
+        Setup::Barrel => crate::furniture::setup_barrel(sp),
+        Setup::Chair => crate::furniture::setup_chair(sp, rng),
     }
 }
 
@@ -270,11 +274,13 @@ impl World {
     pub fn generate_sprite(&mut self, h: i16, v: i16, kind: i16, index: i16, rng: &mut Random) -> bool {
         let idle = |w: &mut World, h: i16, v: i16, setup: Setup, rng: &mut Random| w.add_idle(kind, h, v, index, 0, setup, rng);
         match kind {
-            301..=319 | 550 | 560 | 950..=999 | 1100..=1299 | 1300..=1449 | 1700..=1849 | 1850..=1899 | 1900..=1999
+            301..=319 | 950..=999 | 1100..=1299 | 1300..=1449 | 1700..=1849 | 1850..=1899 | 1900..=1999
             | 2000..=2099 | 2200..=2299 | 3001 | 3900..=3999 | 4200..=4299 | 5000..=5999 | 6000..=6099 | 9500..=9599
             | 9900..=9909 => return false,
             1601 | 1611 | 1621 | 1631 => return false,
             500 | 501 => idle(self, even(h), even(v), Setup::Cooler, rng),
+            550 => idle(self, even(h), even(v), Setup::Barrel, rng),
+            560 => idle(self, even(h), even(v), Setup::Chair, rng),
             601 => idle(self, even(h), even(v), Setup::Plant, rng),
             700..=799 => idle(self, h, v, Setup::Bonus, rng),
             900..=949 => idle(self, even(h), even(v), Setup::Door, rng),

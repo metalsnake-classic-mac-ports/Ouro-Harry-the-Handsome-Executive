@@ -8,6 +8,7 @@ use crate::air::{AirSound, PLANT_UNSET_SCALE, half_pipe, jump_scale};
 use crate::bounce::{bg_tile_bounce, rect_bounce, wall_bounce};
 use crate::level::Level;
 use crate::physics::{Physics, apply_moded_impulse, handle_glide, inverse_mode};
+use crate::ramp::{Rider, handle_ramp_collision};
 use crate::random::Random;
 use crate::words::Words;
 use crate::mask::{Mask, mask_hit};
@@ -362,7 +363,7 @@ pub fn handle_plant(
 
 /// The masks objects bounce with.
 pub struct ObjectMasks<'a> {
-    /// The plant's own mask (cicn 599).
+    /// The object's own mask: the plant's, cicn 599 (the barrel's: 598).
     pub plant: &'a Mask,
     /// The 32 wall shapes (PICT 160).
     pub walls: &'a [Mask],
@@ -374,17 +375,24 @@ pub struct ObjectMasks<'a> {
 /// background obstacles (`BGTileBounce`), with the plant's mask and the
 /// level's bounce, always as the frame's first contact.
 pub fn hit_plant_tile(sp: &mut Sprite, hit: TileHit, level: &Level, masks: &ObjectMasks, physics: &Physics) {
+    hit_object_tile(sp, hit, level, masks, 18, physics);
+}
+
+/// The tile routine pushable objects share (plant, chair, barrel): as
+/// `hit_plant_tile` with `masks.plant` as the object's mask and its centre
+/// at + `half`.
+pub fn hit_object_tile(sp: &mut Sprite, hit: TileHit, level: &Level, masks: &ObjectMasks, half: i16, physics: &Physics) {
     let mut body = sp.body();
     let tile = hit.tile;
     if hit.foreground {
         let wall = usize::try_from(hit.kind).ok().and_then(|k| masks.walls.get(k));
-        wall_bounce(&mut body, hit.kind, tile, (18, 18), physics.bounce, sp.hot_rect, true, &mut |b| match wall {
+        wall_bounce(&mut body, hit.kind, tile, (half, half), physics.bounce, sp.hot_rect, true, &mut |b| match wall {
             Some(w) => mask_hit(&mut b.pos, masks.plant, tile, w),
             None => false,
         });
     } else if sp.air == 0 && hit.kind == 1 {
         let fg = |x: i32, y: i32| level.fg_kind(level.fg_tile(x, y));
-        bg_tile_bounce(&mut body, tile, (18, 18), physics.bounce, sp.hot_rect, true, &mut |b| {
+        bg_tile_bounce(&mut body, tile, (half, half), physics.bounce, sp.hot_rect, true, &mut |b| {
             mask_hit(&mut b.pos, masks.plant, tile, masks.obstacle)
         }, &fg);
     }
@@ -402,24 +410,25 @@ pub struct PlantHitMasks<'a> {
 }
 
 /// `(int)(f * s)` in double, then to short.
-fn scaled(f: f64, s: i16) -> i16 {
+pub(crate) fn scaled(f: f64, s: i16) -> i16 {
     (f * f64::from(s)) as i32 as i16
 }
 
 /// `(int)(a + f * b)` in double, then to short.
-fn plus_scaled(a: i16, f: f64, b: i16) -> i16 {
+pub(crate) fn plus_scaled(a: i16, f: f64, b: i16) -> i16 {
     (f64::from(a) + f * f64::from(b)) as i32 as i16
 }
 
 /// `HitPlantSprite` (both on the floor). Harry kicking it (his kick rect
 /// touching it) sends it flying away from him with 13 × the kick thrust;
 /// walking into it, the mask test pushes him out, the plant takes 0.6 of
-/// his speed and he keeps −0.3. Against another plant or a cooler they
-/// are pushed apart (jittered when on the same pixel), a plant trades
-/// momentum (0.4 each way, then both × −0.4), a cooler stays and the
-/// plant bounces back × −0.4. Doors (not open), colliders and co-workers:
-/// `RectBounce`. Shots stop on it and make it shake. `bump_playing`: is
-/// the plant's bump sound (1100) playing?
+/// his speed and he keeps −0.3. Against another plant, a cooler, a barrel
+/// or a chair they are pushed apart (jittered when on the same pixel); a
+/// plant, barrel or chair trades momentum (0.4 each way, then both ×
+/// −0.4), a cooler stays and the plant bounces back × −0.4. Doors (not
+/// open), colliders and co-workers: `RectBounce`; ramps carry it (sound
+/// 1101 when it takes off). Shots stop on it and make it shake.
+/// `bump_playing`: is the plant's bump sound (1100) playing?
 #[allow(clippy::too_many_arguments)]
 pub fn hit_plant(
     sp: &mut Sprite,
@@ -467,7 +476,7 @@ pub fn hit_plant(
                 other.speed.v = scaled(-0.3, other.speed.v);
             }
         }
-        Some(Task::Plant | Task::Cooler) => {
+        Some(Task::Plant | Task::Cooler | Task::Barrel | Task::Chair) => {
             if other.fix.0 >> 8 == sp.fix.0 >> 8 && other.fix.1 >> 8 == sp.fix.1 >> 8 {
                 sp.fix.0 -= i32::from(rng.below(0x300)) + 0x100;
                 sp.fix.1 -= i32::from(rng.below(0x300)) + 0x100;
@@ -478,13 +487,13 @@ pub fn hit_plant(
             sp.at = sp.pos;
             other.pos = ((other.fix.1 >> 8) as i16, (other.fix.0 >> 8) as i16);
             other.at = other.pos;
-            let other_mask = if other.task == Some(Task::Cooler) { masks.barrel } else { masks.plant };
+            let other_mask = if matches!(other.task, Some(Task::Cooler | Task::Barrel)) { masks.barrel } else { masks.plant };
             if mask_hit(&mut sp.pos, masks.plant, other.at, other_mask) {
                 sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
                 if !bump_playing {
                     events.push(SpriteEvent::Sound(1100));
                 }
-                if other.task == Some(Task::Plant) {
+                if other.task != Some(Task::Cooler) {
                     other.speed.h = plus_scaled(other.speed.h, 0.4, sp.speed.h);
                     other.speed.v = plus_scaled(other.speed.v, 0.4, sp.speed.v);
                     sp.speed.h = plus_scaled(sp.speed.h, 0.4, other.speed.h);
@@ -502,9 +511,18 @@ pub fn hit_plant(
         _ => {}
     }
     let door = other.task == Some(Task::Door) && !door_open(other.kind);
-    if door {
+    if door || other.task == Some(Task::Collider) {
         let mut body = sp.body();
         rect_bounce(&mut body, 18, i32::from(physics.bounce), sp.hot_rect, other.at, other.hot_rect);
+        sp.set_body(body);
+    }
+    if other.task == Some(Task::Ramp) {
+        let mut body = sp.body();
+        let hot = sp.hot_rect;
+        let mut r = Rider { body: &mut body, air: &mut sp.air, cooldown: &mut sp.f94, player: false };
+        if handle_ramp_collision(&mut r, 18, hot, other, physics.bounce) {
+            events.push(SpriteEvent::Sound(1101));
+        }
         sp.set_body(body);
     }
     if matches!(other.task, Some(Task::PlayerShot | Task::EnemyShot)) && other.kind != 9610 {

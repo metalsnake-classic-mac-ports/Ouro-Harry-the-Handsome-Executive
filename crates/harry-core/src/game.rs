@@ -17,11 +17,12 @@ use crate::bounce::Rect;
 use crate::collider::{ColliderWorld, CopierSave, centre, handle_collider, hit_collider, is_repelled, repel};
 use crate::dart_enemy::{handle_dart_enemy, hit_dart_enemy};
 use crate::enemy_shot::{ShotMasks, handle_enemy_shot, hit_enemy_shot, hit_enemy_shot_tile};
+use crate::furniture::{self, FurnitureMasks, handle_barrel, handle_chair, hit_barrel, hit_chair};
 use crate::frame::{FrameSound, Harry, PlayerGlobals, handle_player};
 use crate::keys::{Bindings, KeyEvent, KeyInput, KeyMap, handle_keys};
 use crate::kinds::{
     BalloonText, CoolerMasks, LevelCounter, ObjectMasks, PlantHitMasks, handle_bonus, handle_cooler, handle_door, handle_item,
-    handle_message, handle_plant, hit_cooler, hit_door, hit_exit, hit_message, hit_plant, hit_plant_tile,
+    handle_message, handle_plant, hit_cooler, hit_door, hit_exit, hit_message, hit_object_tile, hit_plant, hit_plant_tile,
 };
 use crate::level::Level;
 use crate::mask::Mask;
@@ -255,11 +256,12 @@ impl Game {
     }
 
     /// `EasyExplosion(h, v, 0, 0, kind, dir)`.
-    fn explosion(&mut self, h: i16, v: i16, kind: i16, dir: i16) {
+    fn explosion(&mut self, h: i16, v: i16, kind: i16, dir: i16) -> usize {
         let i = self.spawn_with(kind, h, v, Setup::Effect, Some(Default::default()));
         let r = &mut self.world.sprites.recs[i];
         r.dir = dir;
         r.kind = kind;
+        i
     }
 
     /// The events of a sprite's routine; its 3-D sounds at `at`.
@@ -267,7 +269,14 @@ impl Game {
         for e in events {
             match e {
                 SpriteEvent::Spawn { kind, h, v, speed } => self.spawn(kind, h, v, speed),
-                SpriteEvent::Explosion { h, v, a, b } => self.explosion(h, v, a, b),
+                SpriteEvent::Explosion { h, v, a, b } => {
+                    self.explosion(h, v, a, b);
+                }
+                SpriteEvent::MovingExplosion { h, v, speed, a, b } => {
+                    let i = self.explosion(h, v, a, b);
+                    self.world.sprites.recs[i].speed = speed;
+                }
+                SpriteEvent::Sound3DPitched { id, rate } => self.play(id, 0x100, Some(at), rate, Channel::Effect),
                 SpriteEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
                 SpriteEvent::Sound3D(id) => self.play(id, 0x100, Some(at), RATE, Channel::Effect),
             }
@@ -277,7 +286,9 @@ impl Game {
     fn weapon_events(&mut self, events: Vec<WeaponEvent>, at: (i16, i16)) {
         for e in events {
             match e {
-                WeaponEvent::Explosion { h, v, a, b } => self.explosion(h, v, a, b),
+                WeaponEvent::Explosion { h, v, a, b } => {
+                    self.explosion(h, v, a, b);
+                }
                 WeaponEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
                 WeaponEvent::Sound3D(id) => self.play(id, 0x100, Some(at), RATE, Channel::Effect),
             }
@@ -435,7 +446,9 @@ impl Game {
                             let s = self.spawn_with(10, h, v, Setup::PlayerShot, Some(speed));
                             self.world.sprites.recs[s].dir = dir;
                         }
-                        KeyEvent::Explosion { h, v, flag } => self.explosion(h, v, flag, 0),
+                        KeyEvent::Explosion { h, v, flag } => {
+                            self.explosion(h, v, flag, 0);
+                        }
                         KeyEvent::Ripple(_) => panic!("the ripple is not ported into the frame yet"),
                         KeyEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
                         KeyEvent::ChargeSound(id) => self.play(id, 0x100, None, RATE, Channel::Charge),
@@ -490,6 +503,28 @@ impl Game {
                     if a != AirSound::Fall {
                         self.play(snd::PLANT, 0x100, None, RATE, Channel::Effect);
                     }
+                }
+            }
+            Some(Task::Barrel) => {
+                let mut s = Vec::new();
+                handle_barrel(&mut sp, &mut self.level, &self.physics, &mut self.rng, &mut self.view.shake, 0, &mut events, &mut s);
+                for a in s {
+                    // JumpScale with the bump sound; HandleHalfPipe with none
+                    if matches!(a, AirSound::Land | AirSound::Bounce) {
+                        self.play(furniture::snd::BARREL_BUMP, 0x100, None, RATE, Channel::Effect);
+                    }
+                }
+            }
+            Some(Task::Chair) => {
+                let mut s = Vec::new();
+                handle_chair(&mut sp, &self.level, &self.physics, &mut self.rng, 0, &mut s);
+                for a in s {
+                    let id = match a {
+                        AirSound::HalfPipeOut => furniture::snd::CHAIR_BUMP,
+                        AirSound::Land | AirSound::Bounce => furniture::snd::CHAIR_KICK,
+                        _ => continue,
+                    };
+                    self.play(id, 0x100, None, RATE, Channel::Effect);
                 }
             }
             Some(Task::Message) => {
@@ -563,6 +598,15 @@ impl Game {
             Some(HitTask::Plant) => {
                 let ms = PlantHitMasks { body: &assets.player.body, plant: assets.plant, barrel: assets.barrel };
                 hit_plant(&mut sp, &mut o, &ms, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, false, &mut events);
+            }
+            Some(HitTask::Barrel) => {
+                let ms = FurnitureMasks { body: &assets.player.body, plant: assets.plant, barrel: assets.barrel };
+                let caffeine = self.g.caffeine > 0;
+                hit_barrel(&mut sp, &mut o, &ms, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, caffeine, false, &mut events);
+            }
+            Some(HitTask::Chair) => {
+                let ms = FurnitureMasks { body: &assets.player.body, plant: assets.plant, barrel: assets.barrel };
+                hit_chair(&mut sp, &mut o, &ms, &self.physics, &mut self.g.tile.kick_contact, false, &mut events);
             }
             Some(HitTask::Message) => {
                 let (view, player) = (self.view.corner, self.g.player_pos);
@@ -693,6 +737,14 @@ impl Game {
                     HitTileTask::Plant => {
                         let ms = ObjectMasks { plant: assets.plant, walls, obstacle: &assets.player.obstacle };
                         hit_plant_tile(sp, hit, &self.level, &ms, &self.physics);
+                    }
+                    HitTileTask::Chair => {
+                        let ms = ObjectMasks { plant: assets.plant, walls, obstacle: &assets.player.obstacle };
+                        hit_object_tile(sp, hit, &self.level, &ms, 18, &self.physics);
+                    }
+                    HitTileTask::Barrel => {
+                        let ms = ObjectMasks { plant: assets.barrel, walls, obstacle: &assets.player.obstacle };
+                        hit_object_tile(sp, hit, &self.level, &ms, 12, &self.physics);
                     }
                     HitTileTask::EnemyShot => {
                         let ms = ShotMasks { shot: assets.shot, walls, obstacle: &assets.player.obstacle };

@@ -9,6 +9,8 @@ use std::path::PathBuf;
 use common::dump;
 use harry_core::Physics;
 use harry_core::effect::setup_effect;
+use harry_core::furniture::{setup_barrel, setup_chair};
+use harry_core::ramp::setup_ramp;
 use harry_core::kinds::{PlantHitMasks, hit_plant, setup_cooler, setup_door, setup_plant};
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT};
 use harry_core::random::Random;
@@ -41,10 +43,13 @@ fn plant_hits_match_the_original() {
         let w = |k: &str| i[k].parse::<i64>().unwrap();
         let mut sp = Sprite::new(601, w("h") as i16, w("v") as i16);
         setup_plant(&mut sp);
+        let mut rng = Random::new(w("seed0") as u32);
         let kind = w("other");
         let okind = match kind {
             2 => 601,
             3 => 500,
+            8 => 550,
+            9 => 560,
             _ => w("okind") as i16,
         };
         let blast = w("blast") as i16;
@@ -53,6 +58,9 @@ fn plant_hits_match_the_original() {
             2 => setup_plant(&mut o),
             3 => setup_cooler(&mut o),
             4 => setup_door(&mut o),
+            8 => setup_barrel(&mut o),
+            9 => setup_chair(&mut o, &mut rng),
+            10 => setup_ramp(&mut o),
             7 => {
                 setup_effect(&mut o);
                 o.kind = okind;
@@ -61,6 +69,7 @@ fn plant_hits_match_the_original() {
                 o.task = Some(match kind {
                     1 => Task::Player,
                     5 => Task::PlayerShot,
+                    11 => Task::Collider,
                     _ => Task::EnemyShot,
                 });
                 o.at = (w("ov") as i16, w("oh") as i16);
@@ -77,9 +86,13 @@ fn plant_hits_match_the_original() {
             s.speed.v = k("speedv") as i16;
             s.air = k("air") as i16;
             s.frozen = k("frozen") != 0;
+            s.at = (k("atv") as i16, k("ath") as i16);
+            let hot: Vec<i16> = i[format!("{pre}hot").as_str()].split(':').map(|x| x.parse().unwrap()).collect();
+            s.hot_rect = [hot[0], hot[1], hot[2], hot[3]];
         }
         o.dir = w("odir") as i16;
         sp.blast_cooldown = blast;
+        sp.f94 = w("f94") as i16;
         let mut contact = w("contact") as i16;
         let mut rng = Random::new(w("seed") as u32);
         let mut events = Vec::new();

@@ -30,6 +30,8 @@ pub enum Task {
     Collider,
     DartEnemy,
     Ramp,
+    Barrel,
+    Chair,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -48,6 +50,8 @@ pub enum HitTask {
     EnemyShot,
     DartEnemy,
     Ramp,
+    Barrel,
+    Chair,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -58,6 +62,8 @@ pub enum HitTileTask {
     Plant,
     EnemyShot,
     Ramp,
+    Barrel,
+    Chair,
 }
 
 /// What a sprite routine asks of the rest of the game.
@@ -67,8 +73,12 @@ pub enum SpriteEvent {
     Sound(i16),
     /// `STPlay3DSound` at the sprite.
     Sound3D(i16),
+    /// `STPlay3DSoundPitched` at the sprite, rate 0x10000 = as recorded.
+    Sound3DPitched { id: i16, rate: u32 },
     /// `EasyExplosion(h, v, 0, 0, a, b)`.
     Explosion { h: i16, v: i16, a: i16, b: i16 },
+    /// `EasyExplosion(h, v, speed h, speed v, a, b)`: a moving one.
+    MovingExplosion { h: i16, v: i16, speed: Speed, a: i16, b: i16 },
     /// `SATNewSprite(kind, h, v, setup)`: a new sprite with the setup of
     /// its kind (enemy shots, the soda can item), then its speed set if
     /// the caller sets one.

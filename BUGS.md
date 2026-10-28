@@ -51,6 +51,9 @@ option) and why.
   (recorded with r30 set like in the game). What this looks like on screen
   is to be checked (the drawing code scales by it). Port: keep the value
   (`air::UNSET_SCALE`), check the drawing.
+  Barrels and chairs do not touch r30 at all, so they get what SATRun
+  keeps there: the address of their own sprite record - a heap address,
+  different on every Mac. Port: 0 (the scale 0x100 for that frame).
 
 - **Harmless out-of-bounds read with no item selected.**
   `HandlePlayerSprite` checks `inventory[gCurInvSlot].id == -1`; with slot

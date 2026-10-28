@@ -23,6 +23,8 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::Collider) => "HandleColliderSprite",
         Some(Task::DartEnemy) => "HandleDartEnemySprite",
         Some(Task::Ramp) => "HandleRampSprite",
+        Some(Task::Barrel) => "HandleBarrelSprite",
+        Some(Task::Chair) => "HandleChairSprite",
     }
 }
 
@@ -42,6 +44,8 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::EnemyShot) => "HitEnemyShotSprite",
         Some(HitTask::DartEnemy) => "HitDartEnemySprite",
         Some(HitTask::Ramp) => "HitRampSprite",
+        Some(HitTask::Barrel) => "HitBarrelSprite",
+        Some(HitTask::Chair) => "HitChairSprite",
     }
 }
 
@@ -53,16 +57,21 @@ pub fn tile_name(t: Option<HitTileTask>) -> &'static str {
         Some(HitTileTask::Plant) => "HitPlantTileSprite",
         Some(HitTileTask::EnemyShot) => "HitEnemyShotTileSprite",
         Some(HitTileTask::Ramp) => "HitRampTileSprite",
+        Some(HitTileTask::Barrel) => "HitBarrelTileSprite",
+        Some(HitTileTask::Chair) => "HitChairTileSprite",
     }
 }
 
-/// The recorders' event names: p:<snd>, 3d:<snd>, x:<h>:<v>:<a>:<b>
+/// The recorders' event names: p:<snd>, 3d:<snd>, 3d:<snd>:<rate>
+/// (pitched), x:<h>:<v>:<a>:<b> and x:<h>:<v>:<speed h>:<speed v>:<a>:<b>
 /// (EasyExplosion), n:<kind>:<h>:<v>:<speed v>:<speed h> (SATNewSprite).
 pub fn event(e: &SpriteEvent) -> String {
     match *e {
         SpriteEvent::Sound(s) => format!("p:{s}"),
         SpriteEvent::Sound3D(s) => format!("3d:{s}"),
+        SpriteEvent::Sound3DPitched { id, rate } => format!("3d:{id}:{rate}"),
         SpriteEvent::Explosion { h, v, a, b } => format!("x:{h}:{v}:{a}:{b}"),
+        SpriteEvent::MovingExplosion { h, v, speed, a, b } => format!("x:{h}:{v}:{}:{}:{a}:{b}", speed.h, speed.v),
         SpriteEvent::Spawn { kind, h, v, speed } => {
             let s = speed.unwrap_or_default();
             format!("n:{kind}:{h}:{v}:{}:{}", s.v, s.h)

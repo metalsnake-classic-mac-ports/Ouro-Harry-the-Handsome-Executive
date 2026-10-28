@@ -32,6 +32,8 @@ fn task(name: &str) -> Task {
         "enemyshot" => Task::EnemyShot,
         "plant" => Task::Plant,
         "bonus" => Task::Bonus,
+        "barrel" => Task::Barrel,
+        "chair" => Task::Chair,
         _ => Task::Door,
     }
 }

@@ -290,8 +290,8 @@ pub fn hit_enemy_shot_tile(sp: &mut Sprite, hit: TileHit, level: &Level, masks: 
     }
 }
 
-/// `HitEnemyShotSprite`. The can bounces off colliders, coolers and
-/// plants (and barrels, grates, chairs) like `RectBounce` with half 4 and
+/// `HitEnemyShotSprite`. The can bounces off colliders, coolers,
+/// plants, barrels and chairs (and grates) like `RectBounce` with half 4 and
 /// bounce 255. Other shots stop at colliders (sound 4701) - the wall
 /// guns' shot passes through the guns - and a homing shot meeting
 /// another enemy or player shot bursts, taking a plain shot with it or
@@ -302,7 +302,7 @@ pub fn hit_enemy_shot(sp: &mut Sprite, other: &mut Sprite, events: &mut Vec<Spri
         return;
     }
     if sp.kind == 9610 {
-        if matches!(other.task, Some(Task::Collider | Task::Cooler | Task::Plant)) {
+        if matches!(other.task, Some(Task::Collider | Task::Cooler | Task::Plant | Task::Barrel | Task::Chair)) {
             let mut body = sp.body();
             rect_bounce(&mut body, 4, 0xff, sp.hot_rect, other.at, other.hot_rect);
             sp.set_body(body);
