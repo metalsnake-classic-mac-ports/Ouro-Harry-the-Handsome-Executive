@@ -45,7 +45,8 @@
 - [x] Colliders: fans (`HandleRepulsions`), phone, copier, magnet, wall guns, vending machine, gate (20 000 cases)
 - [x] `HitPlayerSprite` for colliders (`RectBounce` once a frame, gate key, vending kick; 30 000 cases)
 - [ ] Level 1 complete: background props, dart enemy, ramp (+ their `HitPlayerSprite` branches)
-- [ ] Enemy shots (`SetupEnemyShotSprite`, `HandleEnemyShotSprite`: gun shot 9450, can 9610)
+- [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
+- [ ] Enemy shots hitting robots, grates, sliding doors, barrels, chairs - with those kinds
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one
 

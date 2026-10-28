@@ -613,6 +613,49 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   matching; 31 of 34 mutations caught, the other 3 equivalent (push 0 at
   the reach, the unsigned shift truncated to 16 bits, the centre line).
 
+- **Enemy shots** (`SetupEnemyShotSprite`: layer 11, hot rect (0, 0, 8,
+  8), fix from `pos`; kinds by shooter): darts 1018 / 1028 / 1038 / 1048
+  (speed 3328 right / left / up / down, faces 3001–3004), the paper ball
+  1051 (15-step spin, faces 3041–3048), homing shots 1101–1299, bolts
+  2001–2999 (face 4801), 2281 / 2291 spinning (faces 5001… / 4981…), the
+  gun shot 9450 (hot rect 16 × 16, face 3141), the can 9610; others
+  (robots, turrets) a 7-frame animation (3021… below 1900, 3121… from
+  1900). Kinds without a setup branch start with timer 8 and `f7c` 12.
+  Each frame: `f7c` counts down; slower than 300 on both axes counts up
+  `f78` (down when fast) and past 35 the shot is gone, as when `at`
+  leaves 0…4096.
+  - **Homing** (timer 0 - the shooter sets it): 8 faces 3081…; on the
+    frame `f7c` reaches 1 it steers: `FindDesiredDirectionGeneric` from
+    its centre to Harry's, impulse 50, at most 1200 (and `f6e` + 1, past
+    100 it would burst - it steers only once). It bursts (timer −16) on
+    a wall or another shot: no hit task, at − 4 and sound 4703, faces
+    3101 + 8 − (−timer) / 2, gone at −2.
+  - **Can** 9610: timer 45, 8 faces 3061…, from timer < 20 speed ×
+    235 / 256, at 0 gone and a soda can item 11899 at at − 4.
+- `HitEnemyShotTileSprite`: a wall (`WallBounce` with the shots' mask
+  cicn 1299, half 4, bounce 255; foreground kinds above 55 count as hit):
+  a homing shot bursts, the can bounces, others are gone. Its sounds are
+  never played: the test is "kind < 2001 and kind > 3000". The floor's
+  obstacles (`BGTileBounce`, bounce 240) only bounce the can. A shot gone
+  this frame still meets the rest of the frame's tiles.
+- `HitEnemyShotSprite`: the can `RectBounce`s (half 4, bounce 255) off
+  colliders, coolers, plants, barrels, grates, chairs; other shots stop
+  at colliders and sliding doors (sound 4701; the gun shot passes the
+  guns 9401–9499); robots and grates take damage (with those kinds); a
+  homing shot meeting an enemy or player shot bursts and stops it (or
+  bursts it, if homing too).
+- **`FindDesiredDirectionGeneric(to, from)`**: equal coordinates are
+  moved apart (from + 1); the slope (to.v − from.v) / (from.h − to.h) in
+  single precision is compared (in double) with tan 5°, 15°, … 85° as
+  typed - 0.0875, 0.2675 / −0.2679 (the two sides differ), 0.4663,
+  0.7002, 1.0 (a float), 1.4281, 2.1445, 3.732, 11.43 - per quadrant to
+  give 0–35 (0 = left, 9 = down, 18 = right, 27 = up).
+- `re/tools/emu_enemyshot.py`: 15 000 flights on all levels with the real
+  tile pass, 12 000 hits, 30 000 aims (near the limits), all matching;
+  all planted mutations caught except equivalent ones (the burst face
+  formula, the never-zero slope sides) and two rare edges (exactly 4096,
+  wall kind 55).
+
 ### Harry touches a sprite (`HitPlayerSprite`)
 
 - Called by `CheckPlayerCollision`; nothing when Harry or the other

@@ -115,6 +115,14 @@ option) and why.
   as the caller left them (and speed 0). None are in Episode 1. Port:
   offset 0.
 
+- **Enemy shots hitting walls are silent.** `HitEnemyShotTileSprite`
+  plays a sound only for "kind < 2001 and kind > 3000", which no kind
+  is; the gun shot's own sound (251) is never heard either. Port: keep.
+- **Homing shots steer once.** `HandleEnemyShotSprite` steers only on
+  the frame `f7c` (12 at the start) reaches 1, so the "burst after 100
+  steering frames" never comes; they fly straight after that until a
+  wall, a shot or 35 slow frames. Port: keep.
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

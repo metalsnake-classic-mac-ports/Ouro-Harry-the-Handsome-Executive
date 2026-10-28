@@ -8,6 +8,7 @@
 pub mod air;
 pub mod bounce;
 pub mod collider;
+pub mod enemy_shot;
 pub mod frame;
 pub mod inventory;
 pub mod keys;

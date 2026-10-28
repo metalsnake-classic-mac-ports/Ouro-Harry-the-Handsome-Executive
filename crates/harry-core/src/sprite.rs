@@ -41,6 +41,7 @@ pub enum HitTask {
     Plant,
     Message,
     Collider,
+    EnemyShot,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -49,6 +50,7 @@ pub enum HitTileTask {
     Player,
     PlayerShot,
     Plant,
+    EnemyShot,
 }
 
 /// What a sprite routine asks of the rest of the game.
@@ -60,8 +62,10 @@ pub enum SpriteEvent {
     Sound3D(i16),
     /// `EasyExplosion(h, v, 0, 0, a, b)`.
     Explosion { h: i16, v: i16, a: i16, b: i16 },
-    /// `SATNewSprite(kind, h, v, SetupEnemyShotSprite)`, then its speed set.
-    Spawn { kind: i16, h: i16, v: i16, speed: Speed },
+    /// `SATNewSprite(kind, h, v, setup)`: a new sprite with the setup of
+    /// its kind (enemy shots, the soda can item), then its speed set if
+    /// the caller sets one.
+    Spawn { kind: i16, h: i16, v: i16, speed: Option<Speed> },
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

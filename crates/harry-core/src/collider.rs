@@ -300,7 +300,7 @@ fn gun(sp: &mut Sprite, w: &mut ColliderWorld, events: &mut Vec<SpriteEvent>) {
             kind: GUN_SHOT,
             h: sp.at.1.wrapping_add(dh),
             v: sp.at.0.wrapping_add(dv),
-            speed,
+            speed: Some(speed),
         });
         sp.timer = 60;
     }
@@ -337,7 +337,7 @@ fn vending(sp: &mut Sprite, w: &mut ColliderWorld, events: &mut Vec<SpriteEvent>
                     kind: CAN,
                     h: sp.at.1.wrapping_add(12),
                     v: sp.at.0.wrapping_add(28),
-                    speed: Speed { v, h },
+                    speed: Some(Speed { v, h }),
                 });
             }
         } else {

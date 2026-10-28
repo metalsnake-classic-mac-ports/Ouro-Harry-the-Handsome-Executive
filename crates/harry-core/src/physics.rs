@@ -208,3 +208,43 @@ pub fn handle_glide(speed: &mut Speed, fix: (i32, i32), air: i16, slide: i16, ha
         }
     }
 }
+
+/// The slope limits of `FindDesiredDirectionGeneric` (data 0x10066748 ..
+/// 0x100667d0): tan of 5°, 15°, … 85° as typed in the source - the two
+/// sides differ at 15° (0.2679 / 0.2675) and the 45° ones are floats.
+const SLOPES_UP: [f64; 9] = [0.0875, 0.2675, 0.4663, 0.7002, 1.0, 1.4281, 2.1445, 3.732, 11.43];
+const SLOPES_DOWN: [f64; 9] = [-11.43, -3.732, -2.1445, -1.4281, -1.0, -0.7002, -0.4663, -0.2679, -0.0875];
+
+/// `FindDesiredDirectionGeneric` (PPC 0x10022a44): the direction (0–35,
+/// as `apply_moded_impulse` takes it) from `from` toward `to`, both (v,
+/// h). Equal coordinates are moved apart by one (`from` + 1); the slope
+/// is divided in single precision and compared with the table in double.
+pub fn find_desired_direction(to: (i16, i16), from: (i16, i16)) -> i16 {
+    let (tv, th) = to;
+    let (mut fv, mut fh) = from;
+    if fh == th {
+        fh = fh.wrapping_add(1);
+    }
+    if fv == tv {
+        fv = fv.wrapping_add(1);
+    }
+    let dx = (i32::from(fh) - i32::from(th)) as f32;
+    let dy = (i32::from(tv) - i32::from(fv)) as f32;
+    let d = f64::from(dy / dx);
+    // the number of limits the slope is at or above
+    let up = |base: i16| base + SLOPES_UP.iter().take_while(|&&l| l <= d).count() as i16;
+    let down = |base: i16| base + SLOPES_DOWN.iter().take_while(|&&l| l <= d).count() as i16;
+    if dy <= 0.0 {
+        if dx >= 0.0 {
+            // 27 below −11.43, … 35, then 0
+            let n = down(27);
+            if n == 36 { 0 } else { n }
+        } else {
+            up(18)
+        }
+    } else if dx <= 0.0 {
+        down(9)
+    } else {
+        up(0)
+    }
+}

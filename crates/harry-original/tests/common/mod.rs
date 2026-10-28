@@ -36,6 +36,7 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Plant) => "HitPlantSprite",
         Some(HitTask::Message) => "HitMessageSprite",
         Some(HitTask::Collider) => "HitColliderSprite",
+        Some(HitTask::EnemyShot) => "HitEnemyShotSprite",
     }
 }
 
@@ -46,7 +47,10 @@ pub fn event(e: &SpriteEvent) -> String {
         SpriteEvent::Sound(s) => format!("p:{s}"),
         SpriteEvent::Sound3D(s) => format!("3d:{s}"),
         SpriteEvent::Explosion { h, v, a, b } => format!("x:{h}:{v}:{a}:{b}"),
-        SpriteEvent::Spawn { kind, h, v, speed } => format!("n:{kind}:{h}:{v}:{}:{}", speed.v, speed.h),
+        SpriteEvent::Spawn { kind, h, v, speed } => {
+            let s = speed.unwrap_or_default();
+            format!("n:{kind}:{h}:{v}:{}:{}", s.v, s.h)
+        }
     }
 }
 
@@ -112,6 +116,7 @@ pub fn dump(s: &Sprite) -> String {
             Some(HitTileTask::Player) => "HitPlayerTileSprite",
             Some(HitTileTask::PlayerShot) => "HitPlayerShotTileSprite",
             Some(HitTileTask::Plant) => "HitPlantTileSprite",
+            Some(HitTileTask::EnemyShot) => "HitEnemyShotTileSprite",
         }
     ));
     out.join(" ")
