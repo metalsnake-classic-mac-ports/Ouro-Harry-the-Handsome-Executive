@@ -11,6 +11,7 @@ use harry_core::frame::{Harry, PlayerGlobals};
 use harry_core::keys::Ammo;
 use harry_core::collider::setup_collider;
 use harry_core::dart_enemy::setup_dart_enemy;
+use harry_core::ramp::setup_ramp;
 use harry_core::kinds::{setup_bonus, setup_door, setup_item};
 use harry_core::physics::Speed;
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT, Player, TileState};
@@ -70,6 +71,7 @@ fn touching_matches_the_original() {
             frozen: w("pfrozen") != 0,
             dead: false,
             blast_cooldown: 0,
+            ramp_cooldown: w("pf94"),
         };
         let mut g = PlayerGlobals {
             comfort: w("comfort"),
@@ -90,6 +92,7 @@ fn touching_matches_the_original() {
             ..800 => setup_bonus(&mut other),
             900..1000 => setup_door(&mut other),
             1000..1050 => setup_dart_enemy(&mut other),
+            9700..9800 => setup_ramp(&mut other),
             11000.. => setup_item(&mut other),
             _ => setup_collider(&mut other, &mut Random::new(1)),
         }
@@ -136,6 +139,12 @@ fn touching_matches_the_original() {
             ("bounced", u8::from(g.flag50).to_string()),
             ("score", g.score.to_string()),
             ("otimer", other.timer.to_string()),
+            ("pf94", h.ramp_cooldown.to_string()),
+            ("pair", h.player.air.to_string()),
+            ("ospeedv", other.speed.v.to_string()),
+            ("ospeedh", other.speed.h.to_string()),
+            ("opv", other.pos.0.to_string()),
+            ("oph", other.pos.1.to_string()),
             ("speedv", p.body.speed.v.to_string()),
             ("speedh", p.body.speed.h.to_string()),
             ("hot", format!("{}:{}:{}:{}", r[0], r[1], r[2], r[3])),

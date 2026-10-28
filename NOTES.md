@@ -679,6 +679,31 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   1639 foreground ones (6051–6054) - no sprite, just (point, face) in a
   table of 64 slots each, drawn when the point is in the view.
 
+- **Ramps** (9701 / 9702 along v, 9703 / 9704 along h; layer 1, hot
+  rects 9701 (8, 0, 60, 24), 9702 (0, 0, 52, 24), 9703 (0, 8, 24, 60),
+  9704 (0, 0, 24, 52); faces 4101–4104, pushable 4105–4108). A ramp whose
+  entry has info #1 ≠ 0 (four in Episode 1) moves by its speed each frame;
+  all glide (`HandleGlide`, centre + 20).
+- **`HandleRampCollision`** (sprite, half, hot rect, ramp, sound): nothing
+  while the sprite's +0x94 is ≥ 1 (set to 3 by a bounce, counted down by
+  `EraseSprites` each drawn frame, as +0x96). Positions from `fix`, the
+  ramp's too. Coming across the ramp - its centre more than 8 px before
+  the middle line and moving toward it - and not past the ramp's high end
+  (13 px): put outside the ramp's side, the ramp gets half the speed
+  (`>> 1`), the sprite −(bounce × speed >> 9). Else, past the low end by
+  more than 15 px (on the ramp): 1 px toward the middle line (speed
+  across halved, truncating) and +30 (Harry, kind 69) / +15 (others) up
+  the slope. Else at the high end: moving into it faster than 450 →
+  `air` 1 and the sound (209); slower → stop with its edge 16 px into the
+  ramp. Else at the back end (within 6 px): bounce back. 9703 moves only
+  `fix` at its back end, 9704 only `pos` - kept.
+- `HitPlayerSprite`: a ramp, Harry on the floor and not kicking:
+  `HandleRampCollision(Harry, 32, his normal hot rect, ramp, 209)`.
+- `re/tools/emu_ramp.py`: 40 000 collisions (both kinds of rider, all
+  sides, speeds at the 450 limits), 10 000 ramp frames, all matching;
+  with the player hits (30 000) every mutation caught except two
+  equivalent ones.
+
 ### Harry touches a sprite (`HitPlayerSprite`)
 
 - Called by `CheckPlayerCollision`; nothing when Harry or the other

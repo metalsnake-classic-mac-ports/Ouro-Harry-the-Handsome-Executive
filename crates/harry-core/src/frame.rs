@@ -91,6 +91,9 @@ pub struct Harry {
     /// Frames until an explosion can hurt him again (+0x96, set to 30 by
     /// `HandleExplodeRadius`).
     pub blast_cooldown: i16,
+    /// Frames until a ramp can bounce him again (+0x94, 3 after a bounce,
+    /// counted down by `EraseSprites`).
+    pub ramp_cooldown: i16,
 }
 
 /// Sounds of the frame.

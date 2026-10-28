@@ -99,6 +99,7 @@ fn keys_match_the_original() {
             frozen: false,
             dead: false,
             blast_cooldown: w("blast"),
+            ramp_cooldown: 0,
         };
         let kb = list(i["bindings"]);
         let bindings = Bindings {

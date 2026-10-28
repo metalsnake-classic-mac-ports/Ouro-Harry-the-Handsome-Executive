@@ -27,6 +27,7 @@ pub enum Task {
     Message,
     Collider,
     DartEnemy,
+    Ramp,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -44,6 +45,7 @@ pub enum HitTask {
     Collider,
     EnemyShot,
     DartEnemy,
+    Ramp,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -53,6 +55,7 @@ pub enum HitTileTask {
     PlayerShot,
     Plant,
     EnemyShot,
+    Ramp,
 }
 
 /// What a sprite routine asks of the rest of the game.

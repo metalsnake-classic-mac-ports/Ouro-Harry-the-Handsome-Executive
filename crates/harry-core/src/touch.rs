@@ -10,6 +10,7 @@ use crate::kinds::{door_group, door_open};
 use crate::level::Level;
 use crate::physics::Physics;
 use crate::player::HOT_RECT;
+use crate::ramp::{self, Rider, handle_ramp_collision};
 use crate::sat::absolute;
 use crate::sprite::{Sprite, Task};
 use crate::tiles::{KICK_RECTS, offset, sect};
@@ -57,6 +58,13 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
     let on_floor = h.player.air == 0;
     let voice_playing = w.voice_playing;
     match other.task {
+        Some(Task::Ramp) if on_floor && h.player.hot_rect[1] != 0 => {
+            let p = &mut h.player;
+            let mut r = Rider { body: &mut p.body, air: &mut p.air, cooldown: &mut h.ramp_cooldown, player: true };
+            if handle_ramp_collision(&mut r, 32, HOT_RECT, other, w.physics.bounce) {
+                events.push(TouchEvent::Sound(ramp::LAUNCH_SOUND));
+            }
+        }
         Some(Task::Door) => door(h, g, other, w, events),
         Some(Task::Collider) if on_floor && !matches!(other.kind, 3100 | 3101) => collider(h, g, other, w.physics),
         Some(Task::DartEnemy) if on_floor => collider(h, g, other, w.physics),

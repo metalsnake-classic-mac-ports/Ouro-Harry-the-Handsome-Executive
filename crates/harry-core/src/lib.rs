@@ -20,6 +20,7 @@ pub mod moves;
 pub mod physics;
 pub mod player;
 pub mod props;
+pub mod ramp;
 pub mod random;
 pub mod sat;
 pub mod shots;

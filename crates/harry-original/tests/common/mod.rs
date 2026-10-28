@@ -21,6 +21,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::Message) => "HandleMessageSprite",
         Some(Task::Collider) => "HandleColliderSprite",
         Some(Task::DartEnemy) => "HandleDartEnemySprite",
+        Some(Task::Ramp) => "HandleRampSprite",
     }
 }
 
@@ -39,6 +40,7 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Collider) => "HitColliderSprite",
         Some(HitTask::EnemyShot) => "HitEnemyShotSprite",
         Some(HitTask::DartEnemy) => "HitDartEnemySprite",
+        Some(HitTask::Ramp) => "HitRampSprite",
     }
 }
 
@@ -119,6 +121,7 @@ pub fn dump(s: &Sprite) -> String {
             Some(HitTileTask::PlayerShot) => "HitPlayerShotTileSprite",
             Some(HitTileTask::Plant) => "HitPlantTileSprite",
             Some(HitTileTask::EnemyShot) => "HitEnemyShotTileSprite",
+            Some(HitTileTask::Ramp) => "HitRampTileSprite",
         }
     ));
     out.join(" ")

@@ -1,5 +1,5 @@
 """Record HitPlayerSprite - Harry touching another sprite - for the kinds
-the port has (bonus, item, door, collider, dart enemy). The other sprite is made by its real
+the port has (bonus, item, door, collider, dart enemy, ramp). The other sprite is made by its real
 setup; doors get a level entry (index, info #0) on level 1.
 
 Each line: "<name=value ...> -> <name=value ...>"
@@ -26,14 +26,15 @@ SLOTS = {"t24": 0x10065E24, "t28": 0x10065E28, "staple": 0x10065AEC, "badass": 0
 KICK_RESET, PHYSICS, BOUNCED, SCORE = 0x10065E20, 0x100659D8, 0x10065E50, 0x10065AF8
 VOICE, VOICE2, REMARK = 0x10068AA0, 0x10068AA4, 0x10068A98
 SOUNDS = {0x10065CC0: 212, 0x10065CC4: 211, 0x10065CC8: 210, 0x10065CB0: 216, 0x10065CB8: 214,
-          0x10065C28: 218, 0x10065C24: 219, 0x10065C60: 240, 0x10065CE0: 204, 0x10065CDC: 205}
+          0x10065C28: 218, 0x10065C24: 219, 0x10065C60: 240, 0x10065CE0: 204, 0x10065CDC: 205, 0x10065CCC: 209}
 ITEMS = [11199, 11299, 11397, 11398, 11399, 11499, 11599, 11699, 11799, 11899, 11999]
 DOORS = [901, 902, 903, 911, 912, 913, 921, 922, 923, 931, 932, 933]
 HINGE = {0: (30, 35), 1: (31, 17), 2: (34, 19), 3: (5, 18)}
 KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("SetupItemSprite", ITEMS),
          ("SetupDoorSprite", DOORS), ("SetupDoorSprite", DOORS),
          ("SetupColliderSprite", [9600, 9600, 9800, 9800, 9199, 9200, 2301, 3100, 3101, 9300, 9411]),
-         ("SetupDartEnemySprite", [1011, 1021, 1031, 1041])]
+         ("SetupDartEnemySprite", [1011, 1021, 1031, 1041]), ("SetupRampSprite", [9701, 9702, 9703, 9704]),
+         ("SetupRampSprite", [9701, 9702, 9703, 9704])]
 FRAME = STACK_TOP - 0x1000 - 0x140              # HitPlayerSprite's r1
 CASES = 30000
 
@@ -42,7 +43,8 @@ def main():
     work = sys.argv[1] if len(sys.argv) > 1 else "re/work"
     m = Machine(f"{work}/ppc")
     Faces(m)
-    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitPlayerKickRects"):
+    m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # mask loader (the ramps' masks)
+    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitPlayerKickRects"):
         m.call(init)
     lvl = m.load_level(open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read())
     ev = []
@@ -94,7 +96,11 @@ def main():
                    "kicking": int(rnd.random() < 0.5),
                    "pav": pv + rnd.choice([0, 0, rnd.randint(-4, 4)]), "pah": ph + rnd.choice([0, 0, rnd.randint(-4, 4)]),
                    "otimer": rnd.choice([0, 0, 0, 1, 3, -5]), "bounced": int(rnd.random() < 0.15),
-                   "score": rnd.choice([0, 12345])})
+                   "score": rnd.choice([0, 12345]), "pf94": rnd.choice([0, 0, 0, 2])})
+        if setup == "SetupRampSprite":
+            # around the ramp, at any speed
+            st["speedv"] = rnd.choice([st["speedv"], rnd.randint(-600, 600)])
+            st["speedh"] = rnd.choice([st["speedh"], rnd.randint(-600, 600)])
         if kind == 9600 and rnd.random() < 0.4:
             # beside the vending machine, its middle level with Harry's
             st["pav"] = ov - 15 + rnd.randint(-1, 1)
@@ -109,6 +115,7 @@ def main():
         st["inv"] = ",".join("%d:%d" % s for s in slots)
         # write it
         m.write(player, bytes(0xA2))
+        m.w16(player, 0x45)                    # SetupPlayerSprite's kind
         m.w32(player + 0x1A, 0x10066FC4)
         for off, n in ((0x02, "pv"), (0x04, "ph"), (0x4E, "speedv"), (0x50, "speedh"), (0x66, "dir"), (0x8E, "air")):
             m.w16(player + off, st[n])
@@ -118,6 +125,7 @@ def main():
         m.w32(player + 0x62, st["fixv"])
         m.write(player + 0x06, struct.pack(">hhhh", *((0, 0, 64, 64) if st["kicking"] else (22, 22, 42, 42))))
         m.write(player + 0x92, bytes([st["pfrozen"]]))
+        m.w16(player + 0x94, st["pf94"])
         m.write(other, bytes(0xA2))
         m.w16(other, kind)
         m.w16(other + 2, ov)
@@ -170,7 +178,8 @@ def main():
                 "fixv": struct.unpack(">i", m.read(player + 0x62, 4))[0],
                 "pav": m.r16(player + 0x5A), "pah": m.r16(player + 0x5C),
                 "bounced": m.read(bounced, 1)[0], "score": struct.unpack(">i", m.read(score, 4))[0],
-                "otimer": m.r16(other + 0x74),
+                "otimer": m.r16(other + 0x74), "pf94": m.r16(player + 0x94), "pair": m.r16(player + 0x8E),
+                "ospeedv": m.r16(other + 0x4E), "ospeedh": m.r16(other + 0x50), "opv": m.r16(other + 2), "oph": m.r16(other + 4),
                 "speedv": m.r16(player + 0x4E), "speedh": m.r16(player + 0x50), "hot": "%d:%d:%d:%d" % hot,
                 "okind": m.r16(other), "odir": m.r16(other + 0x66), "ob8a": m.read(other + 0x8A, 1)[0],
                 "record": m.r16(lvl + 0x10002 + st["levelindex"] * 16), "events": ",".join(events) or "-"}

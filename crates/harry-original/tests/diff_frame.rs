@@ -100,6 +100,7 @@ fn player_frame_matches_the_original() {
             frozen: i["frozen"] != 0,
             dead: false,
             blast_cooldown: 0,
+            ramp_cooldown: 0,
         };
         let level = &levels[i["level"] as usize - 1];
         let mut rng = Random::new(i["seed"] as u32);
