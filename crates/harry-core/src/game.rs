@@ -36,6 +36,7 @@ use crate::sprite::{Face, HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{sect, touched_tiles};
 use crate::touch::{TouchEvent, TouchWorld, touch};
 use crate::view::{View, find_upper_left_corner};
+use crate::words::Words;
 use crate::world::{Setup, World};
 
 /// Harry's faces: HrSp 1101 + pose (`dir` + 36 × pose set).
@@ -92,7 +93,12 @@ pub struct Game {
     pub gun: u8,
     /// Harry's record (`*_DAT_10065980`), set by `start`.
     pub harry: Option<usize>,
+    /// The sentence generators' word lists and last picks.
+    pub words: Words,
 }
+
+/// What a `ShowBalloon` call ended with: (shown, mode, the sprite's `pos`).
+type BalloonCall = (bool, i16, (i16, i16));
 
 /// What a frame ended with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -401,7 +407,15 @@ impl Game {
                 let mut s = Vec::new();
                 handle_plant(&mut sp, &self.level, &self.physics, &mut self.rng, &mut self.plant_flag, &mut s);
             }
-            Some(Task::Message) => handle_message(&mut sp, &self.level, show),
+            Some(Task::Message) => {
+                let mut calls = Vec::new();
+                handle_message(&mut sp, &self.level, &mut self.words, &mut self.rng, &mut |s, t, m| {
+                    let r = show(s, t, m);
+                    calls.push((r, m, s.pos));
+                    r
+                });
+                self.balloons(calls);
+            }
             Some(Task::Collider) => {
                 let p = self.harry;
                 let mut speed = p.map(|p| self.world.rec(p).speed).unwrap_or_default();
@@ -463,8 +477,24 @@ impl Game {
                 let ms = PlantHitMasks { body: &assets.player.body, plant: assets.plant, barrel: assets.barrel };
                 hit_plant(&mut sp, &mut o, &ms, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, false, &mut events);
             }
-            Some(HitTask::Message) => hit_message(&mut sp, &o, &self.level, retry, show),
-            Some(HitTask::Collider) => hit_collider(&mut sp, &o, &mut self.level, save, show),
+            Some(HitTask::Message) => {
+                let mut calls = Vec::new();
+                hit_message(&mut sp, &o, &self.level, retry, &mut self.words, &mut self.rng, &mut |s, t, m| {
+                    let r = show(s, t, m);
+                    calls.push((r, m, s.pos));
+                    r
+                });
+                self.balloons(calls);
+            }
+            Some(HitTask::Collider) => {
+                let mut calls = Vec::new();
+                hit_collider(&mut sp, &o, &mut self.level, &mut self.words, &mut self.rng, save, &mut |s, t, m| {
+                    let r = show(s, t, m);
+                    calls.push((r, m, s.pos));
+                    r
+                });
+                self.balloons(calls);
+            }
             Some(HitTask::EnemyShot) => hit_enemy_shot(&mut sp, &mut o, &mut events),
             Some(HitTask::DartEnemy) => hit_dart_enemy(&mut sp, &mut o, &mut self.g, &mut self.rng, &mut events),
             Some(HitTask::Ramp) => hit_ramp(&mut sp, &o, self.physics.bounce),
@@ -475,6 +505,25 @@ impl Game {
         self.world.sprites.recs[a] = sp;
         self.world.sprites.recs[b] = o;
         self.sprite_events(events);
+    }
+
+    /// The game's part of `ShowBalloon` after the frontend's: a shown
+    /// balloon of mode 1, 3 or 5 plays its sound at a random pitch
+    /// (`SATRand(16000)`); one that did not fit, with the page scroll (3)
+    /// not paging, nudges the view 16 px toward the sprite.
+    fn balloons(&mut self, calls: Vec<BalloonCall>) {
+        for (shown, mode, pos) in calls {
+            if shown {
+                if matches!(mode, 1 | 3 | 5) {
+                    self.rng.below(16000);
+                }
+            } else if self.prefs.scroll == 3 && self.view.steps == 0 {
+                let (ph, pv) = (i32::from(self.g.player_pos.0) + 32, i32::from(self.g.player_pos.1) + 32);
+                let c = &mut self.view.corner;
+                c.1 = if i32::from(pos.1) + 32 < ph { c.1.wrapping_sub(16) } else { c.1.wrapping_add(16) };
+                c.0 = if i32::from(pos.0) + 32 < pv { c.0.wrapping_sub(16) } else { c.0.wrapping_add(16) };
+            }
+        }
     }
 
     /// `Ouch`: it halts the voices, so (unless caffeine works) it always

@@ -23,7 +23,7 @@ from unicorn import UC_HOOK_CODE
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ppcmachine import Machine, DATA_END  # noqa: E402
-from sprites import Faces, tvectors, dump  # noqa: E402
+from sprites import Faces, tvectors, dump, load_words  # noqa: E402
 from emu_mask import masks  # noqa: E402
 from cicn import decode as cicn_decode  # noqa: E402
 
@@ -93,11 +93,32 @@ def main():
     for f in ("STPlayRegSound", "STPlay3DSound", "STPlay3DSoundPitched", "HaltTalkingSounds", 0x10056C0C,
               "GammaFadeOut", "GammaFadeIn", 0x1002549C, "AddFGRedraw", "CheckWorldCorruption", "LoadLevelTilesets",
               "InitTrackMap", "LoadLevelSounds", 0x1005F7EC, "IsPressed", "AddRectToUpdate", "FindScaledPosAndBounds",
-              0x10024DE8, "GeneratePhonewords", "GenerateBuzzwords", "DebugHook", "UpdateAmmo", "CopyStatRect",
+              0x10024DE8, "DebugHook", "UpdateAmmo", "CopyStatRect",
               "PlotEncFace", "DrawNumItems", "FindInvItemFace", "UpdateInventory", 0x1005F738, "DrawBlackLines"):
         m.stub_routine(f, 0)
     m.stub_routine(0x10056DE8, 0)                   # nothing is playing
-    m.stub_routine("ShowBalloon", lambda mm: log.append("balloon") or 0)
+    answers = []
+
+    def show_balloon(mm):
+        """ShowBalloon with the answer (fits or not) of the run's list, and
+        what the original then does: shown - SATRand(16000) for modes 1, 3,
+        5 and the sprite frozen unless mode 5; not shown - with prefs +8 = 3
+        and no paging the view moves 16 px toward the sprite."""
+        sp, mode = mm.get(3), mm.get(5) & 0xFFFF
+        ans = answers.pop(0) if answers else 0
+        log.append("balloon%d" % ans)
+        if ans:
+            if mode in (1, 3, 5):
+                mm.tb_random()
+            if sp and mode != 5:
+                mm.write(sp + 0x92, b"\1")
+        elif mm.r16(mm.glob(PREFS) + 8) == 3 and mm.r16(0x1007271E) == 0:
+            view = mm.glob(VIEW)
+            ph, pv = mm.r16(mm.glob(PLAYER_H)), mm.r16(mm.glob(PLAYER_V))
+            mm.w16(view + 2, mm.r16(view + 2) + (-16 if mm.r16(sp + 4) + 32 < ph + 32 else 16))
+            mm.w16(view, mm.r16(view) + (-16 if mm.r16(sp + 2) + 32 < pv + 32 else 16))
+        return ans
+    m.stub_routine("ShowBalloon", show_balloon)
     m.stub_routine("CopierSave", lambda mm: log.append("save") or 0)
     m.stub_routine("UpLevel", lambda mm: log.append("uplevel") or 0)
     for n in ("UnionRect", "ForeColor", "BackColor", "PaintRect", "RGBForeColor", "TextFont", "TextSize", "TextFace",
@@ -120,6 +141,7 @@ def main():
     data = open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read()
     start_v, start_h, start_dir = struct.unpack(">hhh", data[0x120F4:0x120FA])
     entries = [struct.unpack(">hh", data[0x1000C + i * 16:0x10010 + i * 16]) for i in range(256) if data[0x10000 + i * 16]]
+    load_words(m, work)
     # every case starts from the globals as they are now
     data_start = 0x10065800
     globals_after_init = m.read(data_start, DATA_END - data_start)
@@ -133,7 +155,8 @@ def main():
         lvl = m.load_level(data)
         st = {"seed": rnd.randint(1, 0x7FFFFFFE), "scroll": rnd.choice([0, 1, 2, 2, 3, 4]),
               "comfort": rnd.choice([144, 100, 20]), "favor": rnd.choice([144, 60]), "frames": rnd.choice([rnd.randint(1, 60), rnd.randint(1, 300)]), "h": 0, "v": 0, "dir": 0,
-              "inv": "-", "curslot": -1, "staple": 0, "badass": 0, "shrapnel": 0}
+              "inv": "-", "curslot": -1, "staple": 0, "badass": 0, "shrapnel": 0,
+              "balloons": "".join(rnd.choice("0001") for _ in range(16))}
         if rnd.random() < 0.6:
             items = rnd.sample(ITEMS, rnd.randint(1, 4))
             st["inv"] = ",".join(f"{i}:{rnd.randint(1, 3)}" for i in items)
@@ -176,6 +199,7 @@ def main():
         m.rand_seed = st["seed"]
         log.clear()
         stale[0] = False
+        answers[:] = [int(c) for c in st["balloons"]]
         # the level start of GameLoop
         m.call("SetupLevelSprites")
         h, v = st["h"], st["v"]

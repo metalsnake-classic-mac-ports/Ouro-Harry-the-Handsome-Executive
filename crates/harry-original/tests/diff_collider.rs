@@ -45,6 +45,9 @@ fn colliders_match_the_original() {
     let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
     let ep = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
     let level1 = hlvl::read(ep.get(b"Hlvl", 1).unwrap()).unwrap();
+    let Ok(app) = std::fs::read(root().join("re/work/installed/Harry 1.0.1.bin")) else { return };
+    let app = Resources::parse(&MacBinary::parse(&app).unwrap().rsrc).unwrap();
+    let base_words = harry_original::words::words(&app).unwrap();
     let mut bad = 0;
     let mut n = 0;
     for line in text.lines().skip(1) {
@@ -108,9 +111,11 @@ fn colliders_match_the_original() {
             log.borrow_mut().push(format!("save:{}", w("save")));
             w("save") != 0
         };
+        let mut words = base_words.clone();
         let mut show = |_: &Sprite, t: BalloonText, mode: i16| {
-            assert_eq!(t, BalloonText::Phonewords);
-            log.borrow_mut().push(format!("b:phone:{mode}:{}", w("show")));
+            let BalloonText::Phonewords(t) = t else { panic!("not a phone balloon") };
+            let hex: String = t.iter().map(|x| format!("{x:02x}")).collect();
+            log.borrow_mut().push(format!("b:phone:{hex}:{mode}:{}", w("show")));
             w("show") != 0
         };
         let frames = w("frames");
@@ -119,7 +124,7 @@ fn colliders_match_the_original() {
                 sp.frozen = true;
             }
             if f == w("hitframe") {
-                hit_collider(&mut sp, &other, &mut level, &mut save, &mut show);
+                hit_collider(&mut sp, &other, &mut level, &mut words, &mut rng, &mut save, &mut show);
             }
             if f < frames {
                 let mut events = Vec::new();

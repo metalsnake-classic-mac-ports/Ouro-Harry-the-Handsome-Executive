@@ -592,7 +592,25 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   except that `ShowBalloon` itself leaves mode 5 alive). Not shown (it
   would not fit on the screen) and prefs +8 > 2 → kept pending (+0x6a,
   a pointer to Harry) and tried every frame.
-- **`ShowBalloon`** (frontend part, not ported yet): TextEdit layout in
+- **Sentences** (`GenerateBuzzwords`, `GeneratePhonewords`): a template
+  from `STR#` 6900 (buzzwords; fillers 6901–6905 for `^0` … `^4`) or 6800
+  (phone; names 6801 for `^0`); for each placeholder in turn a filler is
+  picked and replaces its next occurrence (`Munger`) until none is left -
+  one pick more than occurrences. `PickAString`: QuickDraw `Random` as
+  unsigned, modulo the count, again while it equals the list's last pick
+  (globals 0x10066e6c … 0x10066e7a, 0 at the start, kept for the whole
+  run). A lowercase first letter (or second after `"` / `“`) is
+  uppercased; the result keeps its length mod 256. They draw random
+  numbers, so they are game logic (`harry_core::words`):
+  `re/tools/emu_words.py` 5000 runs, the message, collider and whole-frame
+  recordings now use them (the harness gained a small Memory Manager:
+  `PtrToHand`, `Munger`, `GetHandleSize`, `BlockMoveData`).
+- **`ShowBalloon`**, the game's part: shown with mode 1, 3 or 5 →
+  `SATRand(16000)` (the sound's pitch); not shown with prefs +8 = 3 and no
+  page scroll running → the view moves 16 px toward the sprite (h and v
+  each by the sprite's `pos` + 32 against Harry's + 32). `harry_core::game`
+  does both after the frontend's answer.
+- **`ShowBalloon`** (frontend part): TextEdit layout in
   font 3 (Geneva) 9 pt, 195 px wide; the balloon (210 px wide, a tail
   under it) goes over the sprite (mode 5: at its left, others: 57 px left
   of it; mode 2 or no sprite: over Harry) and is shown only if it lies

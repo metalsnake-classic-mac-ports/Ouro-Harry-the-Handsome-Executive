@@ -87,6 +87,7 @@ class Machine:
         uc.hook_add(UC_HOOK_CODE, self._stub_hook, begin=STUBS, end=STUBS + 0xffff)
         self.rand_seed = 1
         self.regions = {}
+        self.hsize = {}
         self.gworld = 0
         self.ticks = 0
         self.trace_calls = False
@@ -102,7 +103,9 @@ class Machine:
                      ("NewPtr", self.tb_newptr), ("NewPtrClear", self.tb_newptr),
                      ("NewHandle", self.tb_newhandle), ("NewHandleClear", self.tb_newhandle),
                      ("HLock", self.tb_nop), ("HUnlock", self.tb_nop), ("MoveHHi", self.tb_nop),
-                     ("HLockHi", self.tb_nop)):
+                     ("HLockHi", self.tb_nop), ("PtrToHand", self.tb_ptrtohand), ("GetHandleSize", self.tb_gethandlesize),
+                     ("Munger", self.tb_munger), ("BlockMoveData", self.tb_blockmove), ("BlockMove", self.tb_blockmove),
+                     ("DisposeHandle", self.tb_nop)):
             self.stub(n, f)
 
     # --- memory ---
@@ -336,7 +339,47 @@ class Machine:
         size = self.get(3)
         h = self.alloc(4)
         self.w32(h, self.alloc(size))
+        self.hsize[h] = size
         return h
+
+    def new_handle(self, data):
+        """A handle holding these bytes (the Memory Manager's view: hsize)."""
+        h = self.alloc(4)
+        p = self.alloc(max(len(data), 1))
+        self.write(p, data)
+        self.w32(h, p)
+        self.hsize[h] = len(data)
+        return h
+
+    def tb_ptrtohand(self):
+        src, dst, n = self.get(3), self.get(4), self.get(5)
+        self.w32(dst, self.new_handle(self.read(src, n)))
+        return 0
+
+    def tb_gethandlesize(self):
+        return self.hsize.get(self.get(3), 0)
+
+    def tb_munger(self):
+        """Munger(h, offset, ptr1, len1, ptr2, len2): replace the first ptr1
+        from offset with ptr2; the offset after it, or -1."""
+        h, off, p1, n1, p2, n2 = (self.get(i) for i in range(3, 9))
+        data = self.read(self.r32(h), self.hsize[h])
+        key = self.read(p1, n1)
+        pos = data.find(key, off)
+        if pos < 0:
+            return 0xFFFFFFFF
+        new = data[:pos] + self.read(p2, n2) + data[pos + n1:]
+        p = self.alloc(max(len(new), 1))
+        self.write(p, new)
+        self.w32(h, p)
+        self.hsize[h] = len(new)
+        return pos + n2
+
+    def tb_blockmove(self):
+        src, dst, n = self.get(3), self.get(4), self.get(5)
+        if n:
+            self.write(dst, self.read(src, n))
+        return 0
 
     # --- calls ---
     def addr(self, f):

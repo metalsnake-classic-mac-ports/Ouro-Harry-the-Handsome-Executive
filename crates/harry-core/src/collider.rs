@@ -21,6 +21,7 @@ use crate::kinds::{BalloonText, ShowBalloon};
 use crate::level::Level;
 use crate::physics::Speed;
 use crate::random::Random;
+use crate::words::Words;
 use crate::sprite::{HitTask, Sprite, SpriteEvent, Task};
 
 /// `snd` ids.
@@ -429,7 +430,16 @@ pub type CopierSave<'a> = dyn FnMut() -> bool + 'a;
 /// stays 9199: after leaving the level it is used up - BUGS.md). Harry
 /// at the phone while the bell face shows answers it: a balloon with
 /// phone words (mode 5), once.
-pub fn hit_collider(sp: &mut Sprite, other: &Sprite, level: &mut Level, save: &mut CopierSave, show: &mut ShowBalloon) {
+#[allow(clippy::too_many_arguments)]
+pub fn hit_collider(
+    sp: &mut Sprite,
+    other: &Sprite,
+    level: &mut Level,
+    words: &mut Words,
+    rng: &mut Random,
+    save: &mut CopierSave,
+    show: &mut ShowBalloon,
+) {
     if sp.frozen || other.frozen || other.task != Some(Task::Player) {
         return;
     }
@@ -449,7 +459,10 @@ pub fn hit_collider(sp: &mut Sprite, other: &Sprite, level: &mut Level, save: &m
             }
             sp.timer = 300;
         }
-    } else if sp.kind == 3100 && sp.face == face::PHONE_RING && show(sp, BalloonText::Phonewords, 5) {
-        sp.kind = 3101;
+    } else if sp.kind == 3100 && sp.face == face::PHONE_RING {
+        let text = BalloonText::Phonewords(words.phonewords(rng));
+        if show(sp, text, 5) {
+            sp.kind = 3101;
+        }
     }
 }

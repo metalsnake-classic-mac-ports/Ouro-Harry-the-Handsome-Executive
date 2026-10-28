@@ -9,3 +9,4 @@ pub mod masks;
 pub mod pict;
 pub mod resfork;
 pub mod text;
+pub mod words;

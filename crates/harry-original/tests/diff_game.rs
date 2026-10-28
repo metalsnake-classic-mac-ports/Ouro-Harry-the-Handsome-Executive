@@ -64,6 +64,7 @@ fn level_1_frames_match_the_original() {
         face_bounds: &face_bounds,
     };
     let level1 = hlvl::read(ep.get(b"Hlvl", 1).unwrap()).unwrap();
+    let words = harry_original::words::words(&app).unwrap();
     let bindings = Bindings { left: 0x7B, right: 0x7C, scoot: 0x7D, inch: 0x7E, kick: 0x31, select_item: 0x3B, use_item: 0x3A };
     let mut bad = 0;
     let mut n = 0;
@@ -117,11 +118,13 @@ fn level_1_frames_match_the_original() {
             magnet: 0,
             gun: 0,
             harry: None,
+            words: words.clone(),
         };
         let missing = game.start(w("h") as i16, w("v") as i16, w("dir") as i16, &assets);
         assert!(missing.is_empty());
         let mut log = Vec::new();
         let mut harry = Vec::new();
+        let mut answers: Vec<bool> = i["balloons"].chars().rev().map(|c| c == '1').collect();
         for keys in i["keys"].split(',') {
             let mut km = KeyMap::default();
             for c in keys.chars() {
@@ -142,8 +145,9 @@ fn level_1_frames_match_the_original() {
             }
             let balloons = std::cell::RefCell::new(Vec::new());
             let mut show = |_: &harry_core::sprite::Sprite, _, _| {
-                balloons.borrow_mut().push("balloon");
-                false
+                let ans = answers.pop().unwrap_or(false);
+                balloons.borrow_mut().push(if ans { "balloon1" } else { "balloon0" });
+                ans
             };
             let mut save = || {
                 balloons.borrow_mut().push("save");

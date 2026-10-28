@@ -6,6 +6,8 @@ mod common;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use harry_core::random::Random;
+
 use common::dump;
 use harry_core::kinds::{BalloonText, handle_message, hit_message, setup_message};
 use harry_core::sprite::{Sprite, Task};
@@ -25,6 +27,9 @@ fn message_matches_the_original() {
     let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
     let res = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
     let mut level = hlvl::read(res.get(b"Hlvl", 1).unwrap()).unwrap();
+    let Ok(app) = std::fs::read(root().join("re/work/installed/Harry 1.0.1.bin")) else { return };
+    let app = Resources::parse(&MacBinary::parse(&app).unwrap().rsrc).unwrap();
+    let base = harry_original::words::words(&app).unwrap();
     let mut bad = 0;
     let mut n = 0;
     for line in text.lines().skip(1) {
@@ -46,12 +51,14 @@ fn message_matches_the_original() {
         let mut answers: Vec<bool> = i["answers"].chars().map(|c| c == '1').collect();
         answers.reverse();
         let mut calls = Vec::new();
+        let mut words = base.clone();
+        let mut rng = Random::new(i["seed"].parse().unwrap());
         let mut show = |_: &Sprite, t: BalloonText, mode: i16| {
             let ans = answers.pop().unwrap_or(false);
             let name = match t {
                 BalloonText::World(n) => n.to_string(),
-                BalloonText::Buzzwords => "buzz".into(),
-                BalloonText::Phonewords => "phone".into(),
+                BalloonText::Buzzwords(t) => format!("buzz:{}", t.iter().map(|x| format!("{x:02x}")).collect::<String>()),
+                BalloonText::Phonewords(_) => "phone".into(),
             };
             calls.push(format!("b:{name}:{mode}:{}", u8::from(ans)));
             ans
@@ -62,17 +69,18 @@ fn message_matches_the_original() {
                 if f == 0 {
                     sp.frozen = w("frozen") != 0;
                 }
-                hit_message(&mut sp, &other, &level, w("pref8") > 2, &mut show);
+                hit_message(&mut sp, &other, &level, w("pref8") > 2, &mut words, &mut rng, &mut show);
             }
             if f < frames {
-                handle_message(&mut sp, &level, &mut show);
+                handle_message(&mut sp, &level, &mut words, &mut rng, &mut show);
             }
         }
         let got = format!(
-            "{} | pending={} calls={}",
+            "{} | pending={} calls={} seed={}",
             dump(&sp),
             u8::from(sp.balloon_pending),
-            if calls.is_empty() { "-".into() } else { calls.join(",") }
+            if calls.is_empty() { "-".into() } else { calls.join(",") },
+            rng.seed
         );
         n += 1;
         if got != b {

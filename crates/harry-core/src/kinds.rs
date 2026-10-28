@@ -9,6 +9,7 @@ use crate::bounce::{bg_tile_bounce, rect_bounce, wall_bounce};
 use crate::level::Level;
 use crate::physics::{Physics, apply_moded_impulse, handle_glide, inverse_mode};
 use crate::random::Random;
+use crate::words::Words;
 use crate::mask::{Mask, mask_hit};
 use crate::sprite::{HitTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{KICK_RECTS, TileHit, offset, sect};
@@ -518,20 +519,22 @@ pub fn hit_plant(
 }
 
 /// The text of a speech balloon.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BalloonText {
     /// Text n of the world (`Hwld` + 0x3c9 + n · 256, Pascal strings).
     World(i16),
-    /// A sentence from the buzzword generator (`GenerateBuzzwords`).
-    Buzzwords,
-    /// A sentence from the phone word generator (`GeneratePhonewords`).
-    Phonewords,
+    /// A sentence of the buzzword generator (`GenerateBuzzwords`, Mac
+    /// Roman), made just before the balloon is tried.
+    Buzzwords(Vec<u8>),
+    /// A sentence of the phone word generator (`GeneratePhonewords`).
+    Phonewords(Vec<u8>),
 }
 
 /// `ShowBalloon(sprite, text, mode)`: shows the balloon over the sprite
 /// (modal: the game waits for a key) if it fits on the screen and tells
 /// whether it did. Part of the frontend; when shown and mode ≠ 5 it also
-/// freezes the sprite, which the callers here do themselves.
+/// freezes the sprite, which the callers here do themselves (and
+/// `game::Game` does its random number and view nudge).
 pub type ShowBalloon<'a> = dyn FnMut(&Sprite, BalloonText, i16) -> bool + 'a;
 
 /// Message faces: a blinking memo, HrSp 3801–3805.
@@ -552,10 +555,10 @@ pub fn setup_message(sp: &mut Sprite) {
     sp.f6e = 0;
 }
 
-fn balloon(sp: &Sprite, level: &Level) -> (BalloonText, i16) {
+fn balloon(sp: &Sprite, level: &Level, words: &mut Words, rng: &mut Random) -> (BalloonText, i16) {
     let text = usize::try_from(sp.level_index).ok().and_then(|i| level.sprites.get(i)).map_or(0, |e| e.info[0]);
     let mode = sp.f6e as i16;
-    (if sp.f6e == 3 { BalloonText::Buzzwords } else { BalloonText::World(text) }, mode)
+    (if sp.f6e == 3 { BalloonText::Buzzwords(words.buzzwords(rng)) } else { BalloonText::World(text) }, mode)
 }
 
 /// `HandleMessageSprite`: the mode (`f6e`) comes from the level entry's
@@ -563,7 +566,7 @@ fn balloon(sp: &Sprite, level: &Level) -> (BalloonText, i16) {
 /// blinking up and down over 30 frames), else an invisible spot (hot rect
 /// (−32, −32, 64, 64)). A balloon that did not fit is tried again each
 /// frame; once shown the message is done.
-pub fn handle_message(sp: &mut Sprite, level: &Level, show: &mut ShowBalloon) {
+pub fn handle_message(sp: &mut Sprite, level: &Level, words: &mut Words, rng: &mut Random, show: &mut ShowBalloon) {
     if sp.frozen {
         return;
     }
@@ -586,7 +589,7 @@ pub fn handle_message(sp: &mut Sprite, level: &Level, show: &mut ShowBalloon) {
         sp.face = 0;
     }
     if sp.balloon_pending {
-        let (text, mode) = balloon(sp, level);
+        let (text, mode) = balloon(sp, level, words, rng);
         if show(sp, text, mode) {
             sp.frozen = true;
             sp.balloon_pending = false;
@@ -598,11 +601,19 @@ pub fn handle_message(sp: &mut Sprite, level: &Level, show: &mut ShowBalloon) {
 /// `HitMessageSprite`: Harry (not kicking) walks onto it - its balloon.
 /// If it does not fit and the balloon preference (prefs +8) is above 2,
 /// the message keeps trying (`balloon_pending`).
-pub fn hit_message(sp: &mut Sprite, other: &Sprite, level: &Level, retry: bool, show: &mut ShowBalloon) {
+pub fn hit_message(
+    sp: &mut Sprite,
+    other: &Sprite,
+    level: &Level,
+    retry: bool,
+    words: &mut Words,
+    rng: &mut Random,
+    show: &mut ShowBalloon,
+) {
     if sp.frozen || other.frozen || other.task != Some(Task::Player) || other.hot_rect[1] == 0 {
         return;
     }
-    let (text, mode) = balloon(sp, level);
+    let (text, mode) = balloon(sp, level, words, rng);
     if show(sp, text, mode) {
         if mode != 5 {
             sp.frozen = true;

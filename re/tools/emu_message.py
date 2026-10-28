@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ppcmachine import Machine  # noqa: E402
-from sprites import Faces, tvectors, dump  # noqa: E402
+from sprites import Faces, tvectors, dump, load_words, WORD_LAST  # noqa: E402
 
 TV_PLAYER, TV_OTHER, PREFS, WORLD = 0x10066FC4, 0x1006702C, 0x100659A0, 0x10065B68
 CASES = 12000
@@ -38,7 +38,7 @@ def main():
     def show(mm):
         text, mode = mm.get(4), mm.get(5) & 0xFFFF
         inside = world <= text < world + 0x3C9 + 256 * 128
-        name = str((text - world - 0x3C9) // 256) if inside else "buzz"
+        name = str((text - world - 0x3C9) // 256) if inside else "buzz:" + mm.read(text + 1, mm.read(text, 1)[0]).hex()
         ans = answers.pop(0) if answers else 0
         calls.append(f"b:{name}:{mode}:{ans}")
         if ans and mm.get(3) and mode != 5:
@@ -46,7 +46,7 @@ def main():
         return ans
     m.stub_routine("ShowBalloon", show)
 
-    m.stub_routine("GenerateBuzzwords", 0)       # fills a buffer on the caller's stack
+    load_words(m, work)
     prefs = m.glob(PREFS)
     sp, other = m.alloc(0xA2), m.alloc(0xA2)
     rnd = random.Random("message")
@@ -58,7 +58,7 @@ def main():
               "info1": rnd.choice([0, 0, 1, 2, 3, 5]), "frames": rnd.choice([0, 1, 2, rnd.randint(0, 40)]),
               "hitframe": -1, "frozen": int(rnd.random() < 0.03), "other": rnd.choice([1, 1, 1, 2, 3]),
               "kicking": int(rnd.random() < 0.2), "pref8": rnd.choice([0, 1, 2, 3, 3]),
-              "answers": "".join(rnd.choice("0011") for _ in range(4))}
+              "answers": "".join(rnd.choice("0011") for _ in range(4)), "seed": rnd.randint(1, 0x7FFFFFFE)}
         st["hitframe"] = rnd.randint(0, st["frames"])
         m.write(sp, bytes(0xA2))
         m.w16(sp, st["kind"])
@@ -75,6 +75,9 @@ def main():
         m.write(other + 0x92, b"\1" if st["other"] == 3 else b"\0")
         m.w16(other + 8, 0 if st["kicking"] else 22)
         answers[:] = [int(c) for c in st["answers"]]
+        m.rand_seed = st["seed"]
+        for a in WORD_LAST:
+            m.w16(a, 0)
         calls.clear()
         for f in range(st["frames"] + 1):
             if f == st["hitframe"]:
@@ -85,7 +88,7 @@ def main():
                 m.call("HandleMessageSprite", sp)
         pending = int(m.r32(sp + 0x6A) != 0)
         fmt = lambda d: " ".join(f"{k}={v}" for k, v in d.items())
-        out.write(f"{fmt(st)} -> {dump(m, sp, faces, tv)} | pending={pending} calls={','.join(calls) or '-'}\n")
+        out.write(f"{fmt(st)} -> {dump(m, sp, faces, tv)} | pending={pending} calls={','.join(calls) or '-'} seed={m.rand_seed}\n")
     out.close()
     print(f"message: {CASES} cases")
 

@@ -22,7 +22,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ppcmachine import Machine  # noqa: E402
-from sprites import Faces, tvectors, dump  # noqa: E402
+from sprites import Faces, tvectors, dump, load_words, WORD_LAST  # noqa: E402
 
 SAT, PLAYER_SPRITE, PLAYER_H, PLAYER_V = 0x10065B70, 0x10065980, 0x100659B4, 0x100659B0
 STAPLE, BADASS, SHRAPNEL, CAFFEINE, COMFORT, MAGNET = 0x10065AEC, 0x10065AE8, 0x10065AE4, 0x10065AD4, 0x1006856A, 0x1006C4AC
@@ -52,7 +52,7 @@ def main():
     m.stub_routine("STPlay3DSound", lambda mm: ev.append("3d:%d" % mm.get(3)) or 0)
     m.stub_routine(0x10056DE8, lambda mm: answers["busy"])
     m.stub_routine("DebugHook", 0)
-    m.stub_routine("GeneratePhonewords", 0)
+    load_words(m, work)
 
     def new_sprite(mm):
         rec = mm.alloc(0xA2)
@@ -66,7 +66,8 @@ def main():
     m.stub_routine("CopierSave", save)
 
     def show(mm):
-        ev.append("b:phone:%d:%d" % (mm.get(5) & 0xFFFF, answers["show"]))
+        t = mm.get(4)
+        ev.append("b:phone:%s:%d:%d" % (mm.read(t + 1, mm.read(t, 1)[0]).hex(), mm.get(5) & 0xFFFF, answers["show"]))
         return answers["show"]
     m.stub_routine("ShowBalloon", show)
     for slot, snd in SOUNDS.items():
@@ -147,6 +148,8 @@ def main():
         m.write(harry, bytes(0xA2))
         answers.update(busy=st["busy"], save=st["save"], show=st["show"])
         m.rand_seed = st["seed"]
+        for a in WORD_LAST:
+            m.w16(a, 0)
         m.write(sp, bytes(0xA2))
         m.w16(sp, kind)
         m.w16(sp + 2, v)

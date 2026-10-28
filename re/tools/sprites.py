@@ -95,3 +95,16 @@ def dump(m, sp, faces, tv):
     for name, off in (("task", 0x1A), ("hit", 0x1E), ("tile", 0x9E)):
         out.append(f"{name}={tv.get(m.r32(sp + off), hex(m.r32(sp + off)))}")
     return " ".join(out)
+
+
+def load_words(m, work):
+    """The sentence generators' word lists (STR# 6900-6905, 6800-6801 of
+    the application) as handles where InitBuzzwords puts them."""
+    buzz, phone = m.glob(0x10066514), m.glob(0x10066510)
+    for i in range(6):
+        m.w32(buzz + 4 * i, m.new_handle(open(f"{work}/app/rsrc/STR__{6900 + i}.bin", "rb").read()))
+    for i in range(2):
+        m.w32(phone + 4 * i, m.new_handle(open(f"{work}/app/rsrc/STR__{6800 + i}.bin", "rb").read()))
+
+
+WORD_LAST = [0x10066E7A, 0x10066E78, 0x10066E76, 0x10066E74, 0x10066E72, 0x10066E70, 0x10066E6E, 0x10066E6C]
