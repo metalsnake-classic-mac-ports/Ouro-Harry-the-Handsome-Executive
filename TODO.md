@@ -5,7 +5,7 @@
 - [x] Unpack the application (`re/work/app`), list all resources (`re/work/res`)
 - [x] MacsBug symbols of the 68k code (`re/tools/macsbug_syms.py`)
 - [x] Decode the rest of `Hlvl` (custom sprite tables stay raw)
-- [ ] Decode `Hwld`
+- [ ] Decode `Hwld` (the texts at 0x3c9 + n · 256 are done)
 - [x] Render all levels to PNG (`re/tools/render_level.py`), matches the emulator
 - [x] 1-bit PICT masks (in render_level.py)
 - [x] `HrSp` encoded faces → PNG (`re/tools/hrsp.py`)
@@ -79,7 +79,9 @@
 - [x] Graphics readers in Rust: PICT 1/8-bit/direct, cicn, HrSp; masks from the original files
 - [x] `harry-data`: data pack; extract tool `ouro-harry-extract` in `harry-original`
 - [x] Frontend (SDL3): level 1 drawn and playable at 30 fps (`ouro-harry`)
-- [ ] Frontend: panel texts (level name, score), meter ends (cicn 10135–10137), sprite tints (draw procs), balloons (`ShowBalloon`, world texts), sound, music, menus, preferences
+- [x] Frontend: panel texts (level name, score), balloons (world texts, buzzwords, phone)
+- [ ] Frontend: meter ends (cicn 10135–10137), sprite tints (draw procs), sound, music, menus, preferences
+- [ ] `Hwld` 0: decode the fields before the texts (0–0x3c8)
 
 ## Phase 3: emulator
 - [x] SheepShaver built (`re/work/emu-ppc/src`), Mac OS ROM (newworld86.rom) from the user

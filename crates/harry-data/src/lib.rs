@@ -68,6 +68,11 @@ pub struct GameData {
     pub pictures: BTreeMap<i16, Image>,
     /// Episode 1, levels 1–15.
     pub levels: Vec<Level>,
+    /// The world's texts (`Hwld` 0 + 0x3c9 + n · 256) by number, Mac
+    /// Roman; empty ones are left out.
+    pub texts: BTreeMap<i16, Vec<u8>>,
+    /// The sentence generators' word lists (`STR#` 6900–6905, 6800–6801).
+    pub words: harry_core::words::Words,
 }
 
 /// The pictures the pack holds.

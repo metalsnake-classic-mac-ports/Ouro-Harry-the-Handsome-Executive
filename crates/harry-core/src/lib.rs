@@ -28,6 +28,7 @@ pub mod sat;
 pub mod shots;
 pub mod sprite;
 pub mod tiles;
+pub mod text;
 pub mod touch;
 pub mod view;
 pub mod words;

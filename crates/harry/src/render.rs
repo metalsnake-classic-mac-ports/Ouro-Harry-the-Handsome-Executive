@@ -83,6 +83,13 @@ impl Canvas {
         }
     }
 
+    /// Set a screen pixel (outside the screen: nothing).
+    pub fn set(&mut self, x: i32, y: i32, c: u8) {
+        if x >= 0 && y >= 0 && (x as usize) < self.width && (y as usize) < self.height {
+            self.pixels[y as usize * self.width + x as usize] = c;
+        }
+    }
+
     fn fill(&mut self, x: usize, y: usize, w: usize, h: usize, c: u8) {
         for yy in y..(y + h).min(self.height) {
             for xx in x..(x + w).min(self.width) {

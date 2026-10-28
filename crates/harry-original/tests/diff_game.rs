@@ -144,7 +144,7 @@ fn level_1_frames_match_the_original() {
                 }
             }
             let balloons = std::cell::RefCell::new(Vec::new());
-            let mut show = |_: &harry_core::sprite::Sprite, _, _| {
+            let mut show = |_: &harry_core::game::Balloon| {
                 let ans = answers.pop().unwrap_or(false);
                 balloons.borrow_mut().push(if ans { "balloon1" } else { "balloon0" });
                 ans

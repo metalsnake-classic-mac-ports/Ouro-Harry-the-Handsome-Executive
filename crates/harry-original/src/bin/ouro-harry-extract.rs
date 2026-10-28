@@ -77,15 +77,26 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
     for id in harry_data::PICTURES {
         pictures.insert(id, indexed(&picture(&[&titles], id)?, &clut, None)?);
     }
-    let data = GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, levels };
+    let world = ep.get(b"Hwld", 0).map_err(|e| format!("Hwld 0: {e}"))?;
+    let mut texts = BTreeMap::new();
+    for n in 0..(world.len().saturating_sub(0x3c9) / 256) {
+        let o = 0x3c9 + n * 256;
+        let len = world[o] as usize;
+        if len > 0 {
+            texts.insert(n as i16, world[o + 1..o + 1 + len].to_vec());
+        }
+    }
+    let words = harry_original::words::words(&app).map_err(|e| format!("word lists: {e}"))?;
+    let data = GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, levels, texts, words };
     let bytes = harry_data::pack::write(&data).map_err(|e| e.to_string())?;
     std::fs::write(out, &bytes).map_err(|e| format!("{}: {e}", out.display()))?;
     println!(
-        "{}: {} faces, {} tile sets, {} levels, {} KB",
+        "{}: {} faces, {} tile sets, {} levels, {} texts, {} KB",
         out.display(),
         data.faces.len(),
         data.tile_sets.len(),
         data.levels.len(),
+        data.texts.len(),
         bytes.len() / 1024
     );
     Ok(())

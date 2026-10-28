@@ -46,6 +46,13 @@ fn pack_holds_the_original_data() {
     for l in &data.levels {
         assert!(data.tile_set(l).is_some());
     }
+    let world = ep.get(b"Hwld", 0).unwrap();
+    for n in 0..272 {
+        let o = 0x3c9 + n * 256;
+        let t = &world[o + 1..o + 1 + world[o] as usize];
+        assert_eq!(data.texts.get(&(n as i16)).map_or(&[][..], |v| v.as_slice()), t, "text {n}");
+    }
+    assert_eq!(data.words, harry_original::words::words(&app).unwrap());
     let screen = &data.pictures[&129];
     assert_eq!((screen.width, screen.height), (640, 480));
     let meters = &data.pictures[&150];

@@ -20,7 +20,7 @@ use crate::enemy_shot::{ShotMasks, handle_enemy_shot, hit_enemy_shot, hit_enemy_
 use crate::frame::{FrameSound, Harry, PlayerGlobals, handle_player};
 use crate::keys::{Bindings, KeyEvent, KeyInput, KeyMap, handle_keys};
 use crate::kinds::{
-    CoolerMasks, LevelCounter, ObjectMasks, PlantHitMasks, ShowBalloon, handle_bonus, handle_cooler, handle_door, handle_item,
+    BalloonText, CoolerMasks, LevelCounter, ObjectMasks, PlantHitMasks, handle_bonus, handle_cooler, handle_door, handle_item,
     handle_message, handle_plant, hit_cooler, hit_door, hit_exit, hit_message, hit_plant, hit_plant_tile,
 };
 use crate::level::Level;
@@ -99,6 +99,23 @@ pub struct Game {
 
 /// What a `ShowBalloon` call ended with: (shown, mode, the sprite's `pos`).
 type BalloonCall = (bool, i16, (i16, i16));
+
+/// A balloon the game asks the frontend to show (`ShowBalloon(sprite,
+/// text, mode)`), with what the frontend needs to place it: the sprite's
+/// `at` (v, h), the view's corner (v, h) and Harry's top-left (h, v) at
+/// that moment.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Balloon {
+    pub text: BalloonText,
+    pub mode: i16,
+    pub at: (i16, i16),
+    pub view: (i16, i16),
+    pub player: (i16, i16),
+}
+
+/// The frontend's `ShowBalloon`: show the balloon if it fits (and wait for
+/// a key) and tell whether it did.
+pub type ShowBalloonFn<'a> = dyn FnMut(&Balloon) -> bool + 'a;
 
 /// What a frame ended with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -259,7 +276,7 @@ impl Game {
     }
 
     /// One frame. `keys` are the keys held this frame.
-    pub fn frame(&mut self, keys: &KeyMap, assets: &Assets, show: &mut ShowBalloon, save: &mut CopierSave) -> FrameEnd {
+    pub fn frame(&mut self, keys: &KeyMap, assets: &Assets, show: &mut ShowBalloonFn, save: &mut CopierSave) -> FrameEnd {
         self.world.handle_idle_sprites(self.view.corner);
         // SATRun: the tasks in list order
         let mut k = 0;
@@ -331,7 +348,7 @@ impl Game {
     }
 
     /// Run sprite `i`'s task. Returns whether Harry died.
-    fn task(&mut self, i: usize, keys: &KeyMap, assets: &Assets, show: &mut ShowBalloon) -> bool {
+    fn task(&mut self, i: usize, keys: &KeyMap, assets: &Assets, show: &mut ShowBalloonFn) -> bool {
         let mut sp = std::mem::take(&mut self.world.sprites.recs[i]);
         let mut events = Vec::new();
         let mut died = false;
@@ -408,9 +425,10 @@ impl Game {
                 handle_plant(&mut sp, &self.level, &self.physics, &mut self.rng, &mut self.plant_flag, &mut s);
             }
             Some(Task::Message) => {
+                let (view, player) = (self.view.corner, self.g.player_pos);
                 let mut calls = Vec::new();
                 handle_message(&mut sp, &self.level, &mut self.words, &mut self.rng, &mut |s, t, m| {
-                    let r = show(s, t, m);
+                    let r = show(&Balloon { text: t, mode: m, at: s.at, view, player });
                     calls.push((r, m, s.pos));
                     r
                 });
@@ -461,7 +479,7 @@ impl Game {
     }
 
     /// Sprite `a`'s hit task with sprite `b`.
-    fn hit(&mut self, a: usize, b: usize, assets: &Assets, show: &mut ShowBalloon, save: &mut CopierSave) {
+    fn hit(&mut self, a: usize, b: usize, assets: &Assets, show: &mut ShowBalloonFn, save: &mut CopierSave) {
         let mut sp = std::mem::take(&mut self.world.sprites.recs[a]);
         let mut o = std::mem::take(&mut self.world.sprites.recs[b]);
         let mut events = Vec::new();
@@ -478,18 +496,20 @@ impl Game {
                 hit_plant(&mut sp, &mut o, &ms, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, false, &mut events);
             }
             Some(HitTask::Message) => {
+                let (view, player) = (self.view.corner, self.g.player_pos);
                 let mut calls = Vec::new();
                 hit_message(&mut sp, &o, &self.level, retry, &mut self.words, &mut self.rng, &mut |s, t, m| {
-                    let r = show(s, t, m);
+                    let r = show(&Balloon { text: t, mode: m, at: s.at, view, player });
                     calls.push((r, m, s.pos));
                     r
                 });
                 self.balloons(calls);
             }
             Some(HitTask::Collider) => {
+                let (view, player) = (self.view.corner, self.g.player_pos);
                 let mut calls = Vec::new();
                 hit_collider(&mut sp, &o, &mut self.level, &mut self.words, &mut self.rng, save, &mut |s, t, m| {
-                    let r = show(s, t, m);
+                    let r = show(&Balloon { text: t, mode: m, at: s.at, view, player });
                     calls.push((r, m, s.pos));
                     r
                 });

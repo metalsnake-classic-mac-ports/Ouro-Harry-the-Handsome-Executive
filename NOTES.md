@@ -1127,8 +1127,25 @@ QuickTime Musical Instruments.
   PICT 150 (`UpdateMeters`: the empty strip, then the value's strip up to
   the shown value, 3 px shorter above 8 where a round end is drawn - cicn
   10135–10137, not yet). A new game starts as `InitGameGlobals` (meters
-  72). Level 1 looks as in the emulator; missing: the panel's texts,
-  sprite tints, balloons, sound, music, Harry's death, menus.
+  72). Level 1 looks as in the emulator.
+- **Texts in the frontend**: the system's Geneva and Helvetica (or
+  substitutes) at 9 pt = an em of 9 screen pixels, drawn at the window's
+  resolution over the picture. The panel (`UpdateText`): the level name
+  at (483, 118), Helvetica 9, grey 32000/65535; the score bold at (483,
+  141), counting up 50 a frame toward the real score (a lower one at
+  once), its grey 32000 + 40 × the distance (at most 800).
+- **Balloons** (`ShowBalloon`): TextEdit in Geneva 9 within 195 px; the
+  balloon 210 px wide and (lines + 1) × line height high (12 px: measured
+  on the emulator), at screen (sprite at.h − view.h − 57, sprite at.v −
+  view.v + 17 − height) - over Harry (top-left − 49, + 13) in mode 2;
+  shown only if left and top ≥ 32, right ≤ 448 and bottom + 8 ≤ 448.
+  Drawn: the game area dimmed with a gray pattern, a white round rect
+  (16 × 16 corners) with a tail (l + 96 … l + 104 at the bottom down to
+  (l + 88, b + 8)), the text black at (l + 5, t + 5). The game waits:
+  Return / Enter close it at once, any key after 60 ticks. The port
+  measures with the system's Geneva, so the line count of a text can
+  differ from the bitmap font's (the level 1 memo breaks the same).
+  The world's 87 texts come from `Hwld` 0 (`texts.txt` in the pack).
 - `re/tools/emu_physics.py` runs `ApplyModedImpulse`, `EnforceMaxSpeed`,
   `HandlePlayerGlide` and `MoveChair` (with `DoScoot`, `DoKick`,
   `DoInch`; `STPlayRegSound` stubbed and counted) of the PPC build in

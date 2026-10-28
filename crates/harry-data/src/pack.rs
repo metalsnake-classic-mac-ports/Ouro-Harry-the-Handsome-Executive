@@ -13,6 +13,10 @@
 //! - `masks/cicn_ID.png`, `masks/walls.png`: collision masks (grey, white
 //!   = set)
 //! - `levels/NN.txt`: the levels of Episode 1 (`level`)
+//! - `words/ID.txt`: the word lists of the memo and phone sentences
+//!   (`STR#` 6900–6905, 6800–6801), one string per line (UTF-8)
+//! - `texts.txt`: the world's texts, `n text` per line (UTF-8; a line
+//!   break inside a text is `\r`, a backslash `\\`)
 
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Cursor, Read, Write};
@@ -140,6 +144,16 @@ pub fn write(data: &GameData) -> Result<Vec<u8>> {
     for (i, l) in data.levels.iter().enumerate() {
         put(&format!("levels/{:02}.txt", i + 1), level::write(l).as_bytes())?;
     }
+    let mut texts = String::new();
+    for (n, t) in &data.texts {
+        let t = harry_core::text::mac_roman(t).replace('\\', "\\\\").replace('\r', "\\r");
+        texts.push_str(&format!("{n} {t}\n"));
+    }
+    put("texts.txt", texts.as_bytes())?;
+    for (id, list) in word_lists(&data.words) {
+        let lines: Vec<String> = list.iter().map(|w| harry_core::text::mac_roman(w)).collect();
+        put(&format!("words/{id}.txt"), format!("{}\n", lines.join("\n")).as_bytes())?;
+    }
     let cursor = zip.finish().map_err(|e| corrupt(e.to_string()))?;
     Ok(cursor.into_inner())
 }
@@ -201,5 +215,42 @@ pub fn read(bytes: &[u8]) -> Result<GameData> {
     for i in 1..=15 {
         levels.push(level::parse(&text(get(&format!("levels/{i:02}.txt"))?))?);
     }
-    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, levels })
+    let mut texts = BTreeMap::new();
+    for line in text(get("texts.txt")?).lines() {
+        let (n, t) = line.split_once(' ').ok_or_else(|| corrupt("texts.txt"))?;
+        let n: i16 = n.parse().map_err(|_| corrupt("texts.txt"))?;
+        let mut s = String::new();
+        let mut esc = false;
+        for c in t.chars() {
+            match (esc, c) {
+                (false, '\\') => esc = true,
+                (true, 'r') => {
+                    s.push('\r');
+                    esc = false;
+                }
+                (true, c) => {
+                    s.push(c);
+                    esc = false;
+                }
+                (false, c) => s.push(c),
+            }
+        }
+        texts.insert(n, harry_core::text::to_mac_roman(&s));
+    }
+    let mut words = harry_core::words::Words::default();
+    for (k, id) in (6900..6906).chain(6800..6802).enumerate() {
+        let list: Vec<Vec<u8>> = text(get(&format!("words/{id}.txt"))?).lines().map(harry_core::text::to_mac_roman).collect();
+        if k < 6 {
+            words.buzz[k] = list;
+        } else {
+            words.phone[k - 6] = list;
+        }
+    }
+    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, levels, texts, words })
+}
+
+fn word_lists(w: &harry_core::words::Words) -> Vec<(i16, &Vec<Vec<u8>>)> {
+    let mut v: Vec<(i16, &Vec<Vec<u8>>)> = w.buzz.iter().enumerate().map(|(i, l)| (6900 + i as i16, l)).collect();
+    v.extend(w.phone.iter().enumerate().map(|(i, l)| (6800 + i as i16, l)));
+    v
 }

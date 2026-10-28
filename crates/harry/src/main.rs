@@ -11,13 +11,15 @@
 //! `ouro-harry --screenshot out.bmp [level] [frames]` runs the frames
 //! without keys and writes the picture, without a window.
 
+mod balloon;
 mod render;
+mod text;
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow};
-use harry_core::game::{Assets, FrameEnd, Game, Prefs};
+use harry_core::game::{Assets, Balloon, FrameEnd, Game, Prefs};
 use harry_core::keys::{Bindings, KeyMap};
 use harry_core::kinds::LevelCounter;
 use harry_core::player::Masks;
@@ -156,6 +158,7 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
         magnet: 0,
         gun: 0,
         harry: None,
+        words: data.words.clone(),
     }
 }
 
@@ -191,16 +194,33 @@ fn main() -> Result<()> {
     let start = |level: usize, g: PlayerGlobals, seed: u32| {
         let mut game = new_game(&data, level, g, seed);
         let (h, v) = game.level.start;
-        let missing = game.start(h - 32, v - 32, game.level.start_dir, &assets);
+        // HARRY_START=h,v puts Harry elsewhere (for testing)
+        let (h, v) = std::env::var("HARRY_START")
+            .ok()
+            .and_then(|s| s.split_once(',').map(|(a, b)| (a.parse().ok(), b.parse().ok())))
+            .and_then(|(a, b)| Some((a?, b?)))
+            .unwrap_or((h - 32, v - 32));
+        let missing = game.start(h, v, game.level.start_dir, &assets);
         if !missing.is_empty() {
             eprintln!("level {}: not ported yet: {missing:?}", level + 1);
         }
         game
     };
     let mut game = start(level, PlayerGlobals::new_game(), seed);
+    let fonts = text::Fonts::load();
+    let mut score = ScoreShown::default();
     if let Some((out, frames)) = screenshot {
+        let mut shown = None;
         for _ in 0..frames {
-            game.frame(&KeyMap::default(), &assets, &mut |_, _, _| false, &mut || false);
+            if shown.is_some() {
+                break;
+            }
+            let mut show = |b: &Balloon| {
+                shown = balloon::place(b, &data, &fonts);
+                shown.is_some()
+            };
+            game.frame(&KeyMap::default(), &assets, &mut show, &mut || false);
+            score.step(game.g.score);
         }
         if std::env::var_os("HARRY_DEBUG").is_some() {
             for &i in &game.world.sprites.list {
@@ -209,9 +229,16 @@ fn main() -> Result<()> {
             }
             eprintln!("view {:?}", game.view.corner);
         }
-        let image = render::draw(&data, &game);
+        let (image, lines) = picture(&data, &game, &score, shown.as_ref());
         let mut rgb = vec![0u8; image.width * image.height * 3];
         image.to_rgb24(&clut8(), &mut rgb);
+        // the text at 1:1 on the picture
+        let overlay = fonts.draw(&lines, image.width, image.height);
+        for (p, o) in rgb.as_chunks_mut::<3>().0.iter_mut().zip(overlay.as_chunks::<4>().0) {
+            for k in 0..3 {
+                p[k] = ((u32::from(p[k]) * (255 - u32::from(o[3])) + u32::from(o[k]) * u32::from(o[3])) / 255) as u8;
+            }
+        }
         render::write_bmp(Path::new(&out), image.width, image.height, &rgb)?;
         return Ok(());
     }
@@ -234,21 +261,34 @@ fn main() -> Result<()> {
     let mut rgb = vec![0u8; render::SCREEN_WIDTH * render::SCREEN_HEIGHT * 3];
     let mut next = Instant::now();
     let mut fullscreen = false;
+    // a balloon being shown and since when (the game waits meanwhile)
+    let mut shown: Option<(balloon::Shown, Instant)> = None;
+    let mut text_texture: Option<(sdl3::render::Texture, Vec<text::Line>, (u32, u32))> = None;
     'run: loop {
         let mut jump: Option<usize> = None;
         for e in events.poll_iter() {
             match e {
                 Event::Quit { .. } => break 'run,
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } => match sc {
-                    Scancode::Escape => break 'run,
-                    Scancode::F11 => {
-                        fullscreen = !fullscreen;
-                        let _ = canvas.window_mut().set_fullscreen(fullscreen);
+                Event::KeyDown { scancode: Some(sc), repeat: false, .. } => {
+                    if let Some((_, since)) = &shown {
+                        // Return / Enter at once, any key after a second
+                        if matches!(sc, Scancode::Return | Scancode::KpEnter) || since.elapsed() >= Duration::from_secs(1) {
+                            shown = None;
+                            next = Instant::now();
+                        }
+                        continue;
                     }
-                    Scancode::N => jump = Some((level + 1) % data.levels.len()),
-                    Scancode::P => jump = Some((level + data.levels.len() - 1) % data.levels.len()),
-                    _ => {}
-                },
+                    match sc {
+                        Scancode::Escape => break 'run,
+                        Scancode::F11 => {
+                            fullscreen = !fullscreen;
+                            let _ = canvas.window_mut().set_fullscreen(fullscreen);
+                        }
+                        Scancode::N => jump = Some((level + 1) % data.levels.len()),
+                        Scancode::P => jump = Some((level + data.levels.len() - 1) % data.levels.len()),
+                        _ => {}
+                    }
+                }
                 _ => {}
             }
         }
@@ -257,12 +297,21 @@ fn main() -> Result<()> {
             game = start(level, PlayerGlobals::new_game(), game.rng.seed);
         }
         let now = Instant::now();
-        while next <= now {
+        while shown.is_none() && next <= now {
             next += FRAME;
             let keys = keymap(&events.keyboard_state());
-            let mut show = |_: &harry_core::sprite::Sprite, _, _| false;
+            let mut asked = None;
+            let mut show = |b: &Balloon| {
+                asked = balloon::place(b, &data, &fonts);
+                asked.is_some()
+            };
             let mut save = || false;
-            match game.frame(&keys, &assets, &mut show, &mut save) {
+            let end = game.frame(&keys, &assets, &mut show, &mut save);
+            score.step(game.g.score);
+            if let Some(b) = asked {
+                shown = Some((b, Instant::now()));
+            }
+            match end {
                 FrameEnd::Running => {}
                 FrameEnd::LevelDone => {
                     let n = (game.counter.current as usize).saturating_sub(1);
@@ -277,7 +326,7 @@ fn main() -> Result<()> {
                 }
             }
         }
-        let image = render::draw(&data, &game);
+        let (image, lines) = picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b));
         image.to_rgb24(&palette, &mut rgb);
         let w = render::SCREEN_WIDTH;
         texture.with_lock(None, |buf: &mut [u8], pitch: usize| {
@@ -285,10 +334,86 @@ fn main() -> Result<()> {
                 buf[row * pitch..row * pitch + w * 3].copy_from_slice(line);
             }
         })?;
+        // the texts at the window's resolution (made again only when they change)
+        let (ow, oh) = canvas.output_size()?;
+        let k = (ow as f32 / w as f32).min(oh as f32 / render::SCREEN_HEIGHT as f32).floor().max(1.0);
+        let size = ((w as f32 * k) as u32, (render::SCREEN_HEIGHT as f32 * k) as u32);
+        if text_texture.as_ref().is_none_or(|(_, l, s)| *l != lines || *s != size) {
+            let rgba = fonts.draw(&lines, size.0 as usize, size.1 as usize);
+            let mut t = creator.create_texture_streaming(PixelFormat::ABGR8888, size.0, size.1)?;
+            t.set_blend_mode(sdl3::render::BlendMode::Blend);
+            t.with_lock(None, |buf: &mut [u8], pitch: usize| {
+                let row = size.0 as usize * 4;
+                for (y, line) in rgba.chunks_exact(row).enumerate() {
+                    buf[y * pitch..y * pitch + row].copy_from_slice(line);
+                }
+            })?;
+            text_texture = Some((t, lines, size));
+        }
         canvas.clear();
         canvas.copy(&texture, None, None)?;
+        if let Some((t, _, _)) = &text_texture {
+            canvas.copy(t, None, None)?;
+        }
         canvas.present();
-        std::thread::sleep(next.saturating_duration_since(Instant::now()));
+        std::thread::sleep(next.saturating_duration_since(Instant::now()).min(FRAME));
     }
     Ok(())
+}
+
+/// The score as the panel shows it (`UpdateText`): it counts up 50 a
+/// frame (a lower score is shown at once), brighter while far behind.
+#[derive(Default)]
+struct ScoreShown {
+    value: i32,
+    /// Grey level of the digits (32000 … 64000 of 65535).
+    grey: u16,
+}
+
+impl ScoreShown {
+    fn step(&mut self, score: i32) {
+        if self.grey == 0 {
+            self.grey = 32000;
+        }
+        if score == self.value {
+            return;
+        }
+        let mut diff = 0;
+        if score < self.value {
+            self.value = score;
+        } else {
+            self.value += 50;
+            diff = score - self.value;
+        }
+        self.grey = (diff.min(800) * 40 + 32000) as u16;
+    }
+}
+
+/// The picture of a frame and its texts: the panel's level name and score
+/// (Helvetica 9 at (483, 118), the score bold at (483, 141)) and a balloon.
+fn picture(data: &GameData, game: &Game, score: &ScoreShown, shown: Option<&balloon::Shown>) -> (render::Canvas, Vec<text::Line>) {
+    let mut image = render::draw(data, game);
+    let grey = |v: u16| [(v >> 8) as u8; 3];
+    let mut lines = vec![
+        text::Line {
+            x: 483.0,
+            baseline: 118.0,
+            size: 9.0,
+            face: text::Face::Helvetica,
+            color: grey(32000),
+            text: game.level.name.clone(),
+        },
+        text::Line {
+            x: 483.0,
+            baseline: 141.0,
+            size: 9.0,
+            face: text::Face::HelveticaBold,
+            color: grey(score.grey.max(32000)),
+            text: score.value.to_string(),
+        },
+    ];
+    if let Some(s) = shown {
+        lines.extend(balloon::draw(&mut image, s));
+    }
+    (image, lines)
 }
