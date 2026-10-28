@@ -3,14 +3,16 @@
 //! One long chain by the other sprite's task; the branches come with the
 //! sprite kinds.
 
-use crate::bounce::Body;
+use crate::bounce::{Body, rect_bounce};
 use crate::frame::{Harry, PlayerGlobals};
 use crate::inventory::{current_item, get_item, item, remove_item};
 use crate::kinds::{door_group, door_open};
 use crate::level::Level;
 use crate::physics::Physics;
 use crate::player::HOT_RECT;
+use crate::sat::absolute;
 use crate::sprite::{Sprite, Task};
+use crate::tiles::{KICK_RECTS, offset, sect};
 
 /// What touching asks of the rest of the game, in order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -56,6 +58,7 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
     let voice_playing = w.voice_playing;
     match other.task {
         Some(Task::Door) => door(h, g, other, w, events),
+        Some(Task::Collider) if on_floor && !matches!(other.kind, 3100 | 3101) => collider(h, g, other, w.physics),
         Some(Task::Bonus) if on_floor => bonus(g, other, voice_playing, events),
         Some(Task::Item) if on_floor => pick_up(g, other, events),
         _ => {}
@@ -127,6 +130,48 @@ fn pick_up(g: &mut PlayerGlobals, other: &mut Sprite, events: &mut Vec<TouchEven
     if take && get_item(g, other.kind) {
         other.frozen = true;
         events.push(TouchEvent::Sound(snd::PICK_UP));
+    }
+}
+
+/// Colliders other than the phone (and dart enemies, scientists and
+/// co-workers, which come with their kinds): Harry bounces off the hot
+/// rect (his normal one, the level's bounce) - once a frame (`flag50`),
+/// whatever he touches after that in the same frame does nothing here.
+/// Then: the gate (9800) with the gate key selected takes it, starts
+/// rising and gives 5000 points; a kick at the vending machine (9600)
+/// with its middle above Harry's starts its timer, else (and at the
+/// copier) the kick hits something solid.
+fn collider(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, physics: &Physics) {
+    if g.flag50 {
+        return;
+    }
+    let p = &mut h.player;
+    rect_bounce(&mut p.body, 32, i32::from(physics.bounce), HOT_RECT, other.at, other.hot_rect);
+    g.flag50 = true;
+    let kick_hits = |p: &crate::player::Player, other: &Sprite| {
+        let kick = offset(KICK_RECTS[p.dir as usize], p.body.at.0, p.body.at.1);
+        p.hot_rect[1] == 0 && sect(kick, absolute(other.hot_rect, other.at))
+    };
+    match other.kind {
+        9800 => {
+            if g.cur_slot != -1 && g.inventory[g.cur_slot as usize].0 == item::GATE_KEY {
+                remove_item(g, g.cur_slot);
+                other.timer = other.timer.wrapping_add(1);
+                g.score = g.score.wrapping_add(5000);
+            }
+        }
+        9600 if kick_hits(p, other) => {
+            let mid = i32::from(other.at.0) + ((i32::from(other.hot_rect[2]) + i32::from(other.hot_rect[0])) >> 1);
+            if mid < i32::from(p.body.at.0) + 32 {
+                if other.timer == 0 {
+                    other.timer = 3;
+                }
+            } else {
+                g.tile.kick_contact = 0x100;
+            }
+        }
+        9199 | 9200 if kick_hits(p, other) => g.tile.kick_contact = 0x100,
+        _ => {}
     }
 }
 

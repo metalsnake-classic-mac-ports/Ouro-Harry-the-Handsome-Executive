@@ -9,9 +9,11 @@ use harry_core::air::Air;
 use harry_core::bounce::Body;
 use harry_core::frame::{Harry, PlayerGlobals};
 use harry_core::keys::Ammo;
+use harry_core::collider::setup_collider;
 use harry_core::kinds::{setup_bonus, setup_door, setup_item};
 use harry_core::physics::Speed;
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT, Player, TileState};
+use harry_core::random::Random;
 use harry_core::sprite::Sprite;
 use harry_core::touch::{TouchEvent, TouchWorld, touch};
 use harry_original::hlvl;
@@ -54,7 +56,7 @@ fn touching_matches_the_original() {
             player: Player {
                 body: Body {
                     pos: (w("pv"), w("ph")),
-                    at: (0, 0),
+                    at: (w("pav"), w("pah")),
                     fix: (i["fixh"].parse().unwrap(), i["fixv"].parse().unwrap()),
                     speed: Speed { h: w("speedh"), v: w("speedv") },
                 },
@@ -78,14 +80,18 @@ fn touching_matches_the_original() {
             tile: TileState { kick_contact: w("contact"), ..Default::default() },
             kick_reset: w("kickreset") != 0,
             player_pos: (w("playerh"), w("playerv")),
+            flag50: w("bounced") != 0,
+            score: i["score"].parse().unwrap(),
             ..Default::default()
         };
         let mut other = Sprite::new(kind, w("oh"), w("ov"));
         match kind {
             ..800 => setup_bonus(&mut other),
             900..1000 => setup_door(&mut other),
-            _ => setup_item(&mut other),
+            11000.. => setup_item(&mut other),
+            _ => setup_collider(&mut other, &mut Random::new(1)),
         }
+        other.timer = w("otimer");
         let li = w("levelindex");
         other.level_index = li;
         level.sprites[li as usize].id = kind;
@@ -123,6 +129,11 @@ fn touching_matches_the_original() {
             ("ph", p.body.pos.1.to_string()),
             ("fixh", p.body.fix.0.to_string()),
             ("fixv", p.body.fix.1.to_string()),
+            ("pav", p.body.at.0.to_string()),
+            ("pah", p.body.at.1.to_string()),
+            ("bounced", u8::from(g.flag50).to_string()),
+            ("score", g.score.to_string()),
+            ("otimer", other.timer.to_string()),
             ("speedv", p.body.speed.v.to_string()),
             ("speedh", p.body.speed.h.to_string()),
             ("hot", format!("{}:{}:{}:{}", r[0], r[1], r[2], r[3])),

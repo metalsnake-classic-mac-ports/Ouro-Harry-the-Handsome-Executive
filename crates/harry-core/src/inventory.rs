@@ -6,6 +6,8 @@ use crate::frame::{PlayerGlobals, SLOTS};
 
 /// Object ids of the items (the level editor's).
 pub mod item {
+    /// Opens the gate (collider 9800).
+    pub const GATE_KEY: i16 = 11199;
     pub const STAPLE_GUN: i16 = 11299;
     /// 11397: an item only the debug keys give (F4).
     pub const DEBUG_ITEM: i16 = 11397;

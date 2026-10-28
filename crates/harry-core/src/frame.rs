@@ -73,6 +73,8 @@ pub struct PlayerGlobals {
     pub wavy_step: i16,
     /// The ripple is on (`gWavyOn`).
     pub wavy_on: bool,
+    /// The score (`PTR_DAT_10065af8`; the panel counts up to it).
+    pub score: i32,
 }
 
 /// Harry's sprite state beyond `Player`.

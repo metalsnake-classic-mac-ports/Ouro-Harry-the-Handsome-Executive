@@ -655,6 +655,21 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   first distance as one variable, the machine code keeps them apart.
 - 30 000 cases (bonus, item, door) match; 19 of 20 door mutations caught,
   the survivor changes a hinge coordinate the door's axis never reads.
+- **Collider** (on the floor; not the phone 3100 / 3101; the same branch
+  takes dart enemies, scientists and co-workers): once per frame (flag
+  `PTR_DAT_10065e50`, cleared by `HandlePlayerSprite`) `RectBounce` with
+  Harry's normal hot rect (`_DAT_10065e94`, (22, 22, 42, 42) whatever he
+  is doing), half 32 and the level's bounce; a second such sprite in the
+  same frame does nothing. Then: gate 9800 with item 11199 selected → the
+  item used up, the gate's timer + 1 (it starts rising), score + 5000
+  (`PTR_DAT_10065af8`); kicking (the kick rect of his dir at `at`
+  touching the hot rect) the vending machine 9600 → its timer 3 if 0 when
+  its middle is above his (mid v < at.v + 32), else kick contact 256;
+  kicking the copier 9199 / 9200 → kick contact 256.
+- 30 000 cases with colliders as well match; 14 of 15 collider mutations
+  caught (the edge of the vending machine's middle after adding cases
+  beside it); the survivor tests the top instead of the left of Harry's
+  hot rect - the same in both of his hot rects.
 
 ### Sprite kinds (CODE 3)
 
