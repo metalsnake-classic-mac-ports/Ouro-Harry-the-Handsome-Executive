@@ -116,7 +116,7 @@ fn wall_bounce_matches() {
             speed: Speed { h: v[8] as i16, v: v[9] as i16 },
         };
         let mut calls = 0;
-        let r = wall_bounce(&mut b, v[0] as i16, (v[2] as i16, v[3] as i16), 32, v[10] as i16, [22, 22, 42, 42], v[1] != 0, &mut |_| {
+        let r = wall_bounce(&mut b, v[0] as i16, (v[2] as i16, v[3] as i16), (32, 32), v[10] as i16, [22, 22, 42, 42], v[1] != 0, &mut |_| {
             calls += 1;
             v[11] != 0
         });
@@ -135,7 +135,7 @@ fn rect_bounce_matches() {
             speed: Speed { h: v[8] as i16, v: v[9] as i16 },
         };
         let rect = [v[2] as i16, v[3] as i16, v[4] as i16, v[5] as i16];
-        rect_bounce_fake(&mut b, (v[0] as i16, v[1] as i16), rect, 32, v[10], [22, 22, 42, 42]);
+        rect_bounce_fake(&mut b, (v[0] as i16, v[1] as i16), rect, (32, 32), v[10], [22, 22, 42, 42]);
         vec![b.at.0.into(), b.at.1.into(), b.speed.h.into(), b.speed.v.into(), b.fix.0, b.fix.1]
     });
 }
@@ -161,7 +161,7 @@ fn bg_tile_bounce_matches() {
             speed: Speed { h: v[9] as i16, v: v[10] as i16 },
         };
         let mut calls = 0;
-        let r = bg_tile_bounce(&mut b, (tv, th), 32, v[11] as i16, [22, 22, 42, 42], v[4] != 0, &mut |_| {
+        let r = bg_tile_bounce(&mut b, (tv, th), (32, 32), v[11] as i16, [22, 22, 42, 42], v[4] != 0, &mut |_| {
             calls += 1;
             v[12] != 0
         }, &fg);
@@ -229,7 +229,7 @@ fn wall_bounce_with_masks_matches() {
         };
         let tile = (v[2] as i16, v[3] as i16);
         let wall = &walls[v[0] as usize];
-        let r = wall_bounce(&mut b, v[0] as i16, tile, 32, 150, [22, 22, 42, 42], v[1] != 0, &mut |body| {
+        let r = wall_bounce(&mut b, v[0] as i16, tile, (32, 32), 150, [22, 22, 42, 42], v[1] != 0, &mut |body| {
             mask_hit(&mut body.pos, &body_mask, tile, wall)
         });
         vec![r, b.at.0.into(), b.at.1.into(), b.pos.0.into(), b.pos.1.into(), b.speed.h.into(), b.speed.v.into(), b.fix.0, b.fix.1]
@@ -264,7 +264,7 @@ fn bg_tile_bounce_with_masks_matches() {
             fix: (0x7777, 0x7777),
             speed: Speed { h: v[9] as i16, v: v[10] as i16 },
         };
-        let r = bg_tile_bounce(&mut b, tile, 32, 150, [22, 22, 42, 42], v[4] != 0, &mut |body| {
+        let r = bg_tile_bounce(&mut b, tile, (32, 32), 150, [22, 22, 42, 42], v[4] != 0, &mut |body| {
             mask_hit(&mut body.pos, &body_mask, tile, &obstacle)
         }, &fg);
         vec![r, b.at.0.into(), b.at.1.into(), b.pos.0.into(), b.pos.1.into(), b.speed.h.into(), b.speed.v.into(), b.fix.0, b.fix.1]

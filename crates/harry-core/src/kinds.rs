@@ -377,13 +377,13 @@ pub fn hit_plant_tile(sp: &mut Sprite, hit: TileHit, level: &Level, masks: &Obje
     let tile = hit.tile;
     if hit.foreground {
         let wall = usize::try_from(hit.kind).ok().and_then(|k| masks.walls.get(k));
-        wall_bounce(&mut body, hit.kind, tile, 18, physics.bounce, sp.hot_rect, true, &mut |b| match wall {
+        wall_bounce(&mut body, hit.kind, tile, (18, 18), physics.bounce, sp.hot_rect, true, &mut |b| match wall {
             Some(w) => mask_hit(&mut b.pos, masks.plant, tile, w),
             None => false,
         });
     } else if sp.air == 0 && hit.kind == 1 {
         let fg = |x: i32, y: i32| level.fg_kind(level.fg_tile(x, y));
-        bg_tile_bounce(&mut body, tile, 18, physics.bounce, sp.hot_rect, true, &mut |b| {
+        bg_tile_bounce(&mut body, tile, (18, 18), physics.bounce, sp.hot_rect, true, &mut |b| {
             mask_hit(&mut b.pos, masks.plant, tile, masks.obstacle)
         }, &fg);
     }

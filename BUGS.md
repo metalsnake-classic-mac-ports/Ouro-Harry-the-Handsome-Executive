@@ -123,6 +123,11 @@ option) and why.
   steering frames" never comes; they fly straight after that until a
   wall, a shot or 35 slow frames. Port: keep.
 
+- **Two pushed ramps meet in the wrong place.** `HitRampSprite` places
+  the other ramp's hot rect at the other's centre instead of its `at`
+  (so the obstacle is shifted by half a ramp down and right), and sets
+  this ramp's hot rect to the other's kind's before bouncing. Port: keep.
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

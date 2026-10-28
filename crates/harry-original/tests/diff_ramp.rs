@@ -10,9 +10,10 @@ use common::dump;
 use harry_core::Physics;
 use harry_core::bounce::Body;
 use harry_core::physics::Speed;
-use harry_core::ramp::{Rider, handle_ramp, handle_ramp_collision, setup_ramp};
-use harry_core::sprite::Sprite;
-use harry_original::hlvl;
+use harry_core::ramp::{RampMasks, Rider, handle_ramp, handle_ramp_collision, hit_ramp, hit_ramp_tile, setup_ramp};
+use harry_core::sprite::{Sprite, Task};
+use harry_core::tiles::touched_tiles;
+use harry_original::{hlvl, masks};
 use harry_original::resfork::{MacBinary, Resources};
 
 fn root() -> PathBuf {
@@ -99,6 +100,69 @@ fn ramp_task_matches_the_original() {
         sp.frozen = w("frozen") != 0;
         for _ in 0..w("frames") {
             handle_ramp(&mut sp, &level, &physics);
+        }
+        dump(&sp)
+    });
+}
+
+fn installed(name: &str) -> Option<Resources> {
+    let bytes = std::fs::read(root().join("re/work/installed").join(name)).ok()?;
+    Some(Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap())
+}
+
+#[test]
+fn ramps_meeting_match_the_original() {
+    compare("ramphit.txt", |i| {
+        let w = |k: &str| i[k].parse::<i32>().unwrap();
+        let make = |kind: i32, v: i32, h: i32| {
+            let mut s = Sprite::new(kind as i16, h as i16, v as i16);
+            if kind != 0 {
+                setup_ramp(&mut s);
+            } else {
+                s.task = Some(Task::Bonus);
+                s.at = (v as i16, h as i16);
+            }
+            s
+        };
+        let mut sp = make(w("kind"), w("v"), w("h"));
+        let mut o = make(w("okind"), w("ov"), w("oh"));
+        sp.fix = (w("fixh"), w("fixv"));
+        sp.speed = Speed { v: w("speedv") as i16, h: w("speedh") as i16 };
+        sp.frozen = w("frozen") != 0;
+        o.frozen = w("ofrozen") != 0;
+        hit_ramp(&mut sp, &o, w("bounce") as i16);
+        format!("{} || {}", dump(&sp), dump(&o))
+    });
+}
+
+#[test]
+fn pushed_ramps_move_like_the_original() {
+    let (Some(app), Some(gfx), Some(ep)) = (installed("Harry 1.0.1.bin"), installed("Harry Graphics.bin"), installed("Episode 1.bin"))
+    else {
+        return;
+    };
+    let levels: Vec<_> = (1..=15).map(|i| hlvl::read(ep.get(b"Hlvl", i).unwrap()).unwrap()).collect();
+    let ramps: Vec<_> = (571..=574).map(|id| masks::from_cicn(&gfx, id).unwrap()).collect();
+    let obstacle = masks::from_cicn(&gfx, 290).unwrap();
+    let walls = masks::walls(&app).unwrap();
+    let ms = RampMasks { ramps: [&ramps[0], &ramps[1], &ramps[2], &ramps[3]], walls: &walls, obstacle: &obstacle };
+    let physics = Physics::default();
+    compare("rampflight.txt", |i| {
+        let w = |k: &str| i[k].parse::<i32>().unwrap() as i16;
+        let mut level = levels[w("level") as usize - 1].clone();
+        let li = w("levelindex");
+        level.sprites[li as usize].info[1] = 1;
+        let mut sp = Sprite::new(w("kind"), w("h"), w("v"));
+        setup_ramp(&mut sp);
+        sp.level_index = li;
+        sp.speed = Speed { v: w("speedv"), h: w("speedh") };
+        for _ in 0..w("frames") {
+            handle_ramp(&mut sp, &level, &physics);
+            let mut hits = Vec::new();
+            touched_tiles(&level, sp.at, sp.hot_rect, [0, 0, 64, 64], |h| hits.push(h));
+            for h in hits {
+                hit_ramp_tile(&mut sp, h, &level, &ms, physics.bounce);
+            }
         }
         dump(&sp)
     });

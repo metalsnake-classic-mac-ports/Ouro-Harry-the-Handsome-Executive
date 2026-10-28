@@ -114,14 +114,14 @@ pub fn hit_player_tile(
             let first = !st.wall_contact;
             let body_mask = &masks.body;
             let wall = &masks.walls[kind.max(0) as usize];
-            let r = wall_bounce(&mut p.body, kind, tile, 32, physics.bounce, HOT_RECT, first, &mut |b| {
+            let r = wall_bounce(&mut p.body, kind, tile, (32, 32), physics.bounce, HOT_RECT, first, &mut |b| {
                 mask_hit(&mut b.pos, body_mask, tile, wall)
             });
             if r as u8 != 0 {
                 st.wall_contact = true;
             }
         } else if kind < 0x38 {
-            rect_bounce_fake(&mut p.body, tile, bg_rect(kind), 32, i32::from(physics.bounce), HOT_RECT);
+            rect_bounce_fake(&mut p.body, tile, bg_rect(kind), (32, 32), i32::from(physics.bounce), HOT_RECT);
             st.wall_contact = true;
         }
         return;
@@ -138,7 +138,7 @@ pub fn hit_player_tile(
                 let body_mask = &masks.body;
                 let obstacle = &masks.obstacle;
                 let fg = |x: i32, y: i32| level.fg_kind(level.fg_tile(x, y));
-                let r = bg_tile_bounce(&mut p.body, tile, 32, physics.bounce, HOT_RECT, true, &mut |b| {
+                let r = bg_tile_bounce(&mut p.body, tile, (32, 32), physics.bounce, HOT_RECT, true, &mut |b| {
                     mask_hit(&mut b.pos, body_mask, tile, obstacle)
                 }, &fg);
                 st.bg_contact = r as u8 != 0;

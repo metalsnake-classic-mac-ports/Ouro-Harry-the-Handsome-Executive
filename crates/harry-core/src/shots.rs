@@ -308,7 +308,7 @@ pub fn hit_shot_tile(s: &mut Shot, shot_mask: &Mask, walls: &[Mask], hit: TileHi
         // the table has 32 wall shapes; higher kinds read past it (as in
         // `hit_player_tile`; never in Episode 1)
         let wall_mask = usize::try_from(kind).ok().and_then(|k| walls.get(k));
-        let r = wall_bounce(&mut body, kind, hit.tile, 4, 1, s.hot_rect, false, &mut |b| match wall_mask {
+        let r = wall_bounce(&mut body, kind, hit.tile, (4, 4), 1, s.hot_rect, false, &mut |b| match wall_mask {
             Some(w) => mask_hit(&mut b.pos, shot_mask, hit.tile, w),
             None => false,
         });

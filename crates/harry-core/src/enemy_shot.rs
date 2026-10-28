@@ -264,7 +264,7 @@ pub fn hit_enemy_shot_tile(sp: &mut Sprite, hit: TileHit, level: &Level, masks: 
     if hit.foreground {
         let touched = if hit.kind < 56 {
             let wall = usize::try_from(hit.kind).ok().and_then(|k| masks.walls.get(k));
-            wall_bounce(&mut body, hit.kind, tile, 4, 0xff, sp.hot_rect, true, &mut |b: &mut Body| match wall {
+            wall_bounce(&mut body, hit.kind, tile, (4, 4), 0xff, sp.hot_rect, true, &mut |b: &mut Body| match wall {
                 Some(w) => mask_hit(&mut b.pos, masks.shot, tile, w),
                 None => false,
             }) != 0
@@ -283,7 +283,7 @@ pub fn hit_enemy_shot_tile(sp: &mut Sprite, hit: TileHit, level: &Level, masks: 
         }
     } else if sp.kind == 9610 && hit.kind == 1 {
         let fg = |x: i32, y: i32| level.fg_kind(level.fg_tile(x, y));
-        bg_tile_bounce(&mut body, tile, 4, 0xf0, sp.hot_rect, true, &mut |b: &mut Body| {
+        bg_tile_bounce(&mut body, tile, (4, 4), 0xf0, sp.hot_rect, true, &mut |b: &mut Body| {
             mask_hit(&mut b.pos, masks.shot, tile, masks.obstacle)
         }, &fg);
         sp.set_body(body);

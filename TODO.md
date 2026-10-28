@@ -46,7 +46,7 @@
 - [x] `HitPlayerSprite` for colliders (`RectBounce` once a frame, gate key, vending kick; 30 000 cases)
 - [x] Dart enemy (+ `HitPlayerSprite`), props (15 000 cases)
 - [x] Ramp: setup, task, `HandleRampCollision`, `HitPlayerSprite` (50 000 + 30 000 cases)
-- [ ] Pushable ramps: `HitRampSprite` (`RectBounceFake2`), `HitRampTileSprite` (`WallBounce2`, `BGTileBounce2`)
+- [x] Pushable ramps: `HitRampSprite` (`RectBounceFake2`), `HitRampTileSprite` (`WallBounce2`, `BGTileBounce2`), 24 000 cases
 - [ ] `EraseSprites`: +0x94 / +0x96 countdowns, frozen sprites leave, level entries updated
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [ ] Enemy shots hitting robots, grates, sliding doors, barrels, chairs - with those kinds

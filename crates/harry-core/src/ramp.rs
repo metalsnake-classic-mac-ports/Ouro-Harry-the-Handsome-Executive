@@ -3,8 +3,10 @@
 //! and 9702 lie along v, 9703 and 9704 along h; a ramp whose level entry
 //! has info #1 set can be pushed around.
 
-use crate::bounce::{Body, Rect};
+use crate::bounce::{Body, Half, Rect, bg_tile_bounce2, rect_bounce_fake, wall_bounce};
 use crate::level::Level;
+use crate::mask::{Mask, mask_hit};
+use crate::tiles::TileHit;
 use crate::physics::{Physics, handle_glide};
 use crate::sprite::{HitTask, HitTileTask, Sprite, Task};
 
@@ -239,4 +241,78 @@ pub fn handle_ramp_collision(r: &mut Rider, half: i16, hot: Rect, ramp: &mut Spr
         _ => {}
     }
     sound
+}
+
+/// The offset to a ramp's centre, (v, h) (the routines' local points).
+pub fn half(kind: i16) -> Option<Half> {
+    match kind {
+        9701 => Some((34, 12)),
+        9702 => Some((26, 12)),
+        9703 => Some((12, 34)),
+        9704 => Some((12, 26)),
+        _ => None,
+    }
+}
+
+/// `HitRampSprite`: a ramp meeting another ramp bounces off it with
+/// `RectBounceFake2` (the level's bounce) - but the original sets this
+/// ramp's hot rect to the *other* ramp's kind's and takes the obstacle
+/// rect from the other's centre instead of its `at` (BUGS.md). Other
+/// kinds have the centre (0, 0) (a constant in the data) and keep their
+/// hot rect.
+pub fn hit_ramp(sp: &mut Sprite, other: &Sprite, bounce: i16) {
+    if sp.frozen || other.frozen {
+        return;
+    }
+    let own = half(sp.kind).unwrap_or((0, 0));
+    if let Some(rect) = hot_rect(sp.kind) {
+        sp.hot_rect = rect;
+    }
+    if other.task != Some(Task::Ramp) {
+        return;
+    }
+    let mut point = other.at;
+    if let (Some(h), Some(r)) = (half(other.kind), hot_rect(other.kind)) {
+        point = (point.0.wrapping_add(h.0), point.1.wrapping_add(h.1));
+        sp.hot_rect = r;
+    }
+    let mut body = sp.body();
+    rect_bounce_fake(&mut body, point, other.hot_rect, own, i32::from(bounce), sp.hot_rect);
+    sp.set_body(body);
+}
+
+/// The masks pushable ramps bounce with.
+pub struct RampMasks<'a> {
+    /// The four ramps' masks (cicn 571–574 for 9701–9704).
+    pub ramps: [&'a Mask; 4],
+    /// The 32 wall shapes (PICT 160).
+    pub walls: &'a [Mask],
+    /// The background obstacle (cicn 290).
+    pub obstacle: &'a Mask,
+}
+
+/// `HitRampTileSprite`: walls (`WallBounce2`, only with a face) and
+/// background obstacles (`BGTileBounce2`), with the ramp's mask, centre
+/// and the level's bounce, always as the frame's first contact.
+pub fn hit_ramp_tile(sp: &mut Sprite, hit: TileHit, level: &Level, masks: &RampMasks, bounce: i16) {
+    let (Some(h), Some(rect)) = (half(sp.kind), hot_rect(sp.kind)) else { return };
+    sp.hot_rect = rect;
+    let own = masks.ramps[(sp.kind - 9701) as usize];
+    let tile = hit.tile;
+    let mut body = sp.body();
+    if hit.foreground {
+        if hit.kind < 56 && sp.face != 0 {
+            let wall = usize::try_from(hit.kind).ok().and_then(|k| masks.walls.get(k));
+            wall_bounce(&mut body, hit.kind, tile, h, bounce, sp.hot_rect, true, &mut |b: &mut Body| match wall {
+                Some(w) => mask_hit(&mut b.pos, own, tile, w),
+                None => false,
+            });
+        }
+    } else if hit.kind == 1 {
+        let fg = |x: i32, y: i32| level.fg_kind(level.fg_tile(x, y));
+        bg_tile_bounce2(&mut body, tile, h, bounce, sp.hot_rect, true, &mut |b: &mut Body| {
+            mask_hit(&mut b.pos, own, tile, masks.obstacle)
+        }, &fg);
+    }
+    sp.set_body(body);
 }

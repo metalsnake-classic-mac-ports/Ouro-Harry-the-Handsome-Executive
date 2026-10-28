@@ -38,6 +38,11 @@ fn reflect_h(s: &mut Speed, b: i16) {
     s.v = scale(b, s.v);
 }
 
+/// The offset from `at` to a sprite's centre, (v, h); square sprites
+/// have the same on both axes (the `…2` routines of the ramps take a
+/// point, the others one number).
+pub type Half = (i16, i16);
+
 /// Reflect the vertical component and damp both.
 fn reflect_v(s: &mut Speed, b: i16) {
     s.h = scale(b, s.h);
@@ -59,7 +64,7 @@ pub fn wall_bounce(
     body: &mut Body,
     kind: i16,
     tile: (i16, i16),
-    half: i16,
+    half: Half,
     bounce: i16,
     hot: Rect,
     first: bool,
@@ -72,8 +77,8 @@ pub fn wall_bounce(
     let mid_h = th.wrapping_add(16);
     let mid_v = tv.wrapping_add(16);
     // the sprite's centre before anything moved
-    let ch = body.at.1.wrapping_add(half);
-    let cv = body.at.0.wrapping_add(half);
+    let ch = body.at.1.wrapping_add(half.1);
+    let cv = body.at.0.wrapping_add(half.0);
     let s = &mut body.speed;
     // the result of a diagonal case: 1 reflect h, 2 reflect v, 3 corner
     let mut how = 3;
@@ -185,8 +190,8 @@ pub fn wall_bounce(
                 return 0;
             }
             body.at = body.pos;
-            let ch = body.at.1.wrapping_add(half);
-            let cv = body.at.0.wrapping_add(half);
+            let ch = body.at.1.wrapping_add(half.1);
+            let cv = body.at.0.wrapping_add(half.0);
             let left_half = ch < mid_h;
             let top_half = cv < mid_v;
             // (condition, result when true, result when false); corner kinds as 3 + kind
@@ -246,7 +251,7 @@ pub fn wall_bounce(
 ///
 /// Its reflection rounds differently from `wall_bounce`:
 /// `(−(b · s)) >> 8` instead of `−((b · s) >> 8)`.
-pub fn rect_bounce_fake(body: &mut Body, tile: (i16, i16), rect: Rect, half: i16, bounce: i32, hot: Rect) {
+pub fn rect_bounce_fake(body: &mut Body, tile: (i16, i16), rect: Rect, half: Half, bounce: i32, hot: Rect) {
     let (tv, th) = tile;
     let top = tv.wrapping_add(rect[0]);
     let left = th.wrapping_add(rect[1]);
@@ -257,8 +262,8 @@ pub fn rect_bounce_fake(body: &mut Body, tile: (i16, i16), rect: Rect, half: i16
     if !sect(me, [top, left, bottom, right]) {
         return;
     }
-    let ch = ah.wrapping_add(half);
-    let cv = av.wrapping_add(half);
+    let ch = ah.wrapping_add(half.1);
+    let cv = av.wrapping_add(half.0);
     let mid_h = th
         .wrapping_add(rect[1])
         .wrapping_add(((i32::from(rect[3]) - i32::from(rect[1])) >> 1) as i16);
@@ -323,12 +328,44 @@ pub fn rect_bounce_fake(body: &mut Body, tile: (i16, i16), rect: Rect, half: i16
 pub fn bg_tile_bounce(
     body: &mut Body,
     tile: (i16, i16),
-    half: i16,
+    half: Half,
     bounce: i16,
     hot: Rect,
     first: bool,
     mask: &mut dyn FnMut(&mut Body) -> bool,
     fg_kind: &dyn Fn(i32, i32) -> i16,
+) -> i32 {
+    tile_bounce(body, tile, half, bounce, hot, first, mask, fg_kind, true)
+}
+
+/// `BGTileBounce2` (PPC 0x1001cf2c, the ramps'): as [`bg_tile_bounce`],
+/// but only a straight neighbouring wall (kinds 0–3) closes a side, not
+/// the diagonal ones.
+#[allow(clippy::too_many_arguments)]
+pub fn bg_tile_bounce2(
+    body: &mut Body,
+    tile: (i16, i16),
+    half: Half,
+    bounce: i16,
+    hot: Rect,
+    first: bool,
+    mask: &mut dyn FnMut(&mut Body) -> bool,
+    fg_kind: &dyn Fn(i32, i32) -> i16,
+) -> i32 {
+    tile_bounce(body, tile, half, bounce, hot, first, mask, fg_kind, false)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn tile_bounce(
+    body: &mut Body,
+    tile: (i16, i16),
+    half: Half,
+    bounce: i16,
+    hot: Rect,
+    first: bool,
+    mask: &mut dyn FnMut(&mut Body) -> bool,
+    fg_kind: &dyn Fn(i32, i32) -> i16,
+    diagonals: bool,
 ) -> i32 {
     let (tv, th) = tile;
     let mid_h = th.wrapping_add(16);
@@ -336,8 +373,8 @@ pub fn bg_tile_bounce(
     if !mask(body) {
         return 0;
     }
-    let ch = body.at.1.wrapping_add(half);
-    let cv = body.at.0.wrapping_add(half);
+    let ch = body.at.1.wrapping_add(half.1);
+    let cv = body.at.0.wrapping_add(half.0);
     let dh = mid_h.wrapping_sub(ch).wrapping_abs();
     let dv = mid_v.wrapping_sub(cv).wrapping_abs();
     let s = &mut body.speed;
@@ -357,10 +394,10 @@ pub fn bg_tile_bounce(
     let h_side = if mid_h < ch { 1 } else { 2 };
     let v_side = if mid_v < cv { 4 } else { 3 };
     match side {
-        3 if matches!(fg_kind(x, y - 1), 1 | 6 | 5) => side = h_side,
-        1 if matches!(fg_kind(x + 1, y), 2 | 7 | 6) => side = v_side,
-        2 if matches!(fg_kind(x - 1, y), 0 | 4 | 5) => side = v_side,
-        4 if matches!(fg_kind(x, y + 1), 3 | 7 | 4) => side = h_side,
+        3 if matches!(fg_kind(x, y - 1), 1) || diagonals && matches!(fg_kind(x, y - 1), 6 | 5) => side = h_side,
+        1 if matches!(fg_kind(x + 1, y), 2) || diagonals && matches!(fg_kind(x + 1, y), 7 | 6) => side = v_side,
+        2 if matches!(fg_kind(x - 1, y), 0) || diagonals && matches!(fg_kind(x - 1, y), 4 | 5) => side = v_side,
+        4 if matches!(fg_kind(x, y + 1), 3) || diagonals && matches!(fg_kind(x, y + 1), 7 | 4) => side = h_side,
         _ => {}
     }
     let damp = |s: &mut Speed| {

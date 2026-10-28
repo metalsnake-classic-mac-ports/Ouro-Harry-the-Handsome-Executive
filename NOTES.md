@@ -697,10 +697,23 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   `air` 1 and the sound (209); slower → stop with its edge 16 px into the
   ramp. Else at the back end (within 6 px): bounce back. 9703 moves only
   `fix` at its back end, 9704 only `pos` - kept.
+- **Pushable ramps** bounce with the `…2` routines, which take the
+  centre as a point (v, h) - 9701 (34, 12), 9702 (26, 12), 9703 (12,
+  34), 9704 (12, 26) - instead of one number; otherwise they are
+  `WallBounce`, `BGTileBounce` and `RectBounceFake`, except that
+  `BGTileBounce2` lets only a straight neighbouring wall (kinds 0–3) close
+  a side. `HitRampTileSprite`: walls (`WallBounce2`, only with a face)
+  and floor obstacles (`BGTileBounce2`) with the ramp's mask (cicn
+  571–574) and the level's bounce. `HitRampSprite`: against another ramp
+  `RectBounceFake2` with the other's hot rect placed at its *centre*, and
+  this ramp's hot rect set to the other kind's (BUGS.md); unknown kinds
+  use the centre (0, 0) from the data.
 - `HitPlayerSprite`: a ramp, Harry on the floor and not kicking:
   `HandleRampCollision(Harry, 32, his normal hot rect, ramp, 209)`.
 - `re/tools/emu_ramp.py`: 40 000 collisions (both kinds of rider, all
-  sides, speeds at the 450 limits), 10 000 ramp frames, all matching;
+  sides, speeds at the 450 limits), 10 000 ramp frames, 12 000 ramp
+  meetings, 12 000 pushed ramps on all levels with the tile pass, all
+  matching;
   with the player hits (30 000) every mutation caught except two
   equivalent ones.
 
