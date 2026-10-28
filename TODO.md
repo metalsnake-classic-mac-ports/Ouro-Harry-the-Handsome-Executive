@@ -48,7 +48,9 @@
 - [x] Ramp: setup, task, `HandleRampCollision`, `HitPlayerSprite` (50 000 + 30 000 cases)
 - [x] Pushable ramps: `HitRampSprite` (`RectBounceFake2`), `HitRampTileSprite` (`WallBounce2`, `BGTileBounce2`), 24 000 cases
 - [x] `EraseSprites`: +0x94 / +0x96 countdowns, frozen sprites leave, level entries updated
-- [ ] Whole frame of level 1: player and held weapon creation, `FindUpperLeftCorner`, task dispatch, `CheckPlayerCollision`, `CheckTileCollisions` for all sprites
+- [x] Whole frame of level 1: player and held weapon creation, `FindUpperLeftCorner`, task dispatch, `CheckPlayerCollision`, `CheckTileCollisions` for all sprites (600 runs of up to 300 frames)
+- [ ] Whole frames with weapons and items: player shots as records, `HitPlayerShotSprite`, effects (explosions)
+- [ ] Harry's death (`HandlePlayerSpriteDeath`), `UpLevel`, the ripple, `CheckGameEvents`' other flag
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [ ] Enemy shots hitting robots, grates, sliding doors, barrels, chairs - with those kinds
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock

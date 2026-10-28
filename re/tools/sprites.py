@@ -14,22 +14,46 @@ class Faces:
     a 0x1c-byte record (the game writes its draw proc at +0x18) that maps
     back to the HrSp id it was loaded from."""
 
-    def __init__(self, m):
+    def __init__(self, m, work=None):
+        """work: also give each face its HrSp header (bounds, rect2) and,
+        where the game builds one, its mask region (+0x14) from
+        diff/facemasks.txt."""
         self.m = m
         self.ids = {}
+        masks = {}
+        if work:
+            lines = open(f"{work}/diff/facemasks.txt").read().splitlines()
+            i = 1
+            while i < len(lines):
+                _, fid, w, h = lines[i].split()
+                fid, w, h = int(fid), int(w), int(h)
+                masks[fid] = {(x, y) for y in range(h) for x in range(w) if lines[i + 1 + y][x] == "#"}
+                i += 1 + h
+
+        def fill(rec, hrsp, region):
+            if not work:
+                return
+            path = f"{work}/res/Harry_Graphics/HrSp_{hrsp}.bin"
+            if os.path.exists(path):
+                m.write(rec, open(path, "rb").read()[:16])
+            if region and hrsp in masks:
+                m.w32(rec + 0x14, m.make_region(masks[hrsp]))
 
         def one(mm):
             rec = mm.alloc(0x1C)
             self.ids[rec] = mm.get(5) & 0xFFFF
+            fill(rec, self.ids[rec], mm.get(4) & 0xFF)
             return rec
 
         def face_set(mm):
             # (pict, count, w, h, per row, first / last frame with a
             # mask region, first HrSp id)
             count, first = mm.get(4) & 0xFFFF, mm.get(10) & 0xFFFF
+            lo, hi = mm.get(8) & 0xFFFF, mm.get(9) & 0xFFFF
             recs = mm.alloc(0x1C * count)
             for i in range(count):
                 self.ids[recs + 0x1C * i] = first + i
+                fill(recs + 0x1C * i, first + i, (lo or hi) and lo <= i <= hi)
             return recs
         m.stub_routine("Load1EncFaceFromCicn", one)
         m.stub_routine("LoadEncFaceSetFromPICT", face_set)

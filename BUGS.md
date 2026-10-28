@@ -128,6 +128,13 @@ option) and why.
   (so the obstacle is shifted by half a ramp down and right), and sets
   this ramp's hot rect to the other's kind's before bouncing. Port: keep.
 
+- **Faceless sprites make the tile pass read address 0.**
+  `CheckTileCollisions` takes the centre from the face's bounds for every
+  sprite with a tile task or +0x8b set, also when it has no face (the held
+  weapon without a gun, a shot spawned this frame): it reads the bounds at
+  address 0, low memory on the Mac. Harmless where only the foreground
+  redraw uses it. Port: bounds (0, 0, 0, 0).
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

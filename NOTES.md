@@ -762,6 +762,42 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   with the player hits (30 000) every mutation caught except two
   equivalent ones.
 
+- **Whole frames** (`harry_core::game`): `Game::start` is `GameLoop`'s
+  level start (`SetupLevelSprites`; Harry with `SATNewSprite(0, h, v,
+  SetupPlayerSprite)` at the level's start − 32 and its start direction;
+  the weapon; view and target at Harry − 208; one `FindUpperLeftCorner`)
+  and `Game::frame` one pass: `HandleIdleSprites`, SAT's run (each task in
+  list order, `hotRect2` = hot rect at `pos` right after it; new sprites
+  go to the front and run next frame; the sort pass; the collision pass
+  with both hit tasks; sprites without a task get kind 0),
+  `CheckPlayerCollision`, `FindUpperLeftCorner`, `CheckTileCollisions`,
+  `EraseSprites`, `UpdateMeters` (values clamped to 0–144 when one
+  differs from its shown value, shown values one step closer) and
+  `CheckGameEvents` (a changed level counter ends the level). Harry and
+  his weapon are records; the routines ported with their own structs get
+  a copy and write it back. `SetupPlayerSprite` takes `gPlayerDir` mod 35
+  (not 36). `Ouch` halts the voices first, so it always draws a random
+  number unless caffeine works. A sprite without a face makes
+  `CheckTileCollisions` read face bounds at address 0 (low memory on the
+  Mac; zeros in the recorder and the port). The data section starts with
+  `gFloorKind` = 1 (and `gImpulse` = 16, which `SetupPlayerSprite`
+  clears).
+- `re/tools/emu_game.py`: 600 runs of up to 300 frames on level 1 with
+  Harry's move keys held at random (start or next to a random sprite;
+  the globals restored to the post-init data section per run), all 596
+  comparable runs matching - list, free list, every record, Harry's path,
+  view, meters, random seed. The other 4 kick the locked door 913, which
+  reads stale stack values (BUGS.md). Not covered yet: weapons and items
+  (player shots), explosions, death, the ripple, the frontend.
+- **`HitPlayerSprite`, enemy shots** (on the floor): most stop on Harry;
+  unless the ouch cooldown (`PTR_DAT_10065e44`) runs, `Ouch`, comfort
+  delta and a share of the shot's speed: darts / paper (< 1100) −12,
+  speed >> 4, cooldown 3; the can 9610 (not stopped) −7, >> 2, 12; the gun
+  shot 9450 −10, >> 2, 12, sound 251; robot / turret shots −10, >> 4, 12,
+  sound 223, no `Ouch`; a homing shot with timer 0 bursts (timer −16, no
+  cooldown) −10, >> 4; 2281 favor −4, >> 5, 5; 2291 −7, >> 5, 5; other
+  2001–2999 −4, >> 5, 3.
+
 ### Harry touches a sprite (`HitPlayerSprite`)
 
 - Called by `CheckPlayerCollision`; nothing when Harry or the other
@@ -863,9 +899,11 @@ turret. Each kind has `Init…` (once), `SETUP…` (per sprite), `HANDLE…`
   #6 = 200 (story picture scrolled before the level), #8 = 301 (picture
   shown before). Level 3: #5 = 201.
 - 0x1209c–0x120b1: nibble arrays (`1111 1111 1111 1111 2222 2333`, `6666`).
-- 0x120f4/0x120f6: **start position** h, v in pixels (level 1: 2082,
-  2087 - confirmed by the rendered level and the emulator screenshot).
-- 0x120f8: start direction? (27 = up in levels 1 and 12, else 0).
+- 0x120f4/0x120f6: **start position** v, h in pixels (level 1: v 2082,
+  h 2087; `GameLoop` is called with h = 0x120f6 − 32, v = 0x120f4 − 32,
+  and puts Harry's sprite there).
+- 0x120f8: start direction (`GameLoop` sets Harry's `dir` to it; 27 = up
+  in levels 1 and 12, else 0).
 - 0x120fa: **music id** (601, 603, ...).
 - 0x120fc: **foreground tile set** PICT id (its 1-bit mask is id + 1),
   0x120fe: **background tile set** PICT id; 0 = the defaults 181 (+182) /

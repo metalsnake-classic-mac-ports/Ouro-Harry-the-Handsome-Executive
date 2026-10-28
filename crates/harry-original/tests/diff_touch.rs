@@ -11,6 +11,7 @@ use harry_core::frame::{Harry, PlayerGlobals};
 use harry_core::keys::Ammo;
 use harry_core::collider::setup_collider;
 use harry_core::dart_enemy::setup_dart_enemy;
+use harry_core::enemy_shot::setup_enemy_shot;
 use harry_core::ramp::setup_ramp;
 use harry_core::kinds::{setup_bonus, setup_door, setup_item};
 use harry_core::physics::Speed;
@@ -75,12 +76,18 @@ fn touching_matches_the_original() {
         };
         let mut g = PlayerGlobals {
             comfort: w("comfort"),
+            favor: w("favor"),
             t24: w("t24"),
             t28: w("t28"),
             ammo: Ammo { staple: w("staple"), badass: w("badass"), shrapnel: w("shrapnel") },
             cur_slot: w("curslot"),
             inventory: inventory(i["inv"]),
-            tile: TileState { kick_contact: w("contact"), ..Default::default() },
+            tile: TileState {
+                kick_contact: w("contact"),
+                ouch_cooldown: w("ouchcd"),
+                comfort_delta: w("cdelta"),
+                ..Default::default()
+            },
             kick_reset: w("kickreset") != 0,
             player_pos: (w("playerh"), w("playerv")),
             flag50: w("bounced") != 0,
@@ -91,12 +98,18 @@ fn touching_matches_the_original() {
         match kind {
             ..800 => setup_bonus(&mut other),
             900..1000 => setup_door(&mut other),
-            1000..1050 => setup_dart_enemy(&mut other),
+            1011 | 1021 | 1031 | 1041 => setup_dart_enemy(&mut other),
+            // the recorder's enemy shot kinds
+            1018 | 1038 | 1051 | 9610 | 9450 | 1800 | 1950 | 1150 | 1299 | 2281 | 2291 | 2500 => setup_enemy_shot(&mut other),
             9700..9800 => setup_ramp(&mut other),
             11000.. => setup_item(&mut other),
             _ => setup_collider(&mut other, &mut Random::new(1)),
         }
         other.timer = w("otimer");
+        if i["setospeed"] != "-" {
+            let (v, h) = i["setospeed"].split_once(':').unwrap();
+            other.speed = Speed { v: v.parse().unwrap(), h: h.parse().unwrap() };
+        }
         let li = w("levelindex");
         other.level_index = li;
         level.sprites[li as usize].id = kind;
@@ -113,6 +126,7 @@ fn touching_matches_the_original() {
                 TouchEvent::VoiceSound(s) => format!("v:{s}"),
                 TouchEvent::Remark(s) => format!("r:{s}"),
                 TouchEvent::HaltTalking => "halt".into(),
+                TouchEvent::Ouch => "ouch".into(),
             })
             .collect();
         let inv: Vec<String> = g.inventory.iter().map(|(a, b)| format!("{a}:{b}")).collect();
@@ -138,6 +152,9 @@ fn touching_matches_the_original() {
             ("pah", p.body.at.1.to_string()),
             ("bounced", u8::from(g.flag50).to_string()),
             ("score", g.score.to_string()),
+            ("ouchcd", g.tile.ouch_cooldown.to_string()),
+            ("cdelta", g.tile.comfort_delta.to_string()),
+            ("favor", g.favor.to_string()),
             ("otimer", other.timer.to_string()),
             ("pf94", h.ramp_cooldown.to_string()),
             ("pair", h.player.air.to_string()),

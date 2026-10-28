@@ -1,5 +1,5 @@
 """Record HitPlayerSprite - Harry touching another sprite - for the kinds
-the port has (bonus, item, door, collider, dart enemy, ramp). The other sprite is made by its real
+the port has (bonus, item, door, collider, dart enemy, ramp, enemy shot). The other sprite is made by its real
 setup; doors get a level entry (index, info #0) on level 1.
 
 Each line: "<name=value ...> -> <name=value ...>"
@@ -22,11 +22,11 @@ from sprites import Faces  # noqa: E402
 
 COMFORT, CUR_SLOT, INVENTORY = 0x1006856A, 0x1006857A, 0x10065AC4
 SLOTS = {"t24": 0x10065E24, "t28": 0x10065E28, "staple": 0x10065AEC, "badass": 0x10065AE8, "shrapnel": 0x10065AE4,
-         "contact": 0x10065E1C, "playerh": 0x100659B4, "playerv": 0x100659B0}
+         "contact": 0x10065E1C, "playerh": 0x100659B4, "playerv": 0x100659B0, "ouchcd": 0x10065E44, "cdelta": 0x10065E6C}
 KICK_RESET, PHYSICS, BOUNCED, SCORE = 0x10065E20, 0x100659D8, 0x10065E50, 0x10065AF8
 VOICE, VOICE2, REMARK = 0x10068AA0, 0x10068AA4, 0x10068A98
 SOUNDS = {0x10065CC0: 212, 0x10065CC4: 211, 0x10065CC8: 210, 0x10065CB0: 216, 0x10065CB8: 214,
-          0x10065C28: 218, 0x10065C24: 219, 0x10065C60: 240, 0x10065CE0: 204, 0x10065CDC: 205, 0x10065CCC: 209}
+          0x10065C28: 218, 0x10065C24: 219, 0x10065C60: 240, 0x10065CE0: 204, 0x10065CDC: 205, 0x10065CCC: 209, 0x10065C48: 251, 0x10065C98: 223}
 ITEMS = [11199, 11299, 11397, 11398, 11399, 11499, 11599, 11699, 11799, 11899, 11999]
 DOORS = [901, 902, 903, 911, 912, 913, 921, 922, 923, 931, 932, 933]
 HINGE = {0: (30, 35), 1: (31, 17), 2: (34, 19), 3: (5, 18)}
@@ -34,7 +34,8 @@ KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("
          ("SetupDoorSprite", DOORS), ("SetupDoorSprite", DOORS),
          ("SetupColliderSprite", [9600, 9600, 9800, 9800, 9199, 9200, 2301, 3100, 3101, 9300, 9411]),
          ("SetupDartEnemySprite", [1011, 1021, 1031, 1041]), ("SetupRampSprite", [9701, 9702, 9703, 9704]),
-         ("SetupRampSprite", [9701, 9702, 9703, 9704])]
+         ("SetupRampSprite", [9701, 9702, 9703, 9704]),
+         ("SetupEnemyShotSprite", [1018, 1038, 1051, 9610, 9450, 1800, 1950, 1150, 1299, 2281, 2291, 2500])]
 FRAME = STACK_TOP - 0x1000 - 0x140              # HitPlayerSprite's r1
 CASES = 30000
 
@@ -44,7 +45,7 @@ def main():
     m = Machine(f"{work}/ppc")
     Faces(m)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # mask loader (the ramps' masks)
-    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitPlayerKickRects"):
+    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
         m.call(init)
     lvl = m.load_level(open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read())
     ev = []
@@ -59,6 +60,7 @@ def main():
     m.stub_routine(0x10056DE8, lambda mm: busy.get(mm.get(3), 0))
     m.stub_routine(0x10056C0C, lambda mm: ev.append(["stop", mm.get(3)]) or 0)
     m.stub_routine("HaltTalkingSounds", lambda mm: ev.append(["halt"]) or 0)
+    m.stub_routine("Ouch", lambda mm: ev.append(["ouch"]) or 0)
     for f in ("UpdateAmmo", "CopyStatRect", "PlotEncFace", "DrawNumItems", "FindInvItemFace", "UpdateInventory",
               0x1005F738, 0x1005F7EC):
         m.stub_routine(f, 0)
@@ -96,7 +98,11 @@ def main():
                    "kicking": int(rnd.random() < 0.5),
                    "pav": pv + rnd.choice([0, 0, rnd.randint(-4, 4)]), "pah": ph + rnd.choice([0, 0, rnd.randint(-4, 4)]),
                    "otimer": rnd.choice([0, 0, 0, 1, 3, -5]), "bounced": int(rnd.random() < 0.15),
-                   "score": rnd.choice([0, 12345]), "pf94": rnd.choice([0, 0, 0, 2])})
+                   "score": rnd.choice([0, 12345]), "pf94": rnd.choice([0, 0, 0, 2]), "setospeed": "-",
+                   "ouchcd": rnd.choice([0, 0, 0, 2]), "cdelta": rnd.choice([0, 0, -5]),
+                   "favor": rnd.randint(0, 144)})
+        if setup == "SetupEnemyShotSprite" and rnd.random() < 0.7:
+            st["setospeed"] = f"{rnd.randint(-2000, 2000)}:{rnd.randint(-2000, 2000)}"
         if setup == "SetupRampSprite":
             # around the ramp, at any speed
             st["speedv"] = rnd.choice([st["speedv"], rnd.randint(-600, 600)])
@@ -133,10 +139,15 @@ def main():
         m.call(setup, other)
         m.w16(other + 0x68, st["levelindex"])
         m.w16(other + 0x74, st["otimer"])
+        if st["setospeed"] != "-":
+            sv, sh = map(int, st["setospeed"].split(":"))
+            m.w16(other + 0x4E, sv)
+            m.w16(other + 0x50, sh)
         m.w16(lvl + 0x10002 + st["levelindex"] * 16, kind)
         m.w16(lvl + 0x10004 + st["levelindex"] * 16, st["info0"])
         m.write(other + 0x92, bytes([st["ofrozen"]]))
         m.w16(COMFORT, st["comfort"])
+        m.w16(0x1006856E, st["favor"])
         for n in SLOTS:
             m.w16(g[n], st[n])
         m.write(kick_reset, bytes([st["kickreset"]]))
@@ -162,8 +173,8 @@ def main():
         voice, remark = m.r32(VOICE), m.r32(REMARK)
         events = []
         for e in ev:
-            if e[0] == "halt":
-                events.append("halt")
+            if e[0] in ("halt", "ouch"):
+                events.append(e[0])
             elif e[0] == "stop":
                 assert e[1] == 0xE0, e
             else:
@@ -178,6 +189,7 @@ def main():
                 "fixv": struct.unpack(">i", m.read(player + 0x62, 4))[0],
                 "pav": m.r16(player + 0x5A), "pah": m.r16(player + 0x5C),
                 "bounced": m.read(bounced, 1)[0], "score": struct.unpack(">i", m.read(score, 4))[0],
+                "ouchcd": m.r16(g["ouchcd"]), "cdelta": m.r16(g["cdelta"]), "favor": m.r16(0x1006856E),
                 "otimer": m.r16(other + 0x74), "pf94": m.r16(player + 0x94), "pair": m.r16(player + 0x8E),
                 "ospeedv": m.r16(other + 0x4E), "ospeedh": m.r16(other + 0x50), "opv": m.r16(other + 2), "oph": m.r16(other + 4),
                 "speedv": m.r16(player + 0x4E), "speedh": m.r16(player + 0x50), "hot": "%d:%d:%d:%d" % hot,

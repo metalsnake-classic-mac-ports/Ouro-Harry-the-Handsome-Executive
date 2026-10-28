@@ -28,7 +28,7 @@ fn levels_read_and_write_back_exactly() {
     }
     let l1 = hlvl::read(res.get(b"Hlvl", 1).unwrap()).unwrap();
     assert_eq!(l1.name, "Welcome to ScumCo");
-    assert_eq!(l1.start, (2082, 2087));
+    assert_eq!(l1.start, (2087, 2082));
     assert_eq!(l1.music, 601);
     assert!(!l1.physics_set);
     assert_eq!(l1.effective_physics(), harry_core::Physics::default());

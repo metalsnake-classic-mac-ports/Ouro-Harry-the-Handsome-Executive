@@ -52,6 +52,8 @@ pub struct PlayerGlobals {
     pub favor: i16,
     pub favor_shown: i16,
     pub surface: i16,
+    /// The surface resistance meter as drawn (`gSurfaceShown`).
+    pub surface_shown: i16,
     /// The selected inventory slot, −1 none.
     pub cur_slot: i16,
     /// {object id, count}; id −1 = empty.

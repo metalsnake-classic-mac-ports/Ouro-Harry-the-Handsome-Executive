@@ -124,6 +124,9 @@ pub struct Sprite {
     /// (h, v) of the last `half_pipe`.
     pub last_tile: (i16, i16),
     pub slide: i16,
+    /// SAT's `hotRect2` (+0x0e): the hot rect at `pos`, taken right after
+    /// the sprite's task; the collision pass uses it.
+    pub hot_rect2: Rect,
 }
 
 impl Sprite {

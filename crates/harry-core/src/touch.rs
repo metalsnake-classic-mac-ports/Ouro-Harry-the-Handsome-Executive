@@ -26,6 +26,9 @@ pub enum TouchEvent {
     HaltTalking,
     /// Stop the last remark (`uRam10068a98`) and play this one in its place.
     Remark(i16),
+    /// `Ouch`: halt the voices and, unless caffeine works, play one of
+    /// three (`SATRand(100)`: below 43, below 86, else).
+    Ouch,
 }
 
 /// `snd` ids.
@@ -40,6 +43,9 @@ pub mod snd {
     pub const DOOR_KICK: i16 = 204;
     pub const DOOR_LOCKED: i16 = 205;
     pub const UNLOCK: i16 = 240;
+    /// The gun shot hitting Harry (251), other enemy shots (223).
+    pub const GUN_SHOT_HIT: i16 = 251;
+    pub const SHOT_HIT: i16 = 223;
 }
 
 /// What else `HitPlayerSprite` reads and changes.
@@ -68,6 +74,7 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
         Some(Task::Door) => door(h, g, other, w, events),
         Some(Task::Collider) if on_floor && !matches!(other.kind, 3100 | 3101) => collider(h, g, other, w.physics),
         Some(Task::DartEnemy) if on_floor => collider(h, g, other, w.physics),
+        Some(Task::EnemyShot) if on_floor => enemy_shot(h, g, other, events),
         Some(Task::Bonus) if on_floor => bonus(g, other, voice_playing, events),
         Some(Task::Item) if on_floor => pick_up(g, other, events),
         _ => {}
@@ -139,6 +146,92 @@ fn pick_up(g: &mut PlayerGlobals, other: &mut Sprite, events: &mut Vec<TouchEven
     if take && get_item(g, other.kind) {
         other.frozen = true;
         events.push(TouchEvent::Sound(snd::PICK_UP));
+    }
+}
+
+/// Enemy shots: most stop on Harry; unless he was hurt within the last
+/// few frames (the ouch cooldown) he says ouch, loses comfort and takes
+/// some of the shot's speed. Darts and paper (below 1100): −12, speed /
+/// 16, 3 frames; the can (9610, not stopped): −7, / 4, 12; the gun shot
+/// (9450): −10, / 4, 12, with its sound; robot and turret shots: −10,
+/// / 16, 12, no ouch; a homing shot (1101–1299) bursts (timer −16, no
+/// cooldown): −10, / 16; the boss's 2281: favor −4, / 32, 5; 2291: −7,
+/// / 32, 5; other 2001–2999: −4, / 32, 3.
+fn enemy_shot(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, events: &mut Vec<TouchEvent>) {
+    let s = &mut h.player.body.speed;
+    let (oh, ov) = (other.speed.h, other.speed.v);
+    let mut push = |shift: u32| {
+        s.h = s.h.wrapping_add(oh >> shift);
+        s.v = s.v.wrapping_add(ov >> shift);
+    };
+    let st = &mut g.tile;
+    let kind = other.kind;
+    if kind < 1100 {
+        other.frozen = true;
+        if st.ouch_cooldown == 0 {
+            st.ouch_cooldown = 3;
+            events.push(TouchEvent::Ouch);
+            st.comfort_delta = st.comfort_delta.wrapping_sub(12);
+            push(4);
+        }
+    } else if !(2001..=2999).contains(&kind) {
+        match kind {
+            9610 => {
+                if st.ouch_cooldown == 0 {
+                    st.ouch_cooldown = 12;
+                    events.push(TouchEvent::Ouch);
+                    st.comfort_delta = st.comfort_delta.wrapping_sub(7);
+                    push(2);
+                }
+            }
+            9450 => {
+                other.frozen = true;
+                if st.ouch_cooldown == 0 {
+                    st.ouch_cooldown = 12;
+                    events.push(TouchEvent::Ouch);
+                    events.push(TouchEvent::Sound(snd::GUN_SHOT_HIT));
+                    st.comfort_delta = st.comfort_delta.wrapping_sub(10);
+                    push(2);
+                }
+            }
+            1101..=1299 => {
+                if other.timer == 0 {
+                    other.timer = -16;
+                    events.push(TouchEvent::Ouch);
+                    st.comfort_delta = st.comfort_delta.wrapping_sub(10);
+                    push(4);
+                }
+            }
+            _ => {
+                other.frozen = true;
+                if st.ouch_cooldown == 0 {
+                    st.ouch_cooldown = 12;
+                    events.push(TouchEvent::Sound(snd::SHOT_HIT));
+                    st.comfort_delta = st.comfort_delta.wrapping_sub(10);
+                    push(4);
+                }
+            }
+        }
+    } else {
+        other.frozen = true;
+        if st.ouch_cooldown == 0 {
+            events.push(TouchEvent::Ouch);
+            match kind {
+                2281 => {
+                    st.ouch_cooldown = 5;
+                    g.favor = g.favor.wrapping_sub(4);
+                }
+                2291 => {
+                    st.ouch_cooldown = 5;
+                    st.comfort_delta = st.comfort_delta.wrapping_sub(7);
+                }
+                _ => {
+                    st.ouch_cooldown = 3;
+                    st.comfort_delta = st.comfort_delta.wrapping_sub(4);
+                }
+            }
+            push(5);
+        }
     }
 }
 

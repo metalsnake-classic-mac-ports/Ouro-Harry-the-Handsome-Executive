@@ -11,6 +11,7 @@ pub mod collider;
 pub mod dart_enemy;
 pub mod enemy_shot;
 pub mod frame;
+pub mod game;
 pub mod inventory;
 pub mod keys;
 pub mod kinds;
