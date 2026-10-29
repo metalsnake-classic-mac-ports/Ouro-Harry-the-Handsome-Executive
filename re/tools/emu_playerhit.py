@@ -1,5 +1,5 @@
 """Record HitPlayerSprite - Harry touching another sprite - for the kinds
-the port has (bonus, item, door, collider, dart enemy, ramp, stairs, sliding door, co-worker, mail guy, robot, grate, ghost, reversor, boulder, scientist, blob, enemy shot). The other sprite is made by its real
+the port has (bonus, item, door, collider, dart enemy, ramp, stairs, sliding door, co-worker, mail guy, robot, grate, ghost, reversor, boulder, scientist, blob, boss, enemy shot). The other sprite is made by its real
 setup; doors get a level entry (index, info #0) on level 1.
 
 Each line: "<name=value ...> -> <name=value ...>"
@@ -43,6 +43,7 @@ KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("
          ("SetupGrateSprite", [3900, 3905, 3910, 3915]), ("SetupGhostSprite", [5001, 5011]),
          ("SetupReversorSprite", [1851, 1862]), ("SetupBoulderSprite", [6001, 6003, 6014]),
          ("SetupScientistSprite", [1111, 1241]), ("SetupBlobSprite", [1701, 1711, 1721]),
+         ("SetupBossSprite", [2201]),
          ("SetupEnemyShotSprite", [1018, 1038, 1051, 9610, 9450, 1800, 1950, 1150, 1299, 2281, 2291, 2500])]
 FRAME = STACK_TOP - 0x1000 - 0x140              # HitPlayerSprite's r1
 CASES = 30000
@@ -53,7 +54,7 @@ def main():
     m = Machine(f"{work}/ppc")
     Faces(m, work)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # mask loader (the ramps' masks)
-    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitRobotSprite", "InitGrateSprite", "InitGhostSprite", "InitReversorSprite", "InitBoulderSprite", "InitScientistSprite", "InitBlobSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
+    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitRobotSprite", "InitGrateSprite", "InitGhostSprite", "InitReversorSprite", "InitBoulderSprite", "InitScientistSprite", "InitBlobSprite", "InitBossSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
         m.call(init)
     lvl = m.load_level(open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read())
     ev = []

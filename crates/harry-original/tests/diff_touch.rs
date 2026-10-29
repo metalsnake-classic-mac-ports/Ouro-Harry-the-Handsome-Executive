@@ -116,6 +116,7 @@ fn touching_matches_the_original() {
             6001 | 6003 | 6014 => harry_core::boulder::setup_boulder(&mut other),
             1111 | 1241 => harry_core::scientist::setup_scientist(&mut other),
             1701 | 1711 | 1721 => harry_core::blob::setup_blob(&mut other, &mut Random::new(1)),
+            2201 => harry_core::boss::setup_boss(&mut other, &mut Random::new(1), &mut Default::default()),
             900..1000 => setup_door(&mut other),
             1011 | 1021 | 1031 | 1041 => setup_dart_enemy(&mut other),
             // the recorder's enemy shot kinds

@@ -53,11 +53,13 @@ pub enum Setup {
     Boulder,
     Scientist,
     Blob,
+    Boss,
 }
 
 /// Run a setup routine on a sprite.
-/// `player` is `gPlayerH/V` (h, v), which the robots' setup reads.
-pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random, player: (i16, i16)) {
+/// `player` is `gPlayerH/V` (h, v), which the robots' setup reads; `boss`
+/// the boss's globals, which its setup resets.
+pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random, player: (i16, i16), boss: &mut crate::boss::BossState) {
     match setup {
         Setup::Bonus => setup_bonus(sp),
         Setup::Item => setup_item(sp),
@@ -88,6 +90,7 @@ pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random, player: (i16, 
         Setup::Boulder => crate::boulder::setup_boulder(sp),
         Setup::Scientist => crate::scientist::setup_scientist(sp),
         Setup::Blob => crate::blob::setup_blob(sp, rng),
+        Setup::Boss => crate::boss::setup_boss(sp, rng, boss),
     }
 }
 
@@ -102,6 +105,8 @@ pub struct Sprites {
     pub free: Vec<usize>,
     /// `gPlayerH/V` (h, v) for the setups (the robots face Harry).
     pub player: (i16, i16),
+    /// The boss's globals (its setup resets them).
+    pub boss: crate::boss::BossState,
 }
 
 impl Sprites {
@@ -131,7 +136,7 @@ impl Sprites {
     /// `SATNewSprite` with a setup.
     pub fn spawn(&mut self, kind: i16, h: i16, v: i16, setup: Setup, rng: &mut Random) -> usize {
         let i = self.new_sprite(kind, h, v);
-        run_setup(setup, &mut self.recs[i], rng, self.player);
+        run_setup(setup, &mut self.recs[i], rng, self.player, &mut self.boss);
         i
     }
 
@@ -305,7 +310,7 @@ impl World {
     pub fn generate_sprite(&mut self, h: i16, v: i16, kind: i16, index: i16, rng: &mut Random) -> bool {
         let idle = |w: &mut World, h: i16, v: i16, setup: Setup, rng: &mut Random| w.add_idle(kind, h, v, index, 0, setup, rng);
         match kind {
-            301..=319 | 2200..=2299 | 3001 => return false,
+            301..=319 | 3001 => return false,
             500 | 501 => idle(self, even(h), even(v), Setup::Cooler, rng),
             550 => idle(self, even(h), even(v), Setup::Barrel, rng),
             560 => idle(self, even(h), even(v), Setup::Chair, rng),
@@ -325,6 +330,7 @@ impl World {
                 let i = self.sprites.spawn(kind, h, v, setup, rng);
                 self.sprites.recs[i].level_index = index;
             }
+            2200..=2299 => idle(self, h, v, Setup::Boss, rng),
             1100..=1299 => idle(self, h, v, Setup::Scientist, rng),
             1700..=1799 => idle(self, h, v, Setup::Blob, rng),
             1900..=1999 => idle(self, h, v, Setup::Turret, rng),

@@ -29,7 +29,7 @@ INITS = ("InitBonusSprite", "InitItemSprite", "InitExitSprite", "InitDoorSprite"
          "InitEnemyShotSprite", "InitBarrelSprite", "InitChairSprite", "InitStairsSprite", "InitButtonSprite",
          "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitRobotSprite", "InitFirePipeSprite",
          "InitEffectSprite", "InitGrateSprite", "InitGhostSprite", "InitTurretSprite",
-         "InitReversorSprite", "InitBoulderSprite", "InitScientistSprite", "InitBlobSprite")
+         "InitReversorSprite", "InitBoulderSprite", "InitScientistSprite", "InitBlobSprite", "InitBossSprite")
 # the props' faces as InitFaces loads them (its other faces need more Toolbox)
 PROP_FACES = {0x10065A60: 6034, 0x10065A5C: 6035, 0x10065A58: 6036, 0x10065A54: 6037,
               0x10065A40: 6051, 0x10065A3C: 6052, 0x10065A38: 6053, 0x10065A34: 6054,
@@ -44,7 +44,7 @@ def ported(k):
             or k in (550, 560, 1601, 1611, 1621, 1631) or 950 <= k <= 999 or 1300 <= k <= 1449 or 1800 <= k <= 1849
             or 2000 <= k <= 2099 or 4200 <= k <= 4299 or 9500 <= k <= 9599 or 9900 <= k <= 9909
             or 3900 <= k <= 3999 or 5000 <= k <= 5999 or 1850 <= k <= 1999 or 6000 <= k <= 6099
-            or 1100 <= k <= 1299 or 1700 <= k <= 1799)
+            or 1100 <= k <= 1299 or 1700 <= k <= 1799 or 2200 <= k <= 2299)
 
 
 def s16(v):

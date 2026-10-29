@@ -941,6 +941,44 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   except the blobs' setup face past its table (BUGS.md), which the tests
   leave out. Scientists and blobs are also in the Harry, fan and world
   recorders.
+- **The boss** (2201, level 15; idle; layer 7, hot rect (8, 8, 56, 56),
+  150 hit points, faces 4902 + dir (PICT 2201); its turning state in
+  globals, `harry_core::boss::BossState`: phase `_DAT_1006c350`, pulse
+  direction `DAT_1006c352`, phase change counter `…f80`, anim `…f7c`,
+  sweep count `…f5c`, spin `…f58`, angle `…f54`, shot cooldown `…f3c`,
+  explosion cooldown `…f44`; the setup resets count, spin, angle, change
+  and sets phase 1 - not the cooldowns, the anim or the pulse). Each
+  frame: half pipes and jumps (centre + 16, no sound); `f6e` counts up to
+  (hit points + 2) mod 51 for the flash; no speed of its own; the
+  explosion cooldown counts down; below 0 hit points it starts dying.
+  Phase: 3 below 50, 2 below 100, else 1; a change spins it in place for
+  100 frames (the view shaking 16/17, a roar 4901 at 32000 two frames
+  in). A sweep: at its start a coin turns the spin by ±1, then it builds
+  up by 12 a frame to ±600 within 60 frames and settles back to ±256
+  after 100; while beyond ±200 it fires when the cooldown is out - phase
+  1 the shot 2281 (cooldown 6–10), phase 2 the homing 1211 (5 frames out
+  to the side first, `f7c` 1, timer and dir 0; cooldown 30–54), phase 3 a
+  ghost 5011 at at + 12 with its direction and no hit points (cooldown
+  30–54) - sound 300 at a random pitch. After 120 frames, facing Harry,
+  it stops (count −50) and fires volleys of three 2291 shots at −45,
+  −30, −15 (phase 2: −45, −35, −25, −15; phase 3 five, twice as fast;
+  sound 1002); phases 2 and 3 face Harry while the count is below 0.
+  Phases 2 and 3 pulse in size (± 4 between 1.0 and 1.19, ± 12 up to
+  1.75) unless it is more than 200 px left of the view's middle. The
+  direction comes from the angle (+ spin, 0 – 0x23ff). Hit task: an
+  explosion −6 (then 30 frames not again); a player shot −1, the flash,
+  every 8th point a cry (1000 / 1001, the original only when neither
+  plays); Harry's kick −1, sound 600, layer 10, kick contact 64. Harry
+  bounces off it like off a robot. Death (`HandleBossSpriteDeath`): it
+  grows to 1.5 and spins at 800; 10 000 points, the ghosts lose their
+  hit points, the music fades, no more hits, roars at 0 / 8 / 16 (34000,
+  40000, 24000); twelve explosions about it from frame 50 to 96 (sound
+  602 at 50000, stopped and restarted); at 114 two explosions on layer
+  500 at twice the size, three more, the view shaking 48; gone after
+  120. `re/tools/emu_boss.py`: 4000 runs of 1–400 frames (hit points,
+  phases and globals at random, Harry and the view moving, hits), all
+  matching; 26 of 29 mutations caught (one equivalent, two needing rare
+  combinations of hit points and frames).
 - **Drawing changes sprites.** `DrawSpritesBehindTiles` /
   `DrawSpritesAboveTiles` (after `EraseSprites`) call `WrapDrawSprite`
   for every sprite with a task and a face whose `at` lies within the

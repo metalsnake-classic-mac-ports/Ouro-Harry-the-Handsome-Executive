@@ -39,6 +39,8 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::Boulder) => "HandleBoulderSprite",
         Some(Task::Scientist) => "HandleScientistSprite",
         Some(Task::Blob) => "HandleBlobSprite",
+        Some(Task::Boss) => "HandleBossSprite",
+        Some(Task::BossDeath) => "HandleBossSpriteDeath",
     }
 }
 
@@ -73,6 +75,7 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Boulder) => "HitBoulderSprite",
         Some(HitTask::Scientist) => "HitScientistSprite",
         Some(HitTask::Blob) => "HitBlobSprite",
+        Some(HitTask::Boss) => "HitBossSprite",
     }
 }
 
@@ -91,6 +94,7 @@ pub fn tile_name(t: Option<HitTileTask>) -> &'static str {
         Some(HitTileTask::Reversor) => "HitReversorTileSprite",
         Some(HitTileTask::Boulder) => "HitBoulderTileSprite",
         Some(HitTileTask::Blob) => "HitBlobTileSprite",
+        Some(HitTileTask::Boss) => "HitBossTileSprite",
     }
 }
 
@@ -106,12 +110,18 @@ pub fn event(e: &SpriteEvent) -> String {
         SpriteEvent::MovingExplosion { h, v, speed, a, b } => format!("x:{h}:{v}:{}:{}:{a}:{b}", speed.h, speed.v),
         SpriteEvent::DynamicSound { id, volume, speed } => format!("dyn:{id}:{volume}:{}:{}", speed.v, speed.h),
         SpriteEvent::Score(n) => format!("score:{n}"),
+        SpriteEvent::Ghost { kind, h, v, dir } => format!("ghost:{kind}:{h}:{v}:{dir}"),
+        SpriteEvent::GhostsDie => "ghostsdie".into(),
+        SpriteEvent::FadeMusic => "fade".into(),
+        SpriteEvent::StopSound(id) => format!("stop:{id}"),
+        SpriteEvent::BigBlast { h, v } => format!("big:{h}:{v}"),
         SpriteEvent::ExplosionAt { h, v, a, b, timer } => format!("x:{h}:{v}:{a}:{b}:t{timer}"),
         SpriteEvent::Flame { pipe, h, v, kind } => format!("flame:{pipe}:{h}:{v}:{kind}"),
-        SpriteEvent::Shot { kind, h, v, speed, dir, fix, timer } => {
+        SpriteEvent::Shot { kind, h, v, speed, dir, fix, timer, f7c } => {
             let (fh, fv) = fix.unwrap_or((i32::from(h) << 8, i32::from(v) << 8));
             let t = timer.map_or(String::new(), |t| format!(":t{t}"));
-            format!("shot:{kind}:{h}:{v}:{}:{}:{dir}:{fh}:{fv}{t}", speed.v, speed.h)
+            let f = f7c.map_or(String::new(), |f| format!(":f{f}"));
+            format!("shot:{kind}:{h}:{v}:{}:{}:{dir}:{fh}:{fv}{t}{f}", speed.v, speed.h)
         }
         SpriteEvent::Generate { kind, h, v } => format!("gen:{kind}:{h}:{v}"),
         SpriteEvent::Forget(i) => format!("forget:{i}"),

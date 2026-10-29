@@ -174,7 +174,7 @@ fn random_shot(sp: &Sprite, rng: &mut Random, events: &mut Vec<SpriteEvent>) {
     if rng.below(if sp.kind < 1802 { 60 } else { 35 }) == 1 {
         let mut speed = sp.speed;
         add_polar(&mut speed, sp.dir, &SHOT_SPEED);
-        events.push(SpriteEvent::Shot { kind: sp.kind, h: sp.pos.1.wrapping_add(7), v: sp.pos.0.wrapping_add(8), speed, dir: sp.dir, fix: None, timer: None });
+        events.push(SpriteEvent::Shot { kind: sp.kind, h: sp.pos.1.wrapping_add(7), v: sp.pos.0.wrapping_add(8), speed, dir: sp.dir, fix: None, timer: None, f7c: None });
         events.push(SpriteEvent::Sound3D(snd::SHOT));
     }
 }
@@ -209,7 +209,7 @@ fn random_mg_shot(sp: &Sprite, rng: &mut Random, events: &mut Vec<SpriteEvent>) 
     }
     let mut speed = sp.speed;
     add_polar(&mut speed, dir, &SHOT_SPEED);
-    events.push(SpriteEvent::Shot { kind: sp.kind, h, v, speed, dir, fix: Some(fix), timer: None });
+    events.push(SpriteEvent::Shot { kind: sp.kind, h, v, speed, dir, fix: Some(fix), timer: None, f7c: None });
     let pitch = rng.below(6000) as u32;
     events.push(SpriteEvent::Sound3DPitched { id: snd::MACHINE_GUN, rate: pitch + 62000 });
 }

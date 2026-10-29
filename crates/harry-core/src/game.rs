@@ -290,12 +290,15 @@ impl Game {
                     // the port does not move the sound with the sprite yet
                     self.play(id, volume, Some(at), RATE, Channel::Effect);
                 }
-                SpriteEvent::Shot { kind, h, v, speed, dir, fix, timer } => {
+                SpriteEvent::Shot { kind, h, v, speed, dir, fix, timer, f7c } => {
                     let i = self.spawn_with(kind, h, v, Setup::EnemyShot, Some(speed));
                     let r = &mut self.world.sprites.recs[i];
                     r.dir = dir;
                     if let Some(t) = timer {
                         r.timer = t;
+                    }
+                    if let Some(f) = f7c {
+                        r.f7c = f;
                     }
                     if let Some(f) = fix {
                         r.fix = f;
@@ -316,6 +319,30 @@ impl Game {
                 SpriteEvent::ExplosionAt { h, v, a, b, timer } => {
                     let i = self.explosion(h, v, a, b);
                     self.world.sprites.recs[i].timer = timer;
+                }
+                SpriteEvent::Ghost { kind, h, v, dir } => {
+                    let i = self.spawn_with(kind, h, v, Setup::Ghost, None);
+                    let r = &mut self.world.sprites.recs[i];
+                    r.dir = dir;
+                    r.state = 0;
+                }
+                SpriteEvent::GhostsDie => {
+                    for &k in &self.world.sprites.list {
+                        let r = &mut self.world.sprites.recs[k];
+                        if r.task == Some(Task::Ghost) {
+                            r.state = -5;
+                        }
+                    }
+                }
+                // the music is not ported yet
+                SpriteEvent::FadeMusic => {}
+                SpriteEvent::StopSound(id) => self.sounds.push(SoundEvent::Stop(id)),
+                SpriteEvent::BigBlast { h, v } => {
+                    let i = self.explosion(h, v, 0, 0);
+                    let r = &mut self.world.sprites.recs[i];
+                    r.layer = 500;
+                    r.scale[0] = 0x200;
+                    r.scale[1] = 0x200;
                 }
                 SpriteEvent::Score(n) => self.g.score = self.g.score.wrapping_add(n),
                 SpriteEvent::Forget(i) => {
@@ -622,6 +649,17 @@ impl Game {
                 s.into_sprite(&mut sp);
             }
             Some(Task::Effect) => handle_effect(&mut sp),
+            Some(Task::Boss) => {
+                let (view, player) = (self.view.corner, self.g.player_pos);
+                let mut boss = self.world.sprites.boss;
+                crate::boss::handle_boss(&mut sp, &mut boss, &self.level, view, player, &mut self.rng, &mut self.view.shake, &mut events);
+                self.world.sprites.boss = boss;
+            }
+            Some(Task::BossDeath) => {
+                let mut boss = self.world.sprites.boss;
+                crate::boss::handle_boss_death(&mut sp, &mut boss, &mut self.rng, &mut self.view.shake, &mut events);
+                self.world.sprites.boss = boss;
+            }
             Some(Task::Scientist) => {
                 let (view, player) = (self.view.corner, self.g.player_pos);
                 crate::scientist::handle_scientist(&mut sp, view, player, &mut self.rng, &mut events);
@@ -744,6 +782,11 @@ impl Game {
             Some(HitTask::DartEnemy) => hit_dart_enemy(&mut sp, &mut o, &mut self.g, &mut self.rng, &mut events),
             Some(HitTask::Ramp) => hit_ramp(&mut sp, &o, self.physics.bounce),
             Some(HitTask::PlayerShot) => hit_player_shot(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
+            Some(HitTask::Boss) => {
+                let mut boss = self.world.sprites.boss;
+                crate::boss::hit_boss(&mut sp, &mut o, &mut boss, &mut self.rng, &mut self.g.tile.kick_contact, &mut events);
+                self.world.sprites.boss = boss;
+            }
             Some(HitTask::Scientist) => crate::scientist::hit_scientist(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
             Some(HitTask::Blob) => crate::blob::hit_blob(&mut sp, &o, &self.physics, &mut self.g.tile.kick_contact, &mut events),
             Some(HitTask::Reversor) => crate::reversor::hit_reversor(&mut sp, &mut o, &self.physics, &mut events),
@@ -914,6 +957,7 @@ impl Game {
                         let (wall, obstacle) = &mut self.reversor_flags;
                         crate::reversor::hit_reversor_tile(sp, hit, &self.level, assets.barrel, walls, &assets.player.obstacle, wall, obstacle);
                     }
+                    HitTileTask::Boss => {}
                     HitTileTask::Blob => {
                         let (wall, obstacle) = &mut self.blob_flags;
                         crate::blob::hit_blob_tile(sp, hit, assets.barrel, walls, wall, obstacle);

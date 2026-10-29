@@ -46,6 +46,9 @@ pub enum Task {
     Boulder,
     Scientist,
     Blob,
+    Boss,
+    /// `HandleBossSpriteDeath`.
+    BossDeath,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -82,6 +85,7 @@ pub enum HitTask {
     Boulder,
     Scientist,
     Blob,
+    Boss,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -99,6 +103,8 @@ pub enum HitTileTask {
     Reversor,
     Boulder,
     Blob,
+    /// `HitBossTileSprite`: does nothing.
+    Boss,
 }
 
 /// What a sprite routine asks of the rest of the game.
@@ -120,15 +126,27 @@ pub enum SpriteEvent {
     /// moves on with `speed` (px a frame) while it plays.
     DynamicSound { id: i16, volume: i16, speed: Speed },
     /// `SATNewSprite(kind, h, v, SetupEnemyShotSprite)`, then speed and
-    /// `dir` set - and, if given, `fix` (with `pos` and `at` from it) and
-    /// `timer`.
-    Shot { kind: i16, h: i16, v: i16, speed: Speed, dir: i16, fix: Option<(i32, i32)>, timer: Option<i16> },
+    /// `dir` set - and, if given, `fix` (with `pos` and `at` from it),
+    /// `timer` and `f7c`.
+    Shot { kind: i16, h: i16, v: i16, speed: Speed, dir: i16, fix: Option<(i32, i32)>, timer: Option<i16>, f7c: Option<i16> },
     /// `GenerateSprite(h, v, kind, −1)`: an object of the level's kinds,
     /// without a level entry.
     Generate { kind: i16, h: i16, v: i16 },
     /// A fire pipe's flame: `SATNewSprite(pipe, h, v, SetupEffectSprite)`,
     /// then the kind set to `kind` and `f7c` to `pipe`.
     Flame { pipe: i16, h: i16, v: i16, kind: i16 },
+    /// `SATNewSprite(kind, h, v, SetupGhostSprite)`, then `dir` set and no
+    /// hit points (the boss's ghosts).
+    Ghost { kind: i16, h: i16, v: i16, dir: i16 },
+    /// Every ghost in the list loses its hit points (−5).
+    GhostsDie,
+    /// `FadeMusic(0, 1)`.
+    FadeMusic,
+    /// `FUN_10056c0c`: stop every playing instance of a sound.
+    StopSound(i16),
+    /// The boss's last blast: an explosion (kind 0, frame 0) on layer 500
+    /// at twice the size.
+    BigBlast { h: i16, v: i16 },
     /// Points for Harry.
     Score(i32),
     /// Level entry `i` is cleared (byte 0): the sprite will not come back.

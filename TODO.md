@@ -51,7 +51,8 @@
 - [x] Grates, fences and ghosts (75 000 cases); level 6 has all its kinds
 - [x] Turrets, reversors, boulders (18 000 runs); level 7 has all its kinds
 - [x] Scientists and blobs (16 000 runs), player shot hits on every kind (30 000); levels 8–14 have all their kinds
-- [ ] The boss (2201, level 15); hazards (3001) and desks (301–319) are not in Episode 1
+- [x] The boss (4000 runs); every level of Episode 1 has all its kinds (hazards 3001 and desks 301–319 are not used)
+- [ ] Music (`Tune`), then the boss's `FadeMusic`
 - [ ] Whole-frame recorder (`emu_game.py`) for the other levels, with the draw pass (layer changes of draw procs)
 - [ ] `VendingDrawProc`: drawing the vending machine sets its +0x78 (and +0x8a)
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)

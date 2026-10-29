@@ -7,6 +7,7 @@
 
 pub mod air;
 pub mod blob;
+pub mod boss;
 pub mod boulder;
 pub mod bounce;
 pub mod button;
