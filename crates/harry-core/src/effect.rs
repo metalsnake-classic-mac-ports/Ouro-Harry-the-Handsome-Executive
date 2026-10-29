@@ -65,9 +65,9 @@ pub fn setup_effect(sp: &mut Sprite) {
 /// `HandleEffectSprite`. Explosions: the face of frame `dir` / 2 (none
 /// outside 0–25), `dir` + 1, gone after frame 26; moves by its speed
 /// (whole pixels, `pos` and `at`). Flames (`f7c` its pipe's kind): `dir`
-/// + 1; at 24 it goes back to 7 for the first two rounds (`f6e` counts
-/// them; Harry touching it sets 3 and so cuts it short), else on to 25;
-/// gone after 28.
+/// counts up; at 24 it goes back to 7 for the first two rounds (`f6e`
+/// counts them; Harry touching it sets 3 and so cuts it short), else on
+/// to 25; gone after 28.
 pub fn handle_effect(sp: &mut Sprite) {
     if sp.frozen {
         return;
