@@ -76,7 +76,7 @@ pub fn handle_reversor(
 }
 
 /// `HitReversorSprite`. A barrel: it lights (sound 801, the barrel's dir
-/// + 1 whatever it was) and the reversor turns back. Ramps carry it,
+/// goes up by one whatever it was) and the reversor turns back. Ramps carry it,
 /// stairs take it down. Plants, coolers, grates, chairs, doors (not
 /// open), reversors, co-workers, colliders, sliding doors (desks): move
 /// undone, turned back. A shot: its move undone and sent back (sound

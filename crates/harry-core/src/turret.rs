@@ -23,10 +23,10 @@ fn mount(kind: i16) -> Option<u8> {
 
 fn in_arc(m: u8, d: i16) -> bool {
     match m {
-        0 => 4 < d && d < 13,
-        1 => 22 < d && d < 31,
-        2 => 13 < d && d < 22,
-        _ => d < 4 || 31 < d,
+        0 => (5..13).contains(&d),
+        1 => (23..31).contains(&d),
+        2 => (14..22).contains(&d),
+        _ => !(4..=31).contains(&d),
     }
 }
 
