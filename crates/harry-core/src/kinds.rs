@@ -429,7 +429,8 @@ pub(crate) fn plus_scaled(a: i16, f: f64, b: i16) -> i16 {
 /// plant, barrel or chair trades momentum (0.4 each way, then both ×
 /// −0.4), a cooler stays and the plant bounces back × −0.4; a robot
 /// (plant mask against plant mask) gives it half its speed. Doors (not
-/// open), sliding doors, colliders and co-workers: `RectBounce`; ramps carry it (sound
+/// open), sliding doors, colliders and co-workers: `RectBounce`; grates:
+/// `GrateBounce`; ramps carry it (sound
 /// 1101 when it takes off), stairs take it down. Shots stop on it and make it shake.
 /// `bump_playing`: is the plant's bump sound (1100) playing?
 #[allow(clippy::too_many_arguments)]
@@ -515,6 +516,7 @@ pub fn hit_plant(
                 }
             }
         }
+        Some(Task::Grate) => crate::grate::grate_bounce(sp, other, 18, i32::from(physics.bounce), sp.hot_rect),
         _ => {}
     }
     let door = other.task == Some(Task::Door) && !door_open(other.kind);

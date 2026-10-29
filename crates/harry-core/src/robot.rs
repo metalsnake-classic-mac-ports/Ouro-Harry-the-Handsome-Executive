@@ -78,7 +78,7 @@ fn add_polar(speed: &mut Speed, dir: i16, table: &[f64; 10]) {
 
 /// `FindDesiredDirection` (robots): from the robot (pos + 14) toward
 /// Harry (`gPlayerH/V` + 32).
-fn toward_harry(sp: &Sprite, player: (i16, i16)) -> i16 {
+pub(crate) fn toward_harry(sp: &Sprite, player: (i16, i16)) -> i16 {
     let harry = (player.1.wrapping_add(32), player.0.wrapping_add(32));
     let me = (sp.pos.0.wrapping_add(14), sp.pos.1.wrapping_add(14));
     find_desired_direction(me, harry)
@@ -91,7 +91,7 @@ fn too_far(sp: &Sprite, player: (i16, i16)) -> bool {
 }
 
 /// `ApproachMode`: one step toward `dir` the short way round.
-fn approach(sp: &mut Sprite, dir: i16) {
+pub(crate) fn approach(sp: &mut Sprite, dir: i16) {
     if dir == sp.dir {
         return;
     }
@@ -459,7 +459,9 @@ pub fn hit_robot(
             sp.set_body(body);
         }
         Some(Task::Stairs) => object_on_stairs(sp, 12, other, physics.bounce),
-        Some(Task::Plant | Task::Cooler | Task::Collider | Task::CoWorker | Task::Chair | Task::SlidingDoor) => recoil(sp, true),
+        Some(Task::Plant | Task::Cooler | Task::Collider | Task::CoWorker | Task::Chair | Task::SlidingDoor | Task::Grate) => {
+            recoil(sp, true)
+        }
         _ if door => recoil(sp, true),
         Some(Task::Player) => {
             if other.hot_rect[1] == 0 {

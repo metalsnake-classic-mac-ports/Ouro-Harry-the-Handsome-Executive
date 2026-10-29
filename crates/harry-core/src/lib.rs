@@ -17,6 +17,8 @@ pub mod firepipe;
 pub mod frame;
 pub mod furniture;
 pub mod game;
+pub mod ghost;
+pub mod grate;
 pub mod inventory;
 pub mod keys;
 pub mod kinds;

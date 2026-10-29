@@ -190,7 +190,7 @@ fn ride_ramp(sp: &mut Sprite, half: i16, ramp: &mut Sprite, physics: &Physics) {
 /// open), sliding doors, colliders: `RectBounce`; ramps carry it. Shots stop on it and
 /// light it, the big shot (9450) pushes; explosions push it, and flames
 /// light it; stairs take it down; a mail guy crashes into it
-/// (`mail_guy_crash`). Desks and grates come with their kinds.
+/// (`mail_guy_crash`); grates: `GrateBounce`. Desks come with their kind.
 #[allow(clippy::too_many_arguments)]
 pub fn hit_barrel(
     sp: &mut Sprite,
@@ -277,6 +277,9 @@ pub fn hit_barrel(
         let mut body = sp.body();
         rect_bounce(&mut body, 12, i32::from(physics.bounce), sp.hot_rect, other.at, other.hot_rect);
         sp.set_body(body);
+    }
+    if other.task == Some(Task::Grate) {
+        crate::grate::grate_bounce(sp, other, 12, i32::from(physics.bounce), sp.hot_rect);
     }
     let effect = other.task == Some(Task::Effect);
     if matches!(other.task, Some(Task::PlayerShot | Task::EnemyShot)) || effect {
@@ -444,6 +447,9 @@ pub fn hit_chair(
         let mut body = sp.body();
         rect_bounce(&mut body, 18, i32::from(physics.bounce), sp.hot_rect, other.at, other.hot_rect);
         sp.set_body(body);
+    }
+    if other.task == Some(Task::Grate) {
+        crate::grate::grate_bounce(sp, other, 18, i32::from(physics.bounce), sp.hot_rect);
     }
     if other.task == Some(Task::Ramp) {
         ride_ramp(sp, 18, other, physics);

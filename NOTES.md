@@ -807,6 +807,62 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   1–300 frames and 15 000 flames of 1–80 frames, all matching, 12 of 12
   mutations caught (the pipe faces through the world recorder, which now
   has every ported kind).
+- **Grates** (3900 across / 3905 upright break; 3910 / 3915 fences; idle,
+  h even, v even − 1 (upright: v even); layer 8, hot rect (0, −8, 6, 72)
+  across, (−8, 0, 72, 6) upright; faces 3401 / 3402 (cicn 3900 / 3905);
+  `state` = hits left, 20 / 4). Out of hits a grate breaks: three
+  explosions along it 29 px off (the last frame 4), sound 602, 600
+  points, frozen. A fence goes out (sound 1200, `state` −100) and counts
+  down: off from −102 on, the face shown on odd counts −129 … −101 and
+  −229 … −201, back with 4 hits at −231 (about 4.3 s). A grate on layer
+  9 goes back to 8. Hit task: explosions in their first frames (timer
+  not 0) cost a hit (layer 10); Harry standing in a fence that is coming
+  back (below −200) keeps it at −226 / −227 (`SATRand(2)`). Harry
+  (`HitPlayerSprite`, fence not out): kept on his side by the grate's
+  edge (his normal hot rect; which side from the grate's top / left + 3
+  by `pos` against his centre), speed across × −bounce / 256, along ×
+  bounce / 256; his kick rect on the grate's `hotRect2`: kick contact
+  256, a hit, sound 4702. Plants, barrels, chairs: `GrateBounce`
+  (`VBounce` across, `HBounce` upright: back on their side of the middle
+  line, the speed across reversed and both × bounce / 256 if moving into
+  it). Robots: like other obstacles. Player shots: a hit, layer 10,
+  sound 4702 pitched 40000 + `SATRand(12000)` + (20 − hits) × 1800
+  (fences (4 − hits) × 8000); enemy shots: a hit, sound 4702, layer 10;
+  the can bounces off. The grate's draw proc puts a hit grate (layer 10,
+  not a fence) to layer 9.
+- **Ghosts** (5001: 3 hit points, slow; 5011: 5, twice as fast; idle at
+  their position; layer 20, hot rect (0, 0, 40, 40), faces 3301 + dir
+  (PICT 224); `at` not set by the setup). Each frame one step toward
+  Harry (`FindDesiredGhostDirection` = the robots' direction,
+  `ApproachMode`). Mode (`f6e`) 2 drifts at 384 / 768 along its
+  direction (`AccelerateGhost`, cos table 1, .985, .94, .866, .766,
+  .643, .5, .342, .174); mode 1 (hit) stands, timer 60 counting down,
+  blinking (odd counts no face), at 30 it moves to a random place in the
+  view (`SATRand(408)` both ways) whose 40 × 40 rect does not touch
+  Harry's top-left − 32 … + 96, at 0 back to drifting; mode 3 (or hit
+  points below 0): an explosion at − 12 (5001 kind 10, else 1; frame 4,
+  timer 0), 2000 / 4000 points, gone. 1 in 1000 a frame sound 850. Only
+  player shots hurt it (`HitGhostSprite`, timer 0): with points left one
+  less, mode 1, timer 60, sound 852; else mode 3, the level entry
+  cleared, 3000 points, sound 851; the shot is gone. Harry on the floor,
+  not kicking, touching a drifting ghost: comfort delta − 7, damage
+  cooldown 12, sound 224. Fans blow them.
+- **Drawing changes sprites.** `DrawSpritesBehindTiles` /
+  `DrawSpritesAboveTiles` (after `EraseSprites`) call `WrapDrawSprite`
+  for every sprite with a task and a face whose `at` lies within the
+  view − 64 … + 512; the face's draw proc runs when the face reaches into
+  the 448 × 448 view. Some draw procs change the sprite: robots, big
+  robots and turrets on layer 10 (hit) go back to 7, blobs too (and get
+  +0x8a), a hit grate goes to 9, the vending machine sets its +0x78. The
+  port has a draw pass in `Game::frame` for the robots and grates (the
+  others come with their kinds); scaled sprites are tested at `at`.
+- `re/tools/emu_grate.py`: 15 000 grate runs of 1–300 frames with hits,
+  30 000 `GrateBounce` cases and 15 000 ghost runs of 1–120 frames (Harry
+  and the view moving, shots), all matching; 18 of 21 mutations caught
+  (the survivors are equivalent or need an `at` that does not move).
+  Grates and ghosts are also in the Harry, plant, barrel / chair, robot,
+  enemy shot, fan and world recorders. (The grate hit sound is 4702 -
+  `_DAT_10065ba8`; two of the touch recorder's sounds were not mapped.)
 - **Message** (21000 and up; layer 9, faces 3801–3805): the mode
   (`f6e`) is the level entry's info #1, read each frame: 0 a memo on the
   floor (hot rect (−8, −8, 32, 32), the face blinking 3801 → 3805 → 3801

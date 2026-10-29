@@ -143,6 +143,7 @@ fn enemy_shot_hits_match_the_original() {
             "chair" => setup_chair(&mut o, &mut Random::new(1)),
             "sliding" => setup_sliding_door(&mut o),
             "robot" => setup_robot(&mut o, (0, 0)),
+            "grate" => harry_core::grate::setup_grate(&mut o),
             "enemyshot" => {
                 setup_enemy_shot(&mut o);
                 if (1101..=1299).contains(&okind) {

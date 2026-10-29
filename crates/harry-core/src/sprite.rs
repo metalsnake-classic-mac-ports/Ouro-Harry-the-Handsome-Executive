@@ -39,6 +39,8 @@ pub enum Task {
     MailGuy,
     Robot,
     FirePipe,
+    Grate,
+    Ghost,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -68,6 +70,8 @@ pub enum HitTask {
     Robot,
     /// `HitFirePipeSprite`: does nothing.
     FirePipe,
+    Grate,
+    Ghost,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -95,6 +99,8 @@ pub enum SpriteEvent {
     Sound3DPitched { id: i16, rate: u32 },
     /// `EasyExplosion(h, v, 0, 0, a, b)`.
     Explosion { h: i16, v: i16, a: i16, b: i16 },
+    /// `EasyExplosion(h, v, 0, 0, a, b)` and its timer set.
+    ExplosionAt { h: i16, v: i16, a: i16, b: i16, timer: i16 },
     /// `EasyExplosion(h, v, speed h, speed v, a, b)`: a moving one.
     MovingExplosion { h: i16, v: i16, speed: Speed, a: i16, b: i16 },
     /// `STPlayDynamicSound` at the sprite: a sound whose stereo position

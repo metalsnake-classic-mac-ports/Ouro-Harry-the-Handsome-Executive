@@ -57,7 +57,7 @@ def main():
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))
     for f in ("InitRobotSprite", "InitTileHotRects", "InitPlayerKickRects", "InitBarrelSprite", "InitPlantSprite",
               "InitCoolerSprite", "InitDoorSprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite",
-              "InitCoWorkerSprite", "InitChairSprite", "InitColliderSprite", "InitEffectSprite"):
+              "InitCoWorkerSprite", "InitChairSprite", "InitColliderSprite", "InitEffectSprite", "InitGrateSprite"):
         m.call(f)
     tv = tvectors(f"{work}/ppc")
     by_name = {v: k for k, v in tv.items()}
@@ -211,12 +211,13 @@ def main():
     out = open(f"{work}/diff/robothit.txt", "w")
     out.write("# HitRobotSprite: name=value inputs -> dump || other dump | contact events\n")
     partners = ["harry", "harry", "barrel", "effect", "ramp", "stairs", "plant", "cooler", "collider", "coworker",
-                "chair", "door", "sliding"]
+                "chair", "door", "sliding", "grate"]
     setups = {"barrel": ("SetupBarrelSprite", [550]), "effect": ("SetupEffectSprite", [0, 14, -1]),
               "ramp": ("SetupRampSprite", [9701, 9702, 9703, 9704]), "stairs": ("SetupStairsSprite", [9901, 9902, 9903, 9904]),
               "plant": ("SetupPlantSprite", [601]), "cooler": ("SetupCoolerSprite", [500]),
               "collider": ("SetupColliderSprite", [9200, 9600, 3100]), "coworker": ("SetupCoWorkerSprite", [1301, 1321]),
-              "chair": ("SetupChairSprite", [560]), "door": ("SetupDoorSprite", DOORS), "sliding": ("SetupSlidingDoorSprite", [951, 961])}
+              "chair": ("SetupChairSprite", [560]), "door": ("SetupDoorSprite", DOORS), "sliding": ("SetupSlidingDoorSprite", [951, 961]),
+              "grate": ("SetupGrateSprite", [3900, 3905, 3910, 3915])}
     for _ in range(HITS):
         m.heap = mark
         m.regions.clear()

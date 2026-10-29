@@ -91,6 +91,20 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
                 s.v = s.v.wrapping_add(other.speed.v.wrapping_mul(0x80));
             }
         }
+        Some(Task::Grate) => {
+            let kicking = h.player.hot_rect[1] == 0;
+            let p = &mut h.player;
+            if crate::grate::touch_grate(&mut p.body, p.dir, kicking, HOT_RECT, other, w.physics.bounce, &mut g.tile.kick_contact) {
+                events.push(TouchEvent::Sound(crate::grate::snd::HIT));
+            }
+        }
+        Some(Task::Ghost) if on_floor => {
+            if g.tile.ouch_cooldown == 0 && other.f6e == 2 && h.player.hot_rect[1] != 0 {
+                g.tile.comfort_delta = g.tile.comfort_delta.wrapping_sub(7);
+                g.tile.ouch_cooldown = 12;
+                events.push(TouchEvent::Sound(crate::ghost::snd::TOUCH));
+            }
+        }
         Some(Task::SlidingDoor) => {
             rect_bounce(&mut h.player.body, 32, i32::from(w.physics.bounce), HOT_RECT, other.at, other.hot_rect);
         }

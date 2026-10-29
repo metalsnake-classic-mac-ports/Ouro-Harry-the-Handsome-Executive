@@ -306,6 +306,10 @@ impl Game {
                     r.kind = kind;
                     r.f7c = pipe;
                 }
+                SpriteEvent::ExplosionAt { h, v, a, b, timer } => {
+                    let i = self.explosion(h, v, a, b);
+                    self.world.sprites.recs[i].timer = timer;
+                }
                 SpriteEvent::Score(n) => self.g.score = self.g.score.wrapping_add(n),
                 SpriteEvent::Forget(i) => {
                     if let Some(e) = usize::try_from(i).ok().and_then(|i| self.level.sprites.get_mut(i)) {
@@ -411,6 +415,7 @@ impl Game {
         find_upper_left_corner(&mut self.view, self.g.player_pos, self.prefs.scroll, self.prefs.even_v, self.prefs.blit);
         self.check_tile_collisions(assets);
         self.world.erase_sprites(&mut self.level);
+        self.draw_pass(assets);
         self.update_meters();
         // CheckGameEvents
         if self.seen_level != self.counter.current {
@@ -610,6 +615,11 @@ impl Game {
                 s.into_sprite(&mut sp);
             }
             Some(Task::Effect) => handle_effect(&mut sp),
+            Some(Task::Grate) => crate::grate::handle_grate(&mut sp, &mut events),
+            Some(Task::Ghost) => {
+                let (view, player) = (self.view.corner, self.g.player_pos);
+                crate::ghost::handle_ghost(&mut sp, view, player, &mut self.rng, &mut events);
+            }
             Some(Task::FirePipe) => {
                 let info1 = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map(|i| self.level.sprites[i].info[1]);
                 crate::firepipe::handle_fire_pipe(&mut sp, info1, &mut self.rng, &mut events);
@@ -695,6 +705,8 @@ impl Game {
             Some(HitTask::DartEnemy) => hit_dart_enemy(&mut sp, &mut o, &mut self.g, &mut self.rng, &mut events),
             Some(HitTask::Ramp) => hit_ramp(&mut sp, &o, self.physics.bounce),
             Some(HitTask::PlayerShot) => hit_player_shot(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
+            Some(HitTask::Grate) => crate::grate::hit_grate(&mut sp, &o, &mut self.rng),
+            Some(HitTask::Ghost) => crate::ghost::hit_ghost(&mut sp, &mut o, &mut events),
             Some(HitTask::Robot) => {
                 let caffeine = self.g.caffeine > 0;
                 crate::robot::hit_robot(&mut sp, &mut o, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, caffeine, &mut events);
@@ -741,6 +753,40 @@ impl Game {
             let r = self.rng.below(100);
             let id = snd::OUCH[if r < 43 { 0 } else if r < 86 { 1 } else { 2 }];
             self.play(id, 0x100, None, RATE, Channel::Voice);
+        }
+    }
+
+    /// What drawing does to the game (`DrawSpritesBehindTiles` /
+    /// `DrawSpritesAboveTiles` → `WrapDrawSprite` → the face's draw proc):
+    /// every sprite with a task and a face whose `at` lies within the view
+    /// − 64 … + 512 and whose face reaches into the 448 × 448 view is
+    /// drawn, and some draw procs change it - a hit robot is drawn lit and
+    /// goes back to layer 7, a hit grate to 9. (Scaled sprites are placed
+    /// by `FindScaledPosAndBounds` in the original; the port tests their
+    /// `at`.)
+    fn draw_pass(&mut self, assets: &Assets) {
+        let (vv, vh) = (i32::from(self.view.corner.0), i32::from(self.view.corner.1));
+        for k in 0..self.world.sprites.list.len() {
+            let i = self.world.sprites.list[k];
+            let sp = &self.world.sprites.recs[i];
+            if sp.task.is_none() || sp.face == 0 {
+                continue;
+            }
+            let (v, h) = (i32::from(sp.at.0), i32::from(sp.at.1));
+            if !(vv - 64 <= v && v < vv + 512 && vh - 64 <= h && h < vh + 512) {
+                continue;
+            }
+            let b = (assets.face_bounds)(sp.face);
+            let (w, ht) = (i32::from(b[3]), i32::from(b[2]));
+            if !(vh <= h + w && vv <= v + ht && h <= vh + 448 && v <= vv + 448) {
+                continue;
+            }
+            let sp = &mut self.world.sprites.recs[i];
+            match sp.task {
+                Some(Task::Robot) if sp.layer == 10 => sp.layer = 7,
+                Some(Task::Grate) => crate::grate::drawn(sp),
+                _ => {}
+            }
         }
     }
 

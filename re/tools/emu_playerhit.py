@@ -1,5 +1,5 @@
 """Record HitPlayerSprite - Harry touching another sprite - for the kinds
-the port has (bonus, item, door, collider, dart enemy, ramp, stairs, sliding door, co-worker, mail guy, robot, enemy shot). The other sprite is made by its real
+the port has (bonus, item, door, collider, dart enemy, ramp, stairs, sliding door, co-worker, mail guy, robot, grate, ghost, enemy shot). The other sprite is made by its real
 setup; doors get a level entry (index, info #0) on level 1.
 
 Each line: "<name=value ...> -> <name=value ...>"
@@ -26,7 +26,7 @@ SLOTS = {"t24": 0x10065E24, "t28": 0x10065E28, "staple": 0x10065AEC, "badass": 0
          "t40": 0x10065E40}
 KICK_RESET, PHYSICS, BOUNCED, SCORE = 0x10065E20, 0x100659D8, 0x10065E50, 0x10065AF8
 VOICE, VOICE2, REMARK = 0x10068AA0, 0x10068AA4, 0x10068A98
-SOUNDS = {0x10065CC0: 212, 0x10065CC4: 211, 0x10065CC8: 210, 0x10065CB0: 216, 0x10065CB8: 214,
+SOUNDS = {0x10065BA8: 4702, 0x10065C94: 224, 0x10065CC0: 212, 0x10065CC4: 211, 0x10065CC8: 210, 0x10065CB0: 216, 0x10065CB8: 214,
           0x10065C28: 218, 0x10065C24: 219, 0x10065C60: 240, 0x10065CE0: 204, 0x10065CDC: 205, 0x10065CCC: 209, 0x10065C48: 251, 0x10065C98: 223}
 ITEMS = [11199, 11299, 11397, 11398, 11399, 11499, 11599, 11699, 11799, 11899, 11999]
 DOORS = [901, 902, 903, 911, 912, 913, 921, 922, 923, 931, 932, 933]
@@ -40,6 +40,7 @@ KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("
          ("SetupCoWorkerSprite", [1301, 1321, 1441]),
          ("SetupMailGuySprite", [1601, 1611, 1621, 1631]),
          ("SetupRobotSprite", [1801, 1811, 1821, 2001]),
+         ("SetupGrateSprite", [3900, 3905, 3910, 3915]), ("SetupGhostSprite", [5001, 5011]),
          ("SetupEnemyShotSprite", [1018, 1038, 1051, 9610, 9450, 1800, 1950, 1150, 1299, 2281, 2291, 2500])]
 FRAME = STACK_TOP - 0x1000 - 0x140              # HitPlayerSprite's r1
 CASES = 30000
@@ -50,7 +51,7 @@ def main():
     m = Machine(f"{work}/ppc")
     Faces(m, work)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # mask loader (the ramps' masks)
-    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitRobotSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
+    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitRobotSprite", "InitGrateSprite", "InitGhostSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
         m.call(init)
     lvl = m.load_level(open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read())
     ev = []
@@ -150,6 +151,10 @@ def main():
         m.w16(other + 0x68, st["levelindex"])
         m.w16(other + 0x74, st["otimer"])
         m.w16(other + 0x66, st["omdir"])
+        # hotRect2 as SAT leaves it after the sprite's task: the hot rect at pos
+        hr = struct.unpack(">hhhh", m.read(other + 6, 8))
+        pv_, ph_ = struct.unpack(">hh", m.read(other + 2, 4))
+        m.write(other + 0x0E, struct.pack(">hhhh", hr[0] + pv_, hr[1] + ph_, hr[2] + pv_, hr[3] + ph_))
         if st["setospeed"] != "-":
             sv, sh = map(int, st["setospeed"].split(":"))
             m.w16(other + 0x4E, sv)

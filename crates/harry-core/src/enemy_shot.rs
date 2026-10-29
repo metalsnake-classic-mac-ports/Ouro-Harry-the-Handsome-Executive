@@ -291,19 +291,20 @@ pub fn hit_enemy_shot_tile(sp: &mut Sprite, hit: TileHit, level: &Level, masks: 
 }
 
 /// `HitEnemyShotSprite`. The can bounces off colliders, coolers,
-/// plants, barrels and chairs (and grates) like `RectBounce` with half 4 and
+/// plants, barrels, chairs and grates like `RectBounce` with half 4 and
 /// bounce 255. Other shots stop at colliders and sliding doors (sound 4701) - the wall
 /// guns' shot passes through the guns - and a homing shot meeting
 /// another enemy or player shot bursts, taking a plain shot with it or
 /// bursting a homing one too. A shot that is not a big robot's at a big
 /// robot (and not still leaving its gun, `f7c` 0) costs a robot a hit
-/// point (`robot::shot_hit`). (Grates come with their kind.)
+/// point (`robot::shot_hit`); a grate with hits left loses one (sound
+/// 4702, layer 10) and stops it.
 pub fn hit_enemy_shot(sp: &mut Sprite, other: &mut Sprite, events: &mut Vec<SpriteEvent>) {
     if sp.frozen || other.frozen {
         return;
     }
     if sp.kind == 9610 {
-        if matches!(other.task, Some(Task::Collider | Task::Cooler | Task::Plant | Task::Barrel | Task::Chair)) {
+        if matches!(other.task, Some(Task::Collider | Task::Cooler | Task::Plant | Task::Barrel | Task::Chair | Task::Grate)) {
             let mut body = sp.body();
             rect_bounce(&mut body, 4, 0xff, sp.hot_rect, other.at, other.hot_rect);
             sp.set_body(body);
@@ -318,6 +319,12 @@ pub fn hit_enemy_shot(sp: &mut Sprite, other: &mut Sprite, events: &mut Vec<Spri
             events.push(SpriteEvent::Sound3D(snd::HIT));
             sp.frozen = true;
         }
+    } else if other.task == Some(Task::Grate) && other.state > 0 {
+        other.state -= 1;
+        other.b8a = true;
+        events.push(SpriteEvent::Sound3D(crate::grate::snd::HIT));
+        other.layer = 10;
+        sp.frozen = true;
     } else if matches!(other.task, Some(Task::EnemyShot | Task::PlayerShot)) && homing(sp.kind) {
         sp.timer = -16;
         if homing(other.kind) {

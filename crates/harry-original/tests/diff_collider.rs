@@ -35,6 +35,7 @@ fn task(name: &str) -> Task {
         "barrel" => Task::Barrel,
         "chair" => Task::Chair,
         "robot" => Task::Robot,
+        "ghost" => Task::Ghost,
         _ => Task::Door,
     }
 }

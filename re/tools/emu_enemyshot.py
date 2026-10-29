@@ -49,7 +49,7 @@ def main():
     faces = Faces(m)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # the mask loader; filled below
     for f in ("InitEnemyShotSprite", "InitTileHotRects", "InitColliderSprite", "InitCoolerSprite",
-              "InitPlantSprite", "InitBonusSprite", "InitBarrelSprite", "InitChairSprite", "InitSlidingDoorSprite", "InitRobotSprite"):
+              "InitPlantSprite", "InitBonusSprite", "InitBarrelSprite", "InitChairSprite", "InitSlidingDoorSprite", "InitRobotSprite", "InitGrateSprite"):
         m.call(f)
     tv = tvectors(f"{work}/ppc")
     ms = masks(work)
@@ -176,7 +176,7 @@ def main():
         v, hh = rnd.randint(200, 3800), rnd.randint(200, 3800)
         st = {"v": v, "h": hh, **inputs(kind),
               "other": rnd.choice(["collider", "collider", "cooler", "plant", "enemyshot", "enemyshot", "playershot",
-                                   "bonus", "barrel", "chair", "sliding", "robot", "robot"]),
+                                   "bonus", "barrel", "chair", "sliding", "robot", "robot", "grate", "grate"]),
               "okind": 0, "ov": v + rnd.randint(-30, 30), "oh": hh + rnd.randint(-30, 30),
               "frozen": int(rnd.random() < 0.05), "ofrozen": int(rnd.random() < 0.05)}
         if st["other"] == "collider":
@@ -189,6 +189,8 @@ def main():
             st["okind"] = rnd.choice(KINDS)
         elif st["other"] == "bonus":
             st["okind"] = 700
+        elif st["other"] == "grate":
+            st["okind"] = rnd.choice([3900, 3905, 3910, 3915])
         elif st["other"] == "robot":
             st["okind"] = rnd.choice([1801, 1811, 1821, 2001, 2011])
         elif st["other"] == "sliding":
@@ -211,7 +213,8 @@ def main():
             m.w32(m.glob(0x100659B4), 0)                # gPlayerH / V: the robots face Harry
             m.call({"collider": "SetupColliderSprite", "cooler": "SetupCoolerSprite", "plant": "SetupPlantSprite",
                     "enemyshot": "SetupEnemyShotSprite", "bonus": "SetupBonusSprite", "barrel": "SetupBarrelSprite",
-                    "chair": "SetupChairSprite", "sliding": "SetupSlidingDoorSprite", "robot": "SetupRobotSprite"}[st["other"]], other)
+                    "chair": "SetupChairSprite", "sliding": "SetupSlidingDoorSprite", "robot": "SetupRobotSprite",
+                    "grate": "SetupGrateSprite"}[st["other"]], other)
         if st["other"] == "enemyshot" and 1101 <= st["okind"] <= 1299:
             m.w16(other + 0x74, 0)
         m.write(other + 0x92, bytes([st["ofrozen"]]))

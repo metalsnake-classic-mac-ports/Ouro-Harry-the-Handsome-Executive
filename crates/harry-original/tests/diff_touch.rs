@@ -18,6 +18,8 @@ use harry_core::button::setup_sliding_door;
 use harry_core::coworker::setup_coworker;
 use harry_core::mailguy::setup_mail_guy;
 use harry_core::robot::setup_robot;
+use harry_core::grate::setup_grate;
+use harry_core::ghost::setup_ghost;
 use harry_core::kinds::{setup_bonus, setup_door, setup_item};
 use harry_core::physics::Speed;
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT, Player, TileState};
@@ -107,6 +109,8 @@ fn touching_matches_the_original() {
             1301 | 1321 | 1441 => setup_coworker(&mut other),
             1601 | 1611 | 1621 | 1631 => setup_mail_guy(&mut other),
             1801 | 1811 | 1821 | 2001 => setup_robot(&mut other, (0, 0)),
+            3900 | 3905 | 3910 | 3915 => setup_grate(&mut other),
+            5001 | 5011 => setup_ghost(&mut other, (0, 0)),
             900..1000 => setup_door(&mut other),
             1011 | 1021 | 1031 | 1041 => setup_dart_enemy(&mut other),
             // the recorder's enemy shot kinds
@@ -118,6 +122,7 @@ fn touching_matches_the_original() {
         }
         other.timer = w("otimer");
         other.dir = w("omdir");
+        other.hot_rect2 = harry_core::sat::absolute(other.hot_rect, other.pos);
         if i["setospeed"] != "-" {
             let (v, h) = i["setospeed"].split_once(':').unwrap();
             other.speed = Speed { v: v.parse().unwrap(), h: h.parse().unwrap() };

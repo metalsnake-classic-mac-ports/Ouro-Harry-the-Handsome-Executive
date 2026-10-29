@@ -333,8 +333,9 @@ pub fn hit_shot_tile(s: &mut Shot, shot_mask: &Mask, walls: &[Mask], hit: TileHi
 /// time, makes them say one of four things; the struck sprite flinches
 /// (layer 10, +0x8a). A soda can (kind 4) bursts on anything but Harry,
 /// his weapon and effects: sound 500 and an explosion (kind 14) at its
-/// position − 28. A robot loses a hit point (`robot::shot_hit`). Blobs
-/// and grates take damage here too - with their kinds.
+/// position − 28. A robot loses a hit point (`robot::shot_hit`), a grate
+/// with hits left one (`grate::player_shot_hit`). Blobs take damage here
+/// too - with their kind.
 pub fn hit_player_shot(sp: &mut Sprite, other: &mut Sprite, favor: &mut i16, rng: &mut Random, events: &mut Vec<SpriteEvent>) {
     if sp.frozen || other.frozen {
         return;
@@ -364,6 +365,10 @@ pub fn hit_player_shot(sp: &mut Sprite, other: &mut Sprite, favor: &mut i16, rng
             other.b8a = true;
         }
         _ => {}
+    }
+    if other.task == Some(Task::Grate) && other.state > 0 {
+        crate::grate::player_shot_hit(other, rng, events);
+        sp.frozen = true;
     }
     if sp.kind == 4 && !matches!(other.task, Some(Task::Player | Task::HeldWeapon | Task::Effect)) {
         sp.frozen = true;

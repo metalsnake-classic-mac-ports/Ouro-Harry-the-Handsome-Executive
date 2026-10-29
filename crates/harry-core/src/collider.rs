@@ -375,10 +375,10 @@ fn vending_kick(sp: &mut Sprite, w: &mut ColliderWorld, events: &mut Vec<SpriteE
 }
 
 /// The tasks a fan blows (`HandleRepulsions`): Harry, shots, plants,
-/// barrels, chairs, robots - and blobs, ghosts and reversors, which come
+/// barrels, chairs, robots, ghosts - and blobs and reversors, which come
 /// with their kinds.
 pub fn is_repelled(task: Task) -> bool {
-    matches!(task, Task::Player | Task::PlayerShot | Task::EnemyShot | Task::Plant | Task::Barrel | Task::Chair | Task::Robot)
+    matches!(task, Task::Player | Task::PlayerShot | Task::EnemyShot | Task::Plant | Task::Barrel | Task::Chair | Task::Robot | Task::Ghost)
 }
 
 /// `SpriteCenter` (PPC 0x1001e458): the middle of the hot rect at `at`,

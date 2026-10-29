@@ -16,6 +16,7 @@ use harry_core::button::setup_sliding_door;
 use harry_core::coworker::setup_coworker;
 use harry_core::mailguy::setup_mail_guy;
 use harry_core::robot::setup_robot;
+use harry_core::grate::setup_grate;
 use harry_core::kinds::{PlantHitMasks, hit_plant, setup_cooler, setup_door, setup_plant};
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT};
 use harry_core::random::Random;
@@ -71,6 +72,7 @@ fn plant_hits_match_the_original() {
             14 => setup_coworker(&mut o),
             15 => setup_mail_guy(&mut o),
             16 => setup_robot(&mut o, (0, 0)),
+            17 => setup_grate(&mut o),
             7 => {
                 setup_effect(&mut o);
                 o.kind = okind;
