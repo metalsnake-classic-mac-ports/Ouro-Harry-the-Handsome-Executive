@@ -228,10 +228,9 @@ fn explode(sp: &mut Sprite, w: &mut RobotWorld, events: &mut Vec<SpriteEvent>) {
     events.push(SpriteEvent::MovingExplosion { h: sp.pos.1.wrapping_sub(d), v: sp.pos.0.wrapping_sub(d), speed, a: 0, b: 0 });
     events.push(SpriteEvent::Sound3D(snd::EXPLODE));
     w.g.chatter = 20;
-    if let Some(e) = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map(|i| &w.level.sprites[i]) {
-        if e.info[3] != 0 {
-            events.push(SpriteEvent::Generate { kind: e.info[3], h: sp.at.1, v: sp.at.0 });
-        }
+    let drop = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map_or(0, |i| w.level.sprites[i].info[3]);
+    if drop != 0 {
+        events.push(SpriteEvent::Generate { kind: drop, h: sp.at.1, v: sp.at.0 });
     }
 }
 
