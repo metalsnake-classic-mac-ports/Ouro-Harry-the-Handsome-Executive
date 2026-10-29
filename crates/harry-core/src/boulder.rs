@@ -143,13 +143,13 @@ pub fn hit_boulder_tile(sp: &mut Sprite, hit: crate::tiles::TileHit) {
     }
 }
 
-/// `HitBoulderSprite`: a robot it rolls over is out of hit points (a blob
-/// too - with its kind).
+/// `HitBoulderSprite`: a robot or blob it rolls over is out of hit
+/// points.
 pub fn hit_boulder(sp: &Sprite, other: &mut Sprite) {
     if sp.frozen || other.frozen {
         return;
     }
-    if other.task == Some(Task::Robot) {
+    if matches!(other.task, Some(Task::Robot | Task::Blob)) {
         other.state = 0;
     }
 }

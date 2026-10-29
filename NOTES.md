@@ -891,6 +891,56 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   tile collisions, partners), all matching; 18 of 19 mutations caught
   (the survivor is equivalent). They are also in the Harry, button, fan
   and world recorders (the touch recorder now has the shake counter).
+- **Scientists** (1111 / 1211 right, 1121 / 1221 left, 1131 / 1231 up,
+  1141 / 1241 down; idle; layer 9, hot rect (8, 8, 24, 24); faces 4301 +
+  pose + 8 × group (PICT 1111)). Only while `at` is within the view − 64
+  … + 512. `f6e` counts a throw: 0 waits (pose 1) until Harry's direction
+  (the robots') is in its arc (1111: below 5 or above 30; 1121: 15–21;
+  1131: 6–12; 1141: 24–30) and keeps it in `speed.h`; 1–8 wind up (poses
+  1–3); 9 throws (pose 4, 3-D sound 300): a shot of its own kind from
+  its hand (1131 pos + (20, 2) (h, v), 1121 (4, 4), 1111 (22, 20), 1141
+  (5, 19)), 1200 along the kept direction (12xx 1800; the unit table of
+  the ghosts), then timer 0 and dir 0 - the 11xx / 12xx shots are the
+  homing ones, so it homes at once; 10–20 follow through (poses 4–7);
+  then, once the timer (a hit's pause) is out, it counts on and starts
+  over at random (11xx 1 in 25 a frame from 46, 12xx 1 in 15 from 16).
+  Layer 10 goes back to 7. Hit task: a player shot is gone, sound 4700,
+  layer 10, corporate favor − 3, a pause of 65–134 frames (the shot's own
+  hit task takes 2 more and may make it say something). Harry bounces
+  off it like off a co-worker.
+- **Blobs** (1701 5 hit points, hops at random with 3200; 1711 7 points,
+  lunges with 4500, 2 in 3 times at Harry; 1721 5 points, creeps after
+  him 350 a frame for 15 frames, 93 in 100 times at him; idle; layer 7,
+  hot rect (4, 4, 24, 24); faces 1401… (PICT 1701: 16 turning, 8 dying);
+  setup: a random direction 0–34 and wait 0–89, resting). Modes (`f6e`):
+  2 set off (`AccelerateBlob`, the unit table), 0 slide (× 0.7 until both
+  below 101, then rest for 30–89 / 15–54 / 5–64 frames; 1711 and 1721
+  set off again at random, 1 in 20 / 1 in 34 a frame), 4 rest (the timer
+  counts down, turning a step a frame below 40 and another below 20, then
+  set off). At most 2000 per axis (`EnforceMaxSpeed`); face dir / 2 of
+  16; half pipes (centre + 16, sound 604) and, in the air, jumps. Out of
+  hit points: 32 frames of dying (faces 1416…), then 500 / 1200 / 2500
+  points and info #3 made. Hit task: explosions push (+ 16) and cost a
+  point (layer 10); doors (open ones too), plants, barrels, coolers,
+  grates, boulders, sliding doors, chairs, co-workers, colliders: move
+  undone, × −1.1, sliding; Harry's kick: sound 600, a point, a quarter of
+  13 × kick thrust ((kick × 26) >> 2), kick contact 64. Tile task: walls
+  (`WallBounce`, centre + 16, bounce 255, cicn 598) and obstacles (it
+  bounces back) - the first blob of the frame only (flags `…f00` /
+  `…efc`). Player shots: with points left one less, layer 10, `f6e` 0,
+  sound 604 (and 603 for the last). Harry on the floor touching one:
+  sound 224 and comfort delta − 6 (1711 and up − 9), damage cooldown 6
+  (12). Mail carts and boulders finish them; fans blow them; the draw
+  proc puts a hit blob back to layer 7 (+0x8a).
+- `re/tools/emu_blob.py`: 8000 scientist runs (view and Harry moving,
+  shots) and 8000 blob runs (tile collisions, partners) of 1–150 frames
+  at their places in Episode 1, all matching; 28 of 28 mutations caught.
+  `re/tools/emu_playershot.py`: 30 000 player shot hits on every kind its
+  hit task knows (colliders, sliding doors, dart enemies, co-workers,
+  scientists, robots, blobs, grates) and some it passes, all matching -
+  except the blobs' setup face past its table (BUGS.md), which the tests
+  leave out. Scientists and blobs are also in the Harry, fan and world
+  recorders.
 - **Drawing changes sprites.** `DrawSpritesBehindTiles` /
   `DrawSpritesAboveTiles` (after `EraseSprites`) call `WrapDrawSprite`
   for every sprite with a task and a face whose `at` lies within the

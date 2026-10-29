@@ -161,6 +161,7 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
         plant_flag: false,
         robot_flags: (false, false),
         reversor_flags: (false, false),
+        blob_flags: (false, false),
         magnet: 0,
         gun: 0,
         harry: None,

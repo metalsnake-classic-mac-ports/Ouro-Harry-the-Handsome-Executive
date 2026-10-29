@@ -21,7 +21,47 @@ fn ported(k: i16) -> bool {
     matches!(k, 500 | 501 | 601 | 700..=799 | 900..=949 | 1000..=1049 | 1609 | 1619 | 1629 | 1639 | 2301..=2304
         | 3000 | 3100 | 3101 | 9199 | 9200 | 9300 | 9600 | 9800 | 9401..=9499 | 9700..=9799 | 9990..=9999
         | 11001..=19999 | 21000.. | 550 | 560 | 1601 | 1611 | 1621 | 1631 | 950..=999 | 1300..=1449 | 1800..=1849
-        | 2000..=2099 | 4200..=4299 | 9500..=9599 | 9900..=9909 | 3900..=3999 | 5000..=5999 | 1850..=1999 | 6000..=6099)
+        | 2000..=2099 | 4200..=4299 | 9500..=9599 | 9900..=9909 | 3900..=3999 | 5000..=5999 | 1850..=1999 | 6000..=6099 | 1100..=1299 | 1700..=1799)
+}
+
+/// A blob set up facing 24 or more takes its face from past its table in
+/// the original (BUGS.md), and its idle slot keeps it; the port has none.
+fn blob_faces(b: &str) -> String {
+    let blob = |k: &str| k.parse::<i16>().is_ok_and(|k| (1700..1800).contains(&k));
+    b.split(' ')
+        .map(|part| {
+            if let Some(idle) = part.strip_prefix("idle=") {
+                let slots: Vec<String> = idle
+                    .split(';')
+                    .map(|slot| {
+                        let mut f: Vec<String> = slot.split(':').map(str::to_string).collect();
+                        if f.len() > 5 && blob(&f[4]) && f[5].parse::<i16>().is_ok_and(|d| d >= 24) {
+                            f[2] = "0".into();
+                        }
+                        f.join(":")
+                    })
+                    .collect();
+                format!("idle={}", slots.join(";"))
+            } else if let Some(list) = part.strip_prefix("list=") {
+                let recs: Vec<String> = list
+                    .split(';')
+                    .map(|r| {
+                        let kind = r.split(':').next().and_then(|k| k.split("kind=").nth(1)).unwrap_or("");
+                        let dir = r.split(':').find_map(|f| f.strip_prefix("dir=")).and_then(|d| d.parse::<i16>().ok());
+                        if blob(kind) && dir.is_some_and(|d| d >= 24) {
+                            r.split(':').map(|f| if f.starts_with("face=") { "face=0" } else if f.starts_with("f86=") { "f86=0" } else { f }).collect::<Vec<_>>().join(":")
+                        } else {
+                            r.to_string()
+                        }
+                    })
+                    .collect();
+                format!("list={}", recs.join(";"))
+            } else {
+                part.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn state(w: &World, before: &harry_core::Level, level: &harry_core::Level) -> String {
@@ -136,6 +176,8 @@ fn level_start_and_idle_sprites_match_the_original() {
             }
         }
         let got = state(&w, &before, &level);
+        let b = blob_faces(b);
+        let b = b.as_str();
         n += 1;
         if got != b {
             bad += 1;

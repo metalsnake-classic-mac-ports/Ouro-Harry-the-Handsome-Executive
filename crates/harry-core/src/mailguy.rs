@@ -145,12 +145,12 @@ pub fn blocks(way: Way, wall: i16) -> bool {
 }
 
 /// `HitMailGuySprite`: shots stop on it; a robot it meets is out of hit
-/// points (blobs too - with their kind).
+/// points, and so is a blob.
 pub fn hit_mail_guy(sp: &Sprite, other: &mut Sprite) {
     if sp.frozen || other.frozen {
         return;
     }
-    if other.task == Some(Task::Robot) {
+    if matches!(other.task, Some(Task::Robot | Task::Blob)) {
         other.state = 0;
     }
     if matches!(other.task, Some(Task::EnemyShot | Task::PlayerShot)) {

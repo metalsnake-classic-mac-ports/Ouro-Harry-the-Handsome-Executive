@@ -37,6 +37,7 @@ fn task(name: &str) -> Task {
         "robot" => Task::Robot,
         "ghost" => Task::Ghost,
         "reversor" => Task::Reversor,
+        "blob" => Task::Blob,
         _ => Task::Door,
     }
 }

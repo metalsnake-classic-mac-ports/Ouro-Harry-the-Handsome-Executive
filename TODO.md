@@ -50,6 +50,8 @@
 - [x] Fire pipes and flames (30 000 runs); level 5 has all its kinds; the world recorder covers every ported kind
 - [x] Grates, fences and ghosts (75 000 cases); level 6 has all its kinds
 - [x] Turrets, reversors, boulders (18 000 runs); level 7 has all its kinds
+- [x] Scientists and blobs (16 000 runs), player shot hits on every kind (30 000); levels 8–14 have all their kinds
+- [ ] The boss (2201, level 15); hazards (3001) and desks (301–319) are not in Episode 1
 - [ ] Whole-frame recorder (`emu_game.py`) for the other levels, with the draw pass (layer changes of draw procs)
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
 - [ ] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
@@ -82,7 +84,7 @@
 - [x] Whole player frame (`HandlePlayerSprite`) without keys, 20 000 cases
 - [x] `HandleKeys` with the inventory routines: turning, moves, items, weapons, cheats and key sequences, 30 000 cases
 - [x] Player shots and the held weapon (`MakeNewShot`, `HandleHeldWeaponSprite`, shot flight, shots vs. walls), 47 500 cases
-- [ ] Shots hitting sprites (`HitPlayerShotSprite`) - with the sprite kinds
+- [x] Shots hitting sprites (`HitPlayerShotSprite`): `re/tools/emu_playershot.py`
 - [ ] See the last-strong-shot backfire, negative ammo and shots passing walls (BUGS.md) in the emulator
 - [ ] See the garbage-scale frame (BUGS.md) in the emulator: drop Harry into a hole in level 11
 - [x] Level model (`harry_core::Level`), MacBinary / resource fork / `Hlvl` reader + writer (exact round trip)

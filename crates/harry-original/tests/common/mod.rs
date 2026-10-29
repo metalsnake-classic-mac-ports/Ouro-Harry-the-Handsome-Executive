@@ -37,6 +37,8 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::Turret) => "HandleTurretSprite",
         Some(Task::Reversor) => "HandleReversorSprite",
         Some(Task::Boulder) => "HandleBoulderSprite",
+        Some(Task::Scientist) => "HandleScientistSprite",
+        Some(Task::Blob) => "HandleBlobSprite",
     }
 }
 
@@ -69,6 +71,8 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Turret) => "HitTurretSprite",
         Some(HitTask::Reversor) => "HitReversorSprite",
         Some(HitTask::Boulder) => "HitBoulderSprite",
+        Some(HitTask::Scientist) => "HitScientistSprite",
+        Some(HitTask::Blob) => "HitBlobSprite",
     }
 }
 
@@ -86,6 +90,7 @@ pub fn tile_name(t: Option<HitTileTask>) -> &'static str {
         Some(HitTileTask::Robot) => "HitRobotTileSprite",
         Some(HitTileTask::Reversor) => "HitReversorTileSprite",
         Some(HitTileTask::Boulder) => "HitBoulderTileSprite",
+        Some(HitTileTask::Blob) => "HitBlobTileSprite",
     }
 }
 
@@ -103,9 +108,10 @@ pub fn event(e: &SpriteEvent) -> String {
         SpriteEvent::Score(n) => format!("score:{n}"),
         SpriteEvent::ExplosionAt { h, v, a, b, timer } => format!("x:{h}:{v}:{a}:{b}:t{timer}"),
         SpriteEvent::Flame { pipe, h, v, kind } => format!("flame:{pipe}:{h}:{v}:{kind}"),
-        SpriteEvent::Shot { kind, h, v, speed, dir, fix } => {
+        SpriteEvent::Shot { kind, h, v, speed, dir, fix, timer } => {
             let (fh, fv) = fix.unwrap_or((i32::from(h) << 8, i32::from(v) << 8));
-            format!("shot:{kind}:{h}:{v}:{}:{}:{dir}:{fh}:{fv}", speed.v, speed.h)
+            let t = timer.map_or(String::new(), |t| format!(":t{t}"));
+            format!("shot:{kind}:{h}:{v}:{}:{}:{dir}:{fh}:{fv}{t}", speed.v, speed.h)
         }
         SpriteEvent::Generate { kind, h, v } => format!("gen:{kind}:{h}:{v}"),
         SpriteEvent::Forget(i) => format!("forget:{i}"),

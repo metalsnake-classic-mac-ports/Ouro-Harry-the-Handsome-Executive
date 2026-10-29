@@ -117,6 +117,7 @@ fn level_1_frames_match_the_original() {
             plant_flag: false,
         robot_flags: (false, false),
         reversor_flags: (false, false),
+        blob_flags: (false, false),
             magnet: 0,
             gun: 0,
             harry: None,

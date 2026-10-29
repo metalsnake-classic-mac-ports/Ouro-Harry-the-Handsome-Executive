@@ -44,6 +44,8 @@ pub enum Task {
     Turret,
     Reversor,
     Boulder,
+    Scientist,
+    Blob,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -78,6 +80,8 @@ pub enum HitTask {
     Turret,
     Reversor,
     Boulder,
+    Scientist,
+    Blob,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -94,6 +98,7 @@ pub enum HitTileTask {
     Robot,
     Reversor,
     Boulder,
+    Blob,
 }
 
 /// What a sprite routine asks of the rest of the game.
@@ -115,8 +120,9 @@ pub enum SpriteEvent {
     /// moves on with `speed` (px a frame) while it plays.
     DynamicSound { id: i16, volume: i16, speed: Speed },
     /// `SATNewSprite(kind, h, v, SetupEnemyShotSprite)`, then speed and
-    /// `dir` set - and, if given, `fix` (with `pos` and `at` from it).
-    Shot { kind: i16, h: i16, v: i16, speed: Speed, dir: i16, fix: Option<(i32, i32)> },
+    /// `dir` set - and, if given, `fix` (with `pos` and `at` from it) and
+    /// `timer`.
+    Shot { kind: i16, h: i16, v: i16, speed: Speed, dir: i16, fix: Option<(i32, i32)>, timer: Option<i16> },
     /// `GenerateSprite(h, v, kind, −1)`: an object of the level's kinds,
     /// without a level entry.
     Generate { kind: i16, h: i16, v: i16 },

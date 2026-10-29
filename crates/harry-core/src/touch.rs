@@ -131,7 +131,15 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
         }
         Some(Task::Door) => door(h, g, other, w, events),
         Some(Task::Collider) if on_floor && !matches!(other.kind, 3100 | 3101) => collider(h, g, other, w.physics),
-        Some(Task::DartEnemy | Task::CoWorker) if on_floor => collider(h, g, other, w.physics),
+        Some(Task::DartEnemy | Task::CoWorker | Task::Scientist) if on_floor => collider(h, g, other, w.physics),
+        Some(Task::Blob) if on_floor => {
+            if g.tile.ouch_cooldown == 0 {
+                events.push(TouchEvent::Sound(crate::ghost::snd::TOUCH));
+                let (hurt, wait) = if other.kind < 1711 { (6, 6) } else { (9, 12) };
+                g.tile.comfort_delta = g.tile.comfort_delta.wrapping_sub(hurt);
+                g.tile.ouch_cooldown = wait;
+            }
+        }
         Some(Task::EnemyShot) if on_floor => enemy_shot(h, g, other, events),
         Some(Task::Effect) if on_floor => effect(h, g, other, events),
         Some(Task::Bonus) if on_floor => bonus(g, other, voice_playing, events),

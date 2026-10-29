@@ -153,6 +153,13 @@ option) and why.
   first robot in the list touching a wall or an obstacle that frame
   bounces, the others pass into it. Port: keep.
 
+- **A blob starts with a face from past its table.** `SetupBlobSprite`
+  picks a direction 0–34 and sets the face to entry `dir` of a table of
+  24 faces: for 24 and up it takes whatever lies behind the table (in the
+  recorder the next loaded face or garbage). The blob's first frame sets
+  a proper face, so it only matters if it is drawn before that. Port: no
+  face for those.
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

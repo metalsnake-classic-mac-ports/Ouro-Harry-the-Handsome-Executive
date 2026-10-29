@@ -97,6 +97,8 @@ pub struct Game {
     pub robot_flags: (bool, bool),
     /// The same for the reversors (`PTR_DAT_10066188` / `…84`).
     pub reversor_flags: (bool, bool),
+    /// And for the blobs (`PTR_DAT_10065f00` / `…efc`).
+    pub blob_flags: (bool, bool),
     /// `_DAT_1006c4ac`, the magnets' delay.
     pub magnet: i16,
     /// The drawn gun (`PTR_DAT_100660dc`).
@@ -288,10 +290,13 @@ impl Game {
                     // the port does not move the sound with the sprite yet
                     self.play(id, volume, Some(at), RATE, Channel::Effect);
                 }
-                SpriteEvent::Shot { kind, h, v, speed, dir, fix } => {
+                SpriteEvent::Shot { kind, h, v, speed, dir, fix, timer } => {
                     let i = self.spawn_with(kind, h, v, Setup::EnemyShot, Some(speed));
                     let r = &mut self.world.sprites.recs[i];
                     r.dir = dir;
+                    if let Some(t) = timer {
+                        r.timer = t;
+                    }
                     if let Some(f) = fix {
                         r.fix = f;
                         r.pos = ((f.1 >> 8) as i16, (f.0 >> 8) as i16);
@@ -617,6 +622,22 @@ impl Game {
                 s.into_sprite(&mut sp);
             }
             Some(Task::Effect) => handle_effect(&mut sp),
+            Some(Task::Scientist) => {
+                let (view, player) = (self.view.corner, self.g.player_pos);
+                crate::scientist::handle_scientist(&mut sp, view, player, &mut self.rng, &mut events);
+            }
+            Some(Task::Blob) => {
+                let drop = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map_or(0, |i| self.level.sprites[i].info[3]);
+                let (mut wall, mut obstacle) = self.blob_flags;
+                let mut s = Vec::new();
+                crate::blob::handle_blob(&mut sp, &self.level, self.g.player_pos, drop, &mut self.rng, &mut wall, &mut obstacle, &mut events, &mut s);
+                self.blob_flags = (wall, obstacle);
+                for a in s {
+                    if matches!(a, AirSound::HalfPipeOut | AirSound::Land | AirSound::Bounce) {
+                        self.play(crate::blob::snd::HIT, 0x100, None, RATE, Channel::Effect);
+                    }
+                }
+            }
             Some(Task::Reversor) => {
                 let (mut wall, mut obstacle) = self.reversor_flags;
                 let mut s = Vec::new();
@@ -723,6 +744,8 @@ impl Game {
             Some(HitTask::DartEnemy) => hit_dart_enemy(&mut sp, &mut o, &mut self.g, &mut self.rng, &mut events),
             Some(HitTask::Ramp) => hit_ramp(&mut sp, &o, self.physics.bounce),
             Some(HitTask::PlayerShot) => hit_player_shot(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
+            Some(HitTask::Scientist) => crate::scientist::hit_scientist(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
+            Some(HitTask::Blob) => crate::blob::hit_blob(&mut sp, &o, &self.physics, &mut self.g.tile.kick_contact, &mut events),
             Some(HitTask::Reversor) => crate::reversor::hit_reversor(&mut sp, &mut o, &self.physics, &mut events),
             Some(HitTask::Boulder) => crate::boulder::hit_boulder(&sp, &mut o),
             Some(HitTask::Turret) => crate::turret::hit_turret(&mut sp, &mut o, &mut events),
@@ -782,7 +805,7 @@ impl Game {
     /// every sprite with a task and a face whose `at` lies within the view
     /// − 64 … + 512 and whose face reaches into the 448 × 448 view is
     /// drawn, and some draw procs change it - a hit robot is drawn lit and
-    /// goes back to layer 7 (turrets too), a hit grate to 9. (Scaled sprites are placed
+    /// goes back to layer 7 (turrets and blobs too), a hit grate to 9. (Scaled sprites are placed
     /// by `FindScaledPosAndBounds` in the original; the port tests their
     /// `at`.)
     fn draw_pass(&mut self, assets: &Assets) {
@@ -806,6 +829,7 @@ impl Game {
             match sp.task {
                 Some(Task::Robot | Task::Turret) if sp.layer == 10 => sp.layer = 7,
                 Some(Task::Grate) => crate::grate::drawn(sp),
+                Some(Task::Blob) => crate::blob::drawn(sp),
                 _ => {}
             }
         }
@@ -889,6 +913,10 @@ impl Game {
                     HitTileTask::Reversor => {
                         let (wall, obstacle) = &mut self.reversor_flags;
                         crate::reversor::hit_reversor_tile(sp, hit, &self.level, assets.barrel, walls, &assets.player.obstacle, wall, obstacle);
+                    }
+                    HitTileTask::Blob => {
+                        let (wall, obstacle) = &mut self.blob_flags;
+                        crate::blob::hit_blob_tile(sp, hit, assets.barrel, walls, wall, obstacle);
                     }
                     HitTileTask::Boulder => crate::boulder::hit_boulder_tile(sp, hit),
                     HitTileTask::MailGuy => crate::mailguy::hit_mail_guy_tile(sp, hit),
