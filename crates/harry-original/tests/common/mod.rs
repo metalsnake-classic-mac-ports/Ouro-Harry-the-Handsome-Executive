@@ -34,6 +34,9 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::FirePipe) => "HandleFirePipeSprite",
         Some(Task::Grate) => "HandleGrateSprite",
         Some(Task::Ghost) => "HandleGhostSprite",
+        Some(Task::Turret) => "HandleTurretSprite",
+        Some(Task::Reversor) => "HandleReversorSprite",
+        Some(Task::Boulder) => "HandleBoulderSprite",
     }
 }
 
@@ -63,6 +66,9 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::FirePipe) => "HitFirePipeSprite",
         Some(HitTask::Grate) => "HitGrateSprite",
         Some(HitTask::Ghost) => "HitGhostSprite",
+        Some(HitTask::Turret) => "HitTurretSprite",
+        Some(HitTask::Reversor) => "HitReversorSprite",
+        Some(HitTask::Boulder) => "HitBoulderSprite",
     }
 }
 
@@ -78,6 +84,8 @@ pub fn tile_name(t: Option<HitTileTask>) -> &'static str {
         Some(HitTileTask::Chair) => "HitChairTileSprite",
         Some(HitTileTask::MailGuy) => "HitMailGuyTileSprite",
         Some(HitTileTask::Robot) => "HitRobotTileSprite",
+        Some(HitTileTask::Reversor) => "HitReversorTileSprite",
+        Some(HitTileTask::Boulder) => "HitBoulderTileSprite",
     }
 }
 

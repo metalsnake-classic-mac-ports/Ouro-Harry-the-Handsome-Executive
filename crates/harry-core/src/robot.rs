@@ -55,11 +55,11 @@ mod mode {
 /// The magnitudes of a step in each tenth of a quarter turn (`cos` of
 /// 0°, 10°, … 90° × the step), as the original's tables have them.
 const ACCEL: [f64; 10] = [20.0, 19.7, 18.8, 17.32, 15.32, 12.86, 10.0, 6.840000000000001, 3.4799999999999995, 0.0];
-const SHOT_SPEED: [f64; 10] = [1500.0, 1477.5, 1410.0, 1299.0, 1149.0, 964.5, 750.0, 513.0, 261.0, 0.0];
+pub(crate) const SHOT_SPEED: [f64; 10] = [1500.0, 1477.5, 1410.0, 1299.0, 1149.0, 964.5, 750.0, 513.0, 261.0, 0.0];
 
 /// `AccelerateRobot` / `AssignRobotShotSpeed`: add a step of the table in
 /// direction `dir` (0 = right, counterclockwise; other values nothing).
-fn add_polar(speed: &mut Speed, dir: i16, table: &[f64; 10]) {
+pub(crate) fn add_polar(speed: &mut Speed, dir: i16, table: &[f64; 10]) {
     if !(0..36).contains(&dir) {
         return;
     }

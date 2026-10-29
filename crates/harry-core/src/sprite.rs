@@ -41,6 +41,9 @@ pub enum Task {
     FirePipe,
     Grate,
     Ghost,
+    Turret,
+    Reversor,
+    Boulder,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -72,6 +75,9 @@ pub enum HitTask {
     FirePipe,
     Grate,
     Ghost,
+    Turret,
+    Reversor,
+    Boulder,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -86,6 +92,8 @@ pub enum HitTileTask {
     Chair,
     MailGuy,
     Robot,
+    Reversor,
+    Boulder,
 }
 
 /// What a sprite routine asks of the rest of the game.

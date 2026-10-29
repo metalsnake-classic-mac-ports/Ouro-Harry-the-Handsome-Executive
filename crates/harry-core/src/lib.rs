@@ -6,6 +6,7 @@
 //! loop, 30 per second.
 
 pub mod air;
+pub mod boulder;
 pub mod bounce;
 pub mod button;
 pub mod collider;
@@ -31,6 +32,7 @@ pub mod player;
 pub mod props;
 pub mod ramp;
 pub mod random;
+pub mod reversor;
 pub mod robot;
 pub mod sat;
 pub mod shots;
@@ -40,6 +42,7 @@ pub mod stairs;
 pub mod tiles;
 pub mod text;
 pub mod touch;
+pub mod turret;
 pub mod view;
 pub mod words;
 pub mod world;

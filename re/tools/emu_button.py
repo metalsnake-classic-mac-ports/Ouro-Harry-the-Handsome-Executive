@@ -23,7 +23,7 @@ from sprites import Faces, tvectors, dump  # noqa: E402
 
 SOUNDS = {0x10065B8C: 4709, 0x10065B90: 4708, 0x10065B94: 4707, 0x10065B98: 4706, 0x10065B9C: 4705, 0x10065BA0: 4704}
 BUTTONS = [9501, 9511, 9521, 9531, 9541]
-PARTNERS = ["harry", "kick", "plant", "barrel", "chair", "mailguy", "robot", "playershot", "enemyshot", "bonus"]
+PARTNERS = ["harry", "kick", "plant", "barrel", "chair", "mailguy", "robot", "reversor", "playershot", "enemyshot", "bonus"]
 CASES = 15000
 
 
@@ -85,7 +85,7 @@ def main():
                 p, ov, oh, odir, ofrozen = hit.split(":")
                 m.write(other, bytes(0xA2))
                 task = {"harry": "HandlePlayerSprite", "kick": "HandlePlayerSprite", "plant": "HandlePlantSprite",
-                        "barrel": "HandleBarrelSprite", "chair": "HandleChairSprite", "mailguy": "HandleMailGuySprite", "robot": "HandleRobotSprite", "playershot": "HandlePlayerShotSprite",
+                        "barrel": "HandleBarrelSprite", "chair": "HandleChairSprite", "mailguy": "HandleMailGuySprite", "robot": "HandleRobotSprite", "reversor": "HandleReversorSprite", "playershot": "HandlePlayerShotSprite",
                         "enemyshot": "HandleEnemyShotSprite", "bonus": "HandleBonusSprite"}[p]
                 m.w32(other + 0x1A, by_name[task])
                 m.w16(other + 0x5A, int(ov))

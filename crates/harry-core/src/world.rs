@@ -48,6 +48,9 @@ pub enum Setup {
     FirePipe,
     Grate,
     Ghost,
+    Turret,
+    Reversor,
+    Boulder,
 }
 
 /// Run a setup routine on a sprite.
@@ -78,6 +81,9 @@ pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random, player: (i16, 
         Setup::FirePipe => crate::firepipe::setup_fire_pipe(sp, rng),
         Setup::Grate => crate::grate::setup_grate(sp),
         Setup::Ghost => crate::ghost::setup_ghost(sp, player),
+        Setup::Turret => crate::turret::setup_turret(sp),
+        Setup::Reversor => crate::reversor::setup_reversor(sp),
+        Setup::Boulder => crate::boulder::setup_boulder(sp),
     }
 }
 
@@ -295,8 +301,7 @@ impl World {
     pub fn generate_sprite(&mut self, h: i16, v: i16, kind: i16, index: i16, rng: &mut Random) -> bool {
         let idle = |w: &mut World, h: i16, v: i16, setup: Setup, rng: &mut Random| w.add_idle(kind, h, v, index, 0, setup, rng);
         match kind {
-            301..=319 | 1100..=1299 | 1700..=1799 | 1850..=1899 | 1900..=1999
-            | 2200..=2299 | 3001 | 6000..=6099 => return false,
+            301..=319 | 1100..=1299 | 1700..=1799 | 2200..=2299 | 3001 => return false,
             500 | 501 => idle(self, even(h), even(v), Setup::Cooler, rng),
             550 => idle(self, even(h), even(v), Setup::Barrel, rng),
             560 => idle(self, even(h), even(v), Setup::Chair, rng),
@@ -311,6 +316,12 @@ impl World {
                 let v = even(v) - 1 + i16::from(matches!(kind, 3905 | 3915));
                 idle(self, even(h), v, Setup::Grate, rng)
             }
+            1850..=1899 | 6000..=6099 => {
+                let setup = if kind < 6000 { Setup::Reversor } else { Setup::Boulder };
+                let i = self.sprites.spawn(kind, h, v, setup, rng);
+                self.sprites.recs[i].level_index = index;
+            }
+            1900..=1999 => idle(self, h, v, Setup::Turret, rng),
             5000..=5999 => idle(self, h, v, Setup::Ghost, rng),
             4200..=4299 => {
                 if let Some(face) = crate::firepipe::face(kind) {

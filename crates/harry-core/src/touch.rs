@@ -105,6 +105,27 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
                 events.push(TouchEvent::Sound(crate::ghost::snd::TOUCH));
             }
         }
+        Some(Task::Reversor) if on_floor => {
+            if g.tile.ouch_cooldown == 0 {
+                g.tile.comfort_delta = g.tile.comfort_delta.wrapping_sub(8);
+                events.push(TouchEvent::Ouch);
+                g.tile.ouch_cooldown = 12;
+            }
+        }
+        Some(Task::Boulder) if on_floor => {
+            if h.player.hot_rect[1] == 0 {
+                let p = &h.player;
+                let kick = offset(KICK_RECTS[p.dir as usize], p.body.at.0, p.body.at.1);
+                if sect(kick, absolute(other.hot_rect, other.at)) {
+                    g.tile.kick_contact = 0x100;
+                }
+            } else if g.shake == 0 {
+                g.shake = 32;
+                events.push(TouchEvent::Sound(crate::ghost::snd::TOUCH));
+                g.tile.comfort_delta = g.tile.comfort_delta.wrapping_sub(18);
+                h.player.body.speed = Default::default();
+            }
+        }
         Some(Task::SlidingDoor) => {
             rect_bounce(&mut h.player.body, 32, i32::from(w.physics.bounce), HOT_RECT, other.at, other.hot_rect);
         }

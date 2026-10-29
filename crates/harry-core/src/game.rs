@@ -95,6 +95,8 @@ pub struct Game {
     /// `PTR_DAT_1006619c` / `PTR_DAT_10066198`: a robot bounced off a wall
     /// / an obstacle since the last robot's task (`robot::RobotWorld`).
     pub robot_flags: (bool, bool),
+    /// The same for the reversors (`PTR_DAT_10066188` / `…84`).
+    pub reversor_flags: (bool, bool),
     /// `_DAT_1006c4ac`, the magnets' delay.
     pub magnet: i16,
     /// The drawn gun (`PTR_DAT_100660dc`).
@@ -615,6 +617,22 @@ impl Game {
                 s.into_sprite(&mut sp);
             }
             Some(Task::Effect) => handle_effect(&mut sp),
+            Some(Task::Reversor) => {
+                let (mut wall, mut obstacle) = self.reversor_flags;
+                let mut s = Vec::new();
+                crate::reversor::handle_reversor(&mut sp, &self.level, &mut self.rng, &mut wall, &mut obstacle, &mut s);
+                self.reversor_flags = (wall, obstacle);
+                for a in s {
+                    if matches!(a, AirSound::Land | AirSound::Bounce) {
+                        self.play(crate::robot::snd::HIT, 0x100, None, RATE, Channel::Effect);
+                    }
+                }
+            }
+            Some(Task::Boulder) => crate::boulder::handle_boulder(&mut sp, &mut self.level, &mut self.rng, &mut events),
+            Some(Task::Turret) => {
+                let drop = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map_or(0, |i| self.level.sprites[i].info[3]);
+                crate::turret::handle_turret(&mut sp, self.g.player_pos, drop, &mut self.rng, &mut events);
+            }
             Some(Task::Grate) => crate::grate::handle_grate(&mut sp, &mut events),
             Some(Task::Ghost) => {
                 let (view, player) = (self.view.corner, self.g.player_pos);
@@ -705,6 +723,9 @@ impl Game {
             Some(HitTask::DartEnemy) => hit_dart_enemy(&mut sp, &mut o, &mut self.g, &mut self.rng, &mut events),
             Some(HitTask::Ramp) => hit_ramp(&mut sp, &o, self.physics.bounce),
             Some(HitTask::PlayerShot) => hit_player_shot(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
+            Some(HitTask::Reversor) => crate::reversor::hit_reversor(&mut sp, &mut o, &self.physics, &mut events),
+            Some(HitTask::Boulder) => crate::boulder::hit_boulder(&sp, &mut o),
+            Some(HitTask::Turret) => crate::turret::hit_turret(&mut sp, &mut o, &mut events),
             Some(HitTask::Grate) => crate::grate::hit_grate(&mut sp, &o, &mut self.rng),
             Some(HitTask::Ghost) => crate::ghost::hit_ghost(&mut sp, &mut o, &mut events),
             Some(HitTask::Robot) => {
@@ -761,7 +782,7 @@ impl Game {
     /// every sprite with a task and a face whose `at` lies within the view
     /// − 64 … + 512 and whose face reaches into the 448 × 448 view is
     /// drawn, and some draw procs change it - a hit robot is drawn lit and
-    /// goes back to layer 7, a hit grate to 9. (Scaled sprites are placed
+    /// goes back to layer 7 (turrets too), a hit grate to 9. (Scaled sprites are placed
     /// by `FindScaledPosAndBounds` in the original; the port tests their
     /// `at`.)
     fn draw_pass(&mut self, assets: &Assets) {
@@ -783,7 +804,7 @@ impl Game {
             }
             let sp = &mut self.world.sprites.recs[i];
             match sp.task {
-                Some(Task::Robot) if sp.layer == 10 => sp.layer = 7,
+                Some(Task::Robot | Task::Turret) if sp.layer == 10 => sp.layer = 7,
                 Some(Task::Grate) => crate::grate::drawn(sp),
                 _ => {}
             }
@@ -865,6 +886,11 @@ impl Game {
                         let (wall, obstacle) = &mut self.robot_flags;
                         crate::robot::hit_robot_tile(sp, hit, &self.level, assets.barrel, walls, &assets.player.obstacle, wall, obstacle);
                     }
+                    HitTileTask::Reversor => {
+                        let (wall, obstacle) = &mut self.reversor_flags;
+                        crate::reversor::hit_reversor_tile(sp, hit, &self.level, assets.barrel, walls, &assets.player.obstacle, wall, obstacle);
+                    }
+                    HitTileTask::Boulder => crate::boulder::hit_boulder_tile(sp, hit),
                     HitTileTask::MailGuy => crate::mailguy::hit_mail_guy_tile(sp, hit),
                     HitTileTask::EnemyShot => {
                         let ms = ShotMasks { shot: assets.shot, walls, obstacle: &assets.player.obstacle };

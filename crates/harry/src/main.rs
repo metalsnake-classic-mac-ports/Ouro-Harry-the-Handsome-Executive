@@ -160,6 +160,7 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
         seen_level: level as i16 + 1,
         plant_flag: false,
         robot_flags: (false, false),
+        reversor_flags: (false, false),
         magnet: 0,
         gun: 0,
         harry: None,

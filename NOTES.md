@@ -847,6 +847,50 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   cleared, 3000 points, sound 851; the shot is gone. Harry on the floor,
   not kicking, touching a drifting ghost: comfort delta − 7, damage
   cooldown 12, sound 224. Fans blow them.
+- **Turrets** (1901 / 1911 / 1921 up, …2, …3, …4; idle; layer 7, hot
+  rect (4, 4, 20, 20), timer 25, `f6e` 1; 25 / 40 / 50 hit points for
+  190x / 191x / 192x; faces 4601… (PICT 1901, 32), none until the first
+  frame). Each frame: timer − 1; Harry's direction (the robots') is taken
+  when within the turret's arc (…1: 5–12, start 10; …2: 23–30, start 30;
+  …3: 14–21, start 18; …4: below 4 or above 31, start 0); facing him it
+  shoots (`RandomTurretShot`: 1 in 35 for 1910–1919, else 1 in 60; as the
+  robots' shot, 1500 along its direction, sound 601). Out of hit points:
+  frozen, explosion at pos − 20, sound 602, info #3 made, 1000 / 1500 /
+  2000 points - its level entry stays, so it is back when Harry returns.
+  Faces: …1 dir − 5, …2 dir − 15, …3 dir + 2, …4 dir + 28 (below 4) or
+  dir − 8. Hit task: a player shot −5 (sound 600, the shot gone); an
+  explosion (timer out) −1, layer 10 (the draw proc puts it back to 7).
+- **Reversors** (1851 rolling right at 1000, 1852 down at 1000, 1861 /
+  1862 at 1500; made directly with their level index; layer 7, hot rect
+  (4, 4, 24, 24), the small robots' faces spinning, dir + 1 a frame).
+  They move (24.8), ride half pipes and jump (centre + 12, sound 600) and
+  bounce: walls (`WallBounce`, centre + 16, bounce 256, the first
+  reversor of the frame only - flags `PTR_DAT_10066188` / `…84` as the
+  robots'), obstacles. Hit task: barrels light (sound 801; the barrel's
+  dir + 1 even when burning) and it turns back; ramps, stairs; plants,
+  coolers, grates, chairs, doors (not open), reversors, co-workers,
+  colliders, sliding doors (desks): move undone, turned back. Shots are
+  sent back (their move undone, speed reversed, sound 605) and the
+  reversor turns a quarter (its larger speed component moves to the other
+  axis). Harry on the floor touching one: comfort delta − 8, `Ouch`,
+  damage cooldown 12 (in the air too: no). Buttons, fans.
+- **Boulders** (6001 up, 6002 down, 6003 left, 6004 right; 6011–6014 12
+  px a frame instead of 8; made directly; layer 200, hot rect (16, 16,
+  48, 48), faces 1601… (PICT 6001, 12, turning with `f6e` 0–5)). Like the
+  mail cart: state in the level entry (timer info #0, dir info #1, the
+  start coordinate info #2 - written on the first frame if 0, else
+  taken), the wall list per way the mail cart's, timer 12 at a wall;
+  stopped, from dir 4 on a 1 in 5 chance a frame to restart from its
+  start (sound 402 at 62000 + `SATRand(6000)`). Hit task: a robot it
+  touches loses all hit points (blobs too). Harry on the floor: his kick
+  rect on it gives kick contact 256; otherwise, when not already
+  shaking (`_DAT_10065e68` = 0), he is run over: shaking 32 frames,
+  sound 224, comfort delta − 18, standing.
+- `re/tools/emu_turret.py`: 6000 runs each of turrets, reversors and
+  boulders (1–150 frames at their places in Episode 1, Harry walking,
+  tile collisions, partners), all matching; 18 of 19 mutations caught
+  (the survivor is equivalent). They are also in the Harry, button, fan
+  and world recorders (the touch recorder now has the shake counter).
 - **Drawing changes sprites.** `DrawSpritesBehindTiles` /
   `DrawSpritesAboveTiles` (after `EraseSprites`) call `WrapDrawSprite`
   for every sprite with a task and a face whose `at` lies within the
@@ -854,8 +898,8 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   the 448 × 448 view. Some draw procs change the sprite: robots, big
   robots and turrets on layer 10 (hit) go back to 7, blobs too (and get
   +0x8a), a hit grate goes to 9, the vending machine sets its +0x78. The
-  port has a draw pass in `Game::frame` for the robots and grates (the
-  others come with their kinds); scaled sprites are tested at `at`.
+  port has a draw pass in `Game::frame` for robots, turrets and grates
+  (the others come with their kinds); scaled sprites are tested at `at`.
 - `re/tools/emu_grate.py`: 15 000 grate runs of 1–300 frames with hits,
   30 000 `GrateBounce` cases and 15 000 ghost runs of 1–120 frames (Harry
   and the view moving, shots), all matching; 18 of 21 mutations caught

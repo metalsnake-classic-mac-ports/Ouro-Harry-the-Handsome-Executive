@@ -111,16 +111,37 @@ pub fn hit_mail_guy_tile(sp: &mut Sprite, hit: TileHit) {
     if !hit.foreground || sp.timer != 0 || sp.dir != 0 {
         return;
     }
-    let walls: &[i16] = match sp.kind {
-        1621 => &[2, 6, 7, 8, 9, 14, 15, 19, 22, 27, 30],
-        1611 => &[3, 4, 7, 9, 10, 12, 15, 16, 23, 24, 31],
-        1601 => &[1, 5, 6, 8, 11, 13, 14, 18, 21, 26, 29],
-        1631 => &[0, 4, 5, 10, 11, 12, 13, 17, 20, 25, 28],
-        _ => &[],
+    let way = match sp.kind {
+        1601 => Way::Up,
+        1611 => Way::Down,
+        1621 => Way::Right,
+        1631 => Way::Left,
+        _ => return,
     };
-    if walls.contains(&hit.kind) {
+    if blocks(way, hit.kind) {
         sp.timer = 6;
     }
+}
+
+/// The way a mail cart or a boulder runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Way {
+    Up,
+    Down,
+    Right,
+    Left,
+}
+
+/// The wall shapes (foreground kinds) that stop something running that
+/// way.
+pub fn blocks(way: Way, wall: i16) -> bool {
+    let walls: &[i16] = match way {
+        Way::Right => &[2, 6, 7, 8, 9, 14, 15, 19, 22, 27, 30],
+        Way::Down => &[3, 4, 7, 9, 10, 12, 15, 16, 23, 24, 31],
+        Way::Up => &[1, 5, 6, 8, 11, 13, 14, 18, 21, 26, 29],
+        Way::Left => &[0, 4, 5, 10, 11, 12, 13, 17, 20, 25, 28],
+    };
+    walls.contains(&wall)
 }
 
 /// `HitMailGuySprite`: shots stop on it; a robot it meets is out of hit

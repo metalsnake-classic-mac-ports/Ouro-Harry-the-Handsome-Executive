@@ -49,6 +49,7 @@
 - [x] Robots, small and big (8000 runs, 30 000 hits), in the partner recorders; level 4 has all its kinds
 - [x] Fire pipes and flames (30 000 runs); level 5 has all its kinds; the world recorder covers every ported kind
 - [x] Grates, fences and ghosts (75 000 cases); level 6 has all its kinds
+- [x] Turrets, reversors, boulders (18 000 runs); level 7 has all its kinds
 - [ ] Whole-frame recorder (`emu_game.py`) for the other levels, with the draw pass (layer changes of draw procs)
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
 - [ ] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
