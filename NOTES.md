@@ -787,6 +787,26 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   are also in the Harry, plant, enemy shot, button and fan recorders.
   (The recorders' `stub_routine` now replaces an earlier stub of the same
   routine; before, both ran and the first one's 0 reached the second.)
+- **Fire pipes** (4201 up, 4202 down, 4203 right, 4204 left; idle,
+  position even, face 6041–6044 (cicn 4201–4204) given to
+  `AddIdleSprite`; other 4200–4299 make nothing). Setup: layer 0, an
+  empty hit task, `f6e` = `SATRand(100)`. Task: `f6e` + 1; past 90 a 1 in
+  40 chance each frame of a flame (`SATNewSprite(pipe kind, …,
+  SetupEffectSprite)` at its mouth: 4201 at + (−3, −49) (h, v), 4202 (−4,
+  16), 4203 (16, −2), 4204 (−49, −2); then kind = the level entry's info
+  #1 - 0 in all of Episode 1 - and `f7c` = the pipe's kind), `f6e` 0,
+  3-D sound 700. **Flames** (effects with `f7c` ≥ 4200): setup with the
+  pipe's kind - layer 0, +0x8b set, hot rect along the flame (4201 (8, 3,
+  64, 22), 4202 (0, 3, 56, 22), 4203 (3, 0, 22, 56), 4204 (3, 8, 22,
+  64)); faces 2901… (PICT 214, up; 4202 + 16) and 2801… (PICT 216,
+  right; 4204 + 16), frame dir / 2. Task: dir + 1; at 24 `f6e` + 1 and
+  back to 7 while `f6e` < 3, else on to 25; gone after 28. Harry touching
+  it (frames 7–24) sets its `f6e` to 3 (it dies down after this round).
+  Explosion pushes skip flames (`f7c` ≥ 4200); barrels touching one light
+  (as for any effect). `re/tools/emu_firepipe.py`: 15 000 pipe runs of
+  1–300 frames and 15 000 flames of 1–80 frames, all matching, 12 of 12
+  mutations caught (the pipe faces through the world recorder, which now
+  has every ported kind).
 - **Message** (21000 and up; layer 9, faces 3801–3805): the mode
   (`f6e`) is the level entry's info #1, read each frame: 0 a memo on the
   floor (hot rect (−8, −8, 32, 32), the face blinking 3801 → 3805 → 3801

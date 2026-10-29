@@ -13,6 +13,7 @@ pub mod coworker;
 pub mod dart_enemy;
 pub mod effect;
 pub mod enemy_shot;
+pub mod firepipe;
 pub mod frame;
 pub mod furniture;
 pub mod game;

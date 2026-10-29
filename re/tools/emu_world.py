@@ -26,17 +26,22 @@ SAT, VIEW, IDLE = 0x10065B70, 0x100659BC, 0x1006DCF0
 BG_PROPS, FG_PROPS = 0x100723AC, 0x100720AC
 INITS = ("InitBonusSprite", "InitItemSprite", "InitExitSprite", "InitDoorSprite", "InitCoolerSprite",
          "InitPlantSprite", "InitMessageSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite",
-         "InitEnemyShotSprite")
+         "InitEnemyShotSprite", "InitBarrelSprite", "InitChairSprite", "InitStairsSprite", "InitButtonSprite",
+         "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitRobotSprite", "InitFirePipeSprite",
+         "InitEffectSprite")
 # the props' faces as InitFaces loads them (its other faces need more Toolbox)
 PROP_FACES = {0x10065A60: 6034, 0x10065A5C: 6035, 0x10065A58: 6036, 0x10065A54: 6037,
-              0x10065A40: 6051, 0x10065A3C: 6052, 0x10065A38: 6053, 0x10065A34: 6054}
+              0x10065A40: 6051, 0x10065A3C: 6052, 0x10065A38: 6053, 0x10065A34: 6054,
+              0x10065A0C: 6041, 0x10065A04: 6042, 0x10065A00: 6043, 0x100659FC: 6044}     # the fire pipes
 CASES = 3000
 
 
 def ported(k):
     return (k in (500, 501, 601) or 700 <= k <= 799 or 900 <= k <= 949 or 1000 <= k <= 1049 or k in (1609, 1619, 1629, 1639)
             or 2301 <= k <= 2304 or k in (3000, 3100, 3101, 9199, 9200, 9300, 9600, 9800) or 9401 <= k <= 9499
-            or 9700 <= k <= 9799 or 9990 <= k <= 9999 or 11001 <= k <= 19999 or k >= 21000)
+            or 9700 <= k <= 9799 or 9990 <= k <= 9999 or 11001 <= k <= 19999 or k >= 21000
+            or k in (550, 560, 1601, 1611, 1621, 1631) or 950 <= k <= 999 or 1300 <= k <= 1449 or 1800 <= k <= 1849
+            or 2000 <= k <= 2099 or 4200 <= k <= 4299 or 9500 <= k <= 9599 or 9900 <= k <= 9909)
 
 
 def s16(v):
@@ -46,7 +51,7 @@ def s16(v):
 def main():
     work = sys.argv[1] if len(sys.argv) > 1 else "re/work"
     m = Machine(f"{work}/ppc")
-    faces = Faces(m)
+    faces = Faces(m, work)
     m.call(0x1005FCE8, 0, 1, 1, 0x40)               # SATConfigure as InitSAT does
     m.call(0x1005FD08, 0xA2)                        # the record size, as InitSAT sets it
     m.write(m.glob(0x10066254), b"\1")              # SAT's (graphics) init done

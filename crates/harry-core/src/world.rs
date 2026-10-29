@@ -45,6 +45,7 @@ pub enum Setup {
     CoWorker,
     MailGuy,
     Robot,
+    FirePipe,
 }
 
 /// Run a setup routine on a sprite.
@@ -72,6 +73,7 @@ pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random, player: (i16, 
         Setup::CoWorker => crate::coworker::setup_coworker(sp),
         Setup::MailGuy => crate::mailguy::setup_mail_guy(sp),
         Setup::Robot => crate::robot::setup_robot(sp, player),
+        Setup::FirePipe => crate::firepipe::setup_fire_pipe(sp, rng),
     }
 }
 
@@ -290,7 +292,7 @@ impl World {
         let idle = |w: &mut World, h: i16, v: i16, setup: Setup, rng: &mut Random| w.add_idle(kind, h, v, index, 0, setup, rng);
         match kind {
             301..=319 | 1100..=1299 | 1700..=1799 | 1850..=1899 | 1900..=1999
-            | 2200..=2299 | 3001 | 3900..=3999 | 4200..=4299 | 5000..=5999 | 6000..=6099 => return false,
+            | 2200..=2299 | 3001 | 3900..=3999 | 5000..=5999 | 6000..=6099 => return false,
             500 | 501 => idle(self, even(h), even(v), Setup::Cooler, rng),
             550 => idle(self, even(h), even(v), Setup::Barrel, rng),
             560 => idle(self, even(h), even(v), Setup::Chair, rng),
@@ -301,6 +303,11 @@ impl World {
                 Some((_, face)) => self.bg_props.add((v, h), face),
                 None => idle(self, h, v, Setup::DartEnemy, rng),
             },
+            4200..=4299 => {
+                if let Some(face) = crate::firepipe::face(kind) {
+                    self.add_idle(kind, even(h), even(v), index, face, Setup::FirePipe, rng);
+                }
+            }
             1800..=1849 | 2000..=2099 => idle(self, h, v, Setup::Robot, rng),
             1300..=1449 => idle(self, even(h) + 1, even(v), Setup::CoWorker, rng),
             1601 | 1611 | 1621 | 1631 => {

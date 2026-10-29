@@ -38,6 +38,7 @@ pub enum Task {
     CoWorker,
     MailGuy,
     Robot,
+    FirePipe,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -65,6 +66,8 @@ pub enum HitTask {
     SlidingDoor,
     MailGuy,
     Robot,
+    /// `HitFirePipeSprite`: does nothing.
+    FirePipe,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
@@ -103,6 +106,9 @@ pub enum SpriteEvent {
     /// `GenerateSprite(h, v, kind, −1)`: an object of the level's kinds,
     /// without a level entry.
     Generate { kind: i16, h: i16, v: i16 },
+    /// A fire pipe's flame: `SATNewSprite(pipe, h, v, SetupEffectSprite)`,
+    /// then the kind set to `kind` and `f7c` to `pipe`.
+    Flame { pipe: i16, h: i16, v: i16, kind: i16 },
     /// Points for Harry.
     Score(i32),
     /// Level entry `i` is cleared (byte 0): the sprite will not come back.

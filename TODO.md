@@ -47,6 +47,7 @@
 - [x] Mail guy (6000 runs), its crash with objects, Harry run over; levels 2 and 3 have all their kinds
 - [ ] `STPlayDynamicSound` / `UpdateDynamicSounds`: move the sound's stereo position with the sprite
 - [x] Robots, small and big (8000 runs, 30 000 hits), in the partner recorders; level 4 has all its kinds
+- [x] Fire pipes and flames (30 000 runs); level 5 has all its kinds; the world recorder covers every ported kind
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
 - [ ] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
 - [x] Colliders: fans (`HandleRepulsions`), phone, copier, magnet, wall guns, vending machine, gate (20 000 cases)

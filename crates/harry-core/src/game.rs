@@ -300,6 +300,12 @@ impl Game {
                     self.world.sprites.player = self.g.player_pos;
                     self.world.generate_sprite(h, v, kind, -1, &mut self.rng);
                 }
+                SpriteEvent::Flame { pipe, h, v, kind } => {
+                    let i = self.spawn_with(pipe, h, v, Setup::Effect, None);
+                    let r = &mut self.world.sprites.recs[i];
+                    r.kind = kind;
+                    r.f7c = pipe;
+                }
                 SpriteEvent::Score(n) => self.g.score = self.g.score.wrapping_add(n),
                 SpriteEvent::Forget(i) => {
                     if let Some(e) = usize::try_from(i).ok().and_then(|i| self.level.sprites.get_mut(i)) {
@@ -604,6 +610,10 @@ impl Game {
                 s.into_sprite(&mut sp);
             }
             Some(Task::Effect) => handle_effect(&mut sp),
+            Some(Task::FirePipe) => {
+                let info1 = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map(|i| self.level.sprites[i].info[1]);
+                crate::firepipe::handle_fire_pipe(&mut sp, info1, &mut self.rng, &mut events);
+            }
             Some(Task::Robot) => {
                 let (mut wall, mut obstacle) = self.robot_flags;
                 let mut s = Vec::new();
@@ -691,7 +701,7 @@ impl Game {
             }
             Some(HitTask::MailGuy) => crate::mailguy::hit_mail_guy(&sp, &mut o),
             Some(HitTask::Button) => hit_button(&mut sp, &o, &mut events),
-            Some(HitTask::Bonus | HitTask::Item | HitTask::Stairs | HitTask::SlidingDoor) | None => {}
+            Some(HitTask::Bonus | HitTask::Item | HitTask::Stairs | HitTask::SlidingDoor | HitTask::FirePipe) | None => {}
             Some(t) => panic!("hit task {t:?} is not in the frame yet"),
         }
         let at = sp.at;

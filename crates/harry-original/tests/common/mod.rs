@@ -31,6 +31,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::CoWorker) => "HandleCoWorkerSprite",
         Some(Task::MailGuy) => "HandleMailGuySprite",
         Some(Task::Robot) => "HandleRobotSprite",
+        Some(Task::FirePipe) => "HandleFirePipeSprite",
     }
 }
 
@@ -57,6 +58,7 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::SlidingDoor) => "HitSlidingDoorSprite",
         Some(HitTask::MailGuy) => "HitMailGuySprite",
         Some(HitTask::Robot) => "HitRobotSprite",
+        Some(HitTask::FirePipe) => "HitFirePipeSprite",
     }
 }
 
@@ -87,6 +89,7 @@ pub fn event(e: &SpriteEvent) -> String {
         SpriteEvent::MovingExplosion { h, v, speed, a, b } => format!("x:{h}:{v}:{}:{}:{a}:{b}", speed.h, speed.v),
         SpriteEvent::DynamicSound { id, volume, speed } => format!("dyn:{id}:{volume}:{}:{}", speed.v, speed.h),
         SpriteEvent::Score(n) => format!("score:{n}"),
+        SpriteEvent::Flame { pipe, h, v, kind } => format!("flame:{pipe}:{h}:{v}:{kind}"),
         SpriteEvent::Shot { kind, h, v, speed, dir, fix } => {
             let (fh, fv) = fix.unwrap_or((i32::from(h) << 8, i32::from(v) << 8));
             format!("shot:{kind}:{h}:{v}:{}:{}:{dir}:{fh}:{fv}", speed.v, speed.h)
