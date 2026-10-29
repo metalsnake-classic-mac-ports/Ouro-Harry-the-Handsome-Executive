@@ -948,8 +948,9 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   the 448 × 448 view. Some draw procs change the sprite: robots, big
   robots and turrets on layer 10 (hit) go back to 7, blobs too (and get
   +0x8a), a hit grate goes to 9, the vending machine sets its +0x78. The
-  port has a draw pass in `Game::frame` for robots, turrets and grates
-  (the others come with their kinds); scaled sprites are tested at `at`.
+  port has a draw pass in `Game::frame` for robots, turrets, blobs and
+  grates (the vending machine's +0x78 is not ported yet); scaled sprites
+  are tested at `at`.
 - `re/tools/emu_grate.py`: 15 000 grate runs of 1–300 frames with hits,
   30 000 `GrateBounce` cases and 15 000 ghost runs of 1–120 frames (Harry
   and the view moving, shots), all matching; 18 of 21 mutations caught
