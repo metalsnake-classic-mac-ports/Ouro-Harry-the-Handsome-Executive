@@ -123,11 +123,14 @@ pub fn hit_mail_guy_tile(sp: &mut Sprite, hit: TileHit) {
     }
 }
 
-/// `HitMailGuySprite`: shots stop on it (robots and blobs have their
-/// +0x72 cleared - with those kinds).
+/// `HitMailGuySprite`: shots stop on it; a robot it meets is out of hit
+/// points (blobs too - with their kind).
 pub fn hit_mail_guy(sp: &Sprite, other: &mut Sprite) {
     if sp.frozen || other.frozen {
         return;
+    }
+    if other.task == Some(Task::Robot) {
+        other.state = 0;
     }
     if matches!(other.task, Some(Task::EnemyShot | Task::PlayerShot)) {
         other.frozen = true;

@@ -735,6 +735,58 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   recorder (with `_DAT_10065e40`). The port plays the dynamic sound at
   the cart without moving it (the original moves its stereo position
   with the speed while it plays).
+- **Robots** (1800–1849, 2000–2099, idle; `harry_core::robot`). Setup:
+  facing Harry (`FindDesiredDirection`: the generic direction from pos +
+  14 toward `gPlayerH/V` + 32), timer 25, layer 7, hot rect (4, 4, 24,
+  24); `state` = hit points, `f7c` = mode. 1801: 3 points, mode turn;
+  1802–1811 become 1811 (the turret, points kind − 1808, mode aim);
+  1812–2000 become 1821 (points kind − 1814 = 7, mode turn). Big robots
+  2001 / 2011 / 2021: 8 / 12 / 15 points (others 3), mode aim, hot rect
+  (4, 4, 36, 36). Faces 4201 + dir (PICT 212), big 4701 + dir (+ 36
+  while firing; PICT 2001). Task: timer − 1; clears the two robot wall
+  flags (`PTR_DAT_1006619c` / `…98`) - the tile pass after all tasks lets
+  only the first robot touching a wall / an obstacle bounce. Nothing
+  happens 500 px or more from Harry (`RobotTooFar`, either axis) except
+  half pipe and jump (centre + 12, sound 600). Small robots: no points
+  → dying (level entry cleared, score + (kind − 1791) / 10 × 1250);
+  modes: 1 turn (one step toward Harry a frame, the short way, then 2),
+  2 drive (more than 3 off → 0; else accelerate by 20 in its direction
+  while either speed is below 150), 0 brake (× 0.7 until both below 101,
+  then 1), 4 the turret (faces Harry), 5 kicked (wait for the timer,
+  then 0), 3 dead (frozen, explosion at pos − 20 with speed / 256, 3-D
+  sound 602, Harry's chatter delay 20, the entry's info #3 made where it
+  stood with `GenerateSprite`). Turning, braking, driving and the turret
+  shoot now and then (`RandomRobotShot`: 1 in 60 for 1801, 1 in 35 else;
+  a shot of the robot's kind from pos + (7, 8) with its speed + 1500 its
+  way, sound 601). 1811 never moves; the others move by speed (24.8).
+  Big robots: points 2000 / 2500 / 3000 (even out of reach); mode 4
+  aims (`ApproachMode`, one step a frame), on target 6 fires for 25–94
+  frames (`RandomMGShot` 2 in 5 a frame while more than 20 are left: a
+  bolt from at + 16, three frames out along dir ± 2 - the wrap uses 35,
+  so 36 and −1 stay and add no speed - flying with the robot's speed +
+  1500 along dir, 1 in 10 one more, 1 in 5 of the rest one less; sound
+  606 at 62000 + `SATRand(6000)`, the original only while fewer than two
+  play; the robot shakes ±2 px). Hit task: barrels light (801) and it
+  bounces (× −1.4); explosions (timer out) push it, layer 10, 3 in 10
+  cost a point; ramps, stairs; plants, coolers, colliders, co-workers,
+  chairs, doors (not open), sliding doors (desks, grates): move undone,
+  × −1.4, driving → braking. Harry's kick: sound 600, a point, 13 × kick
+  thrust, kick contact 128, mode 5 for 10 frames; walking into it: it
+  bounces, on caffeine a point. Tile task: `WallBounce` (bounce 256, a
+  bounce → braking) / `BGTileBounce` (254) with cicn 598. Shots
+  (`HitPlayerShotSprite`; enemy shots if not big against big and past
+  their first frames, `f7c` 0): layer 10, a point, `f6e` 0, sound 600,
+  explosion of kind −1 at pos − 20 (player shots at big robots: − 12)
+  while points are left. Harry bounces off them (half the level's
+  bounce, on the floor, not kicking); plants take half their speed; mail
+  guys take all their points; they press buttons; fans blow them.
+  `re/tools/emu_robot.py`: 8000 runs of 1–80 frames at the robots' places
+  in Episode 1 (Harry walking about, tile collisions, shots, deaths,
+  drops) and 30 000 hits, all matching; 26 of 28 mutations caught (one
+  acceleration constant and `ApproachMode`'s exact 18-step tie). Robots
+  are also in the Harry, plant, enemy shot, button and fan recorders.
+  (The recorders' `stub_routine` now replaces an earlier stub of the same
+  routine; before, both ran and the first one's 0 reached the second.)
 - **Message** (21000 and up; layer 9, faces 3801–3805): the mode
   (`f6e`) is the level entry's info #1, read each frame: 0 a memo on the
   floor (hot rect (−8, −8, 32, 32), the face blinking 3801 → 3805 → 3801

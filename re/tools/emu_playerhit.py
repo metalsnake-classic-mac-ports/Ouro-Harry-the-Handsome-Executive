@@ -1,5 +1,5 @@
 """Record HitPlayerSprite - Harry touching another sprite - for the kinds
-the port has (bonus, item, door, collider, dart enemy, ramp, stairs, sliding door, co-worker, mail guy, enemy shot). The other sprite is made by its real
+the port has (bonus, item, door, collider, dart enemy, ramp, stairs, sliding door, co-worker, mail guy, robot, enemy shot). The other sprite is made by its real
 setup; doors get a level entry (index, info #0) on level 1.
 
 Each line: "<name=value ...> -> <name=value ...>"
@@ -39,6 +39,7 @@ KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("
          ("SetupStairsSprite", [9901, 9902, 9903, 9904]), ("SetupSlidingDoorSprite", [951, 961]),
          ("SetupCoWorkerSprite", [1301, 1321, 1441]),
          ("SetupMailGuySprite", [1601, 1611, 1621, 1631]),
+         ("SetupRobotSprite", [1801, 1811, 1821, 2001]),
          ("SetupEnemyShotSprite", [1018, 1038, 1051, 9610, 9450, 1800, 1950, 1150, 1299, 2281, 2291, 2500])]
 FRAME = STACK_TOP - 0x1000 - 0x140              # HitPlayerSprite's r1
 CASES = 30000
@@ -49,7 +50,7 @@ def main():
     m = Machine(f"{work}/ppc")
     Faces(m, work)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # mask loader (the ramps' masks)
-    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
+    for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitRobotSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
         m.call(init)
     lvl = m.load_level(open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read())
     ev = []
@@ -144,6 +145,7 @@ def main():
         m.w16(other, kind)
         m.w16(other + 2, ov)
         m.w16(other + 4, oh)
+        m.w32(m.glob(0x100659B4), 0)                    # gPlayerH / V for the robots' setup
         m.call(setup, other)
         m.w16(other + 0x68, st["levelindex"])
         m.w16(other + 0x74, st["otimer"])

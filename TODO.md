@@ -39,13 +39,14 @@
 - [x] Water cooler (12 000 cases)
 - [x] Plant movement and tiles (`HandleGlide`, 12 000 cases)
 - [x] Plant hit task with Harry, plant, cooler, doors, shots; `RectBounce` (20 000 cases)
-- [ ] Remaining `HitPlantSprite` branches with their kinds (desk, robot, grate)
+- [ ] Remaining `HitPlantSprite` branches with their kinds (desk, grate)
 - [x] Barrel and chair: setup, task, tiles, hit tasks; in the plant's, enemy shots' and fans' tests (52 000 cases)
 - [x] Stairs: setup, `HandleStairsCollision` for Harry, plants, barrels, chairs (30 000 cases)
 - [x] Buttons and sliding doors (30 000 runs), sliding doors in the Harry, object and shot recorders
 - [x] Co-workers (15 000 runs), as partners of Harry and the objects
 - [x] Mail guy (6000 runs), its crash with objects, Harry run over; levels 2 and 3 have all their kinds
 - [ ] `STPlayDynamicSound` / `UpdateDynamicSounds`: move the sound's stereo position with the sprite
+- [x] Robots, small and big (8000 runs, 30 000 hits), in the partner recorders; level 4 has all its kinds
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
 - [ ] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
 - [x] Colliders: fans (`HandleRepulsions`), phone, copier, magnet, wall guns, vending machine, gate (20 000 cases)
@@ -58,7 +59,7 @@
 - [x] Whole frames with weapons and items: player shots as records, `HitPlayerShotSprite`, effects (explosions), 900 runs
 - [ ] Harry's death (`HandlePlayerSpriteDeath`), `UpLevel`, the ripple, `CheckGameEvents`' other flag
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
-- [ ] Enemy shots hitting robots, grates - with those kinds
+- [ ] Enemy shots hitting grates - with that kind
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one
 

@@ -76,6 +76,11 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
             let p = &mut h.player;
             stairs_collision(&mut p.body, &mut p.air, &mut h.air.flip, 32, HOT_RECT, other, w.physics.bounce);
         }
+        Some(Task::Robot) if on_floor => {
+            if h.player.hot_rect[1] != 0 {
+                rect_bounce(&mut h.player.body, 32, i32::from(w.physics.bounce) >> 1, HOT_RECT, other.at, other.hot_rect);
+            }
+        }
         Some(Task::MailGuy) => {
             if g.t40 == 0 && other.dir == 0 {
                 g.t40 = 18;

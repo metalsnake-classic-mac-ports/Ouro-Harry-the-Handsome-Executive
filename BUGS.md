@@ -54,6 +54,8 @@ option) and why.
   Barrels and chairs do not touch r30 at all, so they get what SATRun
   keeps there: the address of their own sprite record - a heap address,
   different on every Mac. Port: 0 (the scale 0x100 for that frame).
+  Robots leave r30 as their own address or as a direction their code
+  just computed, depending on the path. Port: 0 as well.
 
 - **Harmless out-of-bounds read with no item selected.**
   `HandlePlayerSprite` checks `inventory[gCurInvSlot].id == -1`; with slot
@@ -137,6 +139,19 @@ option) and why.
   weapon without a gun, a shot spawned this frame): it reads the bounds at
   address 0, low memory on the Mac. Harmless where only the foreground
   redraw uses it. Port: bounds (0, 0, 0, 0).
+
+- **Machine-gun bolts wrap their direction with 35.** `RandomMGShot`
+  puts a bolt out along the robot's direction ± 2 and wraps it with 35
+  instead of 36 (so 36 becomes 1 and −2 becomes 33), and then turns the
+  flight direction by ±1 without any wrap: a robot facing 35 or 0 can fire
+  a bolt with direction 36 or −1, which `AssignRobotShotSpeed` gives no
+  speed of its own - it only drifts with the robot. Port: keep.
+
+- **Only one robot a frame bounces off walls.** The flags that keep a
+  robot from bouncing twice off walls / obstacles are globals cleared by
+  every robot's task, but the tile pass runs after all tasks: only the
+  first robot in the list touching a wall or an obstacle that frame
+  bounces, the others pass into it. Port: keep.
 
 ## Fixed in 1.0.1
 

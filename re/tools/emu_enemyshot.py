@@ -49,7 +49,7 @@ def main():
     faces = Faces(m)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # the mask loader; filled below
     for f in ("InitEnemyShotSprite", "InitTileHotRects", "InitColliderSprite", "InitCoolerSprite",
-              "InitPlantSprite", "InitBonusSprite", "InitBarrelSprite", "InitChairSprite", "InitSlidingDoorSprite"):
+              "InitPlantSprite", "InitBonusSprite", "InitBarrelSprite", "InitChairSprite", "InitSlidingDoorSprite", "InitRobotSprite"):
         m.call(f)
     tv = tvectors(f"{work}/ppc")
     ms = masks(work)
@@ -165,6 +165,9 @@ def main():
 
     m.load_level(open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read())
     mark = m.heap
+    # the robots lose a hit point with an explosion
+    m.stub_routine("EasyExplosion", lambda mm: ev.append("x:%d:%d:%d:%d" % tuple(
+        (mm.get(i) & 0xFFFF) - (0x10000 if mm.get(i) & 0x8000 else 0) for i in (3, 4, 7, 8))) or 0)
     out = open(f"{work}/diff/enemyshothit.txt", "w")
     out.write("# HitEnemyShotSprite: name=value inputs -> dump || other dump | events\n")
     for _ in range(HITS):
@@ -173,7 +176,7 @@ def main():
         v, hh = rnd.randint(200, 3800), rnd.randint(200, 3800)
         st = {"v": v, "h": hh, **inputs(kind),
               "other": rnd.choice(["collider", "collider", "cooler", "plant", "enemyshot", "enemyshot", "playershot",
-                                   "bonus", "barrel", "chair", "sliding"]),
+                                   "bonus", "barrel", "chair", "sliding", "robot", "robot"]),
               "okind": 0, "ov": v + rnd.randint(-30, 30), "oh": hh + rnd.randint(-30, 30),
               "frozen": int(rnd.random() < 0.05), "ofrozen": int(rnd.random() < 0.05)}
         if st["other"] == "collider":
@@ -186,6 +189,8 @@ def main():
             st["okind"] = rnd.choice(KINDS)
         elif st["other"] == "bonus":
             st["okind"] = 700
+        elif st["other"] == "robot":
+            st["okind"] = rnd.choice([1801, 1811, 1821, 2001, 2011])
         elif st["other"] == "sliding":
             st["okind"] = rnd.choice([951, 961])
         elif st["other"] in ("barrel", "chair"):
@@ -203,9 +208,10 @@ def main():
             m.write(other + 6, struct.pack(">hhhh", 0, 0, 8, 8))
         else:
             m.rand_seed = 1
+            m.w32(m.glob(0x100659B4), 0)                # gPlayerH / V: the robots face Harry
             m.call({"collider": "SetupColliderSprite", "cooler": "SetupCoolerSprite", "plant": "SetupPlantSprite",
                     "enemyshot": "SetupEnemyShotSprite", "bonus": "SetupBonusSprite", "barrel": "SetupBarrelSprite",
-                    "chair": "SetupChairSprite", "sliding": "SetupSlidingDoorSprite"}[st["other"]], other)
+                    "chair": "SetupChairSprite", "sliding": "SetupSlidingDoorSprite", "robot": "SetupRobotSprite"}[st["other"]], other)
         if st["other"] == "enemyshot" and 1101 <= st["okind"] <= 1299:
             m.w16(other + 0x74, 0)
         m.write(other + 0x92, bytes([st["ofrozen"]]))

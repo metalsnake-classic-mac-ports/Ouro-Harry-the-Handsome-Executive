@@ -30,6 +30,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::SlidingDoor) => "HandleSlidingDoorSprite",
         Some(Task::CoWorker) => "HandleCoWorkerSprite",
         Some(Task::MailGuy) => "HandleMailGuySprite",
+        Some(Task::Robot) => "HandleRobotSprite",
     }
 }
 
@@ -55,6 +56,7 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Button) => "HitButtonSprite",
         Some(HitTask::SlidingDoor) => "HitSlidingDoorSprite",
         Some(HitTask::MailGuy) => "HitMailGuySprite",
+        Some(HitTask::Robot) => "HitRobotSprite",
     }
 }
 
@@ -69,6 +71,7 @@ pub fn tile_name(t: Option<HitTileTask>) -> &'static str {
         Some(HitTileTask::Barrel) => "HitBarrelTileSprite",
         Some(HitTileTask::Chair) => "HitChairTileSprite",
         Some(HitTileTask::MailGuy) => "HitMailGuyTileSprite",
+        Some(HitTileTask::Robot) => "HitRobotTileSprite",
     }
 }
 
@@ -84,6 +87,11 @@ pub fn event(e: &SpriteEvent) -> String {
         SpriteEvent::MovingExplosion { h, v, speed, a, b } => format!("x:{h}:{v}:{}:{}:{a}:{b}", speed.h, speed.v),
         SpriteEvent::DynamicSound { id, volume, speed } => format!("dyn:{id}:{volume}:{}:{}", speed.v, speed.h),
         SpriteEvent::Score(n) => format!("score:{n}"),
+        SpriteEvent::Shot { kind, h, v, speed, dir, fix } => {
+            let (fh, fv) = fix.unwrap_or((i32::from(h) << 8, i32::from(v) << 8));
+            format!("shot:{kind}:{h}:{v}:{}:{}:{dir}:{fh}:{fv}", speed.v, speed.h)
+        }
+        SpriteEvent::Generate { kind, h, v } => format!("gen:{kind}:{h}:{v}"),
         SpriteEvent::Forget(i) => format!("forget:{i}"),
         SpriteEvent::Spawn { kind, h, v, speed } => {
             let s = speed.unwrap_or_default();

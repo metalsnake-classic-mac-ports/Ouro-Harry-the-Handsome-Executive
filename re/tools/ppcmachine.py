@@ -144,9 +144,13 @@ class Machine:
 
     def stub_routine(self, f, result=0, log=None):
         """Make a routine of the game return at once with r3 = result
-        (a value, or a function of the machine returning one).
+        (a value, or a function of the machine returning one). A later
+        stub of the same routine replaces the earlier one.
         log: a list that receives (name, r3, r4, r5, r6) for every call."""
         a = self.addr(f)
+        stubs = self.__dict__.setdefault("_stubs", {})
+        if a in stubs:
+            self.uc.hook_del(stubs.pop(a))
         name = f if isinstance(f, str) else hex(f)
 
         def hook(uc, address, size, _):
@@ -155,7 +159,7 @@ class Machine:
             self.set(3, result(self) if callable(result) else result)
             uc.reg_write(UC_PPC_REG_PC, uc.reg_read(UC_PPC_REG_LR))
 
-        self.uc.hook_add(UC_HOOK_CODE, hook, begin=a, end=a)
+        stubs[a] = self.uc.hook_add(UC_HOOK_CODE, hook, begin=a, end=a)
 
     def load_level(self, data):
         """Put a Hlvl resource in memory as the current level (gLevelH, a

@@ -115,6 +115,7 @@ fn level_1_frames_match_the_original() {
             counter: LevelCounter { current: 1, previous: 0 },
             seen_level: 1,
             plant_flag: false,
+        robot_flags: (false, false),
             magnet: 0,
             gun: 0,
             harry: None,

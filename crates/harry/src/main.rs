@@ -159,6 +159,7 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
         counter: LevelCounter { current: level as i16 + 1, previous: level as i16 },
         seen_level: level as i16 + 1,
         plant_flag: false,
+        robot_flags: (false, false),
         magnet: 0,
         gun: 0,
         harry: None,

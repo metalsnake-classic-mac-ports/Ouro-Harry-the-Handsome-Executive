@@ -17,6 +17,7 @@ use harry_core::stairs::setup_stairs;
 use harry_core::button::setup_sliding_door;
 use harry_core::coworker::setup_coworker;
 use harry_core::mailguy::setup_mail_guy;
+use harry_core::robot::setup_robot;
 use harry_core::kinds::{setup_bonus, setup_door, setup_item};
 use harry_core::physics::Speed;
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT, Player, TileState};
@@ -105,6 +106,7 @@ fn touching_matches_the_original() {
             951 | 961 => setup_sliding_door(&mut other),
             1301 | 1321 | 1441 => setup_coworker(&mut other),
             1601 | 1611 | 1621 | 1631 => setup_mail_guy(&mut other),
+            1801 | 1811 | 1821 | 2001 => setup_robot(&mut other, (0, 0)),
             900..1000 => setup_door(&mut other),
             1011 | 1021 | 1031 | 1041 => setup_dart_enemy(&mut other),
             // the recorder's enemy shot kinds

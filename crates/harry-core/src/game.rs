@@ -92,6 +92,9 @@ pub struct Game {
     pub seen_level: i16,
     /// `PTR_DAT_10066118`, cleared by every plant's task.
     pub plant_flag: bool,
+    /// `PTR_DAT_1006619c` / `PTR_DAT_10066198`: a robot bounced off a wall
+    /// / an obstacle since the last robot's task (`robot::RobotWorld`).
+    pub robot_flags: (bool, bool),
     /// `_DAT_1006c4ac`, the magnets' delay.
     pub magnet: i16,
     /// The drawn gun (`PTR_DAT_100660dc`).
@@ -214,6 +217,7 @@ impl Game {
     /// its target at (h, v) − 208, then one `FindUpperLeftCorner`.
     /// Returns the object ids the port cannot make yet.
     pub fn start(&mut self, h: i16, v: i16, dir: i16, assets: &Assets) -> Vec<i16> {
+        self.world.sprites.player = self.g.player_pos;
         let missing = self.world.setup_level_sprites(&self.level, &mut self.rng);
         let p = self.world.sprites.new_sprite(0, h, v);
         self.harry = Some(p);
@@ -247,6 +251,7 @@ impl Game {
     }
 
     fn spawn_with(&mut self, kind: i16, h: i16, v: i16, setup: Setup, speed: Option<crate::physics::Speed>) -> usize {
+        self.world.sprites.player = self.g.player_pos;
         let i = self.world.sprites.spawn(kind, h, v, setup, &mut self.rng);
         let r = &mut self.world.sprites.recs[i];
         r.hot_rect2 = absolute(r.hot_rect, r.pos);
@@ -280,6 +285,20 @@ impl Game {
                 SpriteEvent::DynamicSound { id, volume, speed: _ } => {
                     // the port does not move the sound with the sprite yet
                     self.play(id, volume, Some(at), RATE, Channel::Effect);
+                }
+                SpriteEvent::Shot { kind, h, v, speed, dir, fix } => {
+                    let i = self.spawn_with(kind, h, v, Setup::EnemyShot, Some(speed));
+                    let r = &mut self.world.sprites.recs[i];
+                    r.dir = dir;
+                    if let Some(f) = fix {
+                        r.fix = f;
+                        r.pos = ((f.1 >> 8) as i16, (f.0 >> 8) as i16);
+                        r.at = r.pos;
+                    }
+                }
+                SpriteEvent::Generate { kind, h, v } => {
+                    self.world.sprites.player = self.g.player_pos;
+                    self.world.generate_sprite(h, v, kind, -1, &mut self.rng);
                 }
                 SpriteEvent::Score(n) => self.g.score = self.g.score.wrapping_add(n),
                 SpriteEvent::Forget(i) => {
@@ -585,6 +604,25 @@ impl Game {
                 s.into_sprite(&mut sp);
             }
             Some(Task::Effect) => handle_effect(&mut sp),
+            Some(Task::Robot) => {
+                let (mut wall, mut obstacle) = self.robot_flags;
+                let mut s = Vec::new();
+                let mut w = crate::robot::RobotWorld {
+                    level: &mut self.level,
+                    g: &mut self.g,
+                    rng: &mut self.rng,
+                    wall_done: &mut wall,
+                    obstacle_done: &mut obstacle,
+                };
+                crate::robot::handle_robot(&mut sp, &mut w, 0, &mut events, &mut s);
+                self.robot_flags = (wall, obstacle);
+                for a in s {
+                    // JumpScale with the hit sound
+                    if matches!(a, AirSound::Land | AirSound::Bounce) {
+                        self.play(crate::robot::snd::HIT, 0x100, None, RATE, Channel::Effect);
+                    }
+                }
+            }
             Some(Task::MailGuy) => crate::mailguy::handle_mail_guy(&mut sp, &mut self.level, &mut self.rng, &mut events),
             Some(Task::CoWorker) => crate::coworker::handle_coworker(&mut sp, &mut self.rng),
             Some(Task::Button) => handle_button(&mut sp, &mut self.level, &mut events),
@@ -647,6 +685,10 @@ impl Game {
             Some(HitTask::DartEnemy) => hit_dart_enemy(&mut sp, &mut o, &mut self.g, &mut self.rng, &mut events),
             Some(HitTask::Ramp) => hit_ramp(&mut sp, &o, self.physics.bounce),
             Some(HitTask::PlayerShot) => hit_player_shot(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
+            Some(HitTask::Robot) => {
+                let caffeine = self.g.caffeine > 0;
+                crate::robot::hit_robot(&mut sp, &mut o, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, caffeine, &mut events);
+            }
             Some(HitTask::MailGuy) => crate::mailguy::hit_mail_guy(&sp, &mut o),
             Some(HitTask::Button) => hit_button(&mut sp, &o, &mut events),
             Some(HitTask::Bonus | HitTask::Item | HitTask::Stairs | HitTask::SlidingDoor) | None => {}
@@ -762,6 +804,10 @@ impl Game {
                     HitTileTask::Barrel => {
                         let ms = ObjectMasks { plant: assets.barrel, walls, obstacle: &assets.player.obstacle };
                         hit_object_tile(sp, hit, &self.level, &ms, 12, &self.physics);
+                    }
+                    HitTileTask::Robot => {
+                        let (wall, obstacle) = &mut self.robot_flags;
+                        crate::robot::hit_robot_tile(sp, hit, &self.level, assets.barrel, walls, &assets.player.obstacle, wall, obstacle);
                     }
                     HitTileTask::MailGuy => crate::mailguy::hit_mail_guy_tile(sp, hit),
                     HitTileTask::EnemyShot => {

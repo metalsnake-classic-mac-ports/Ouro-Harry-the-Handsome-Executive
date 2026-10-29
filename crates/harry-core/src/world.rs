@@ -44,10 +44,12 @@ pub enum Setup {
     SlidingDoor,
     CoWorker,
     MailGuy,
+    Robot,
 }
 
 /// Run a setup routine on a sprite.
-pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random) {
+/// `player` is `gPlayerH/V` (h, v), which the robots' setup reads.
+pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random, player: (i16, i16)) {
     match setup {
         Setup::Bonus => setup_bonus(sp),
         Setup::Item => setup_item(sp),
@@ -69,6 +71,7 @@ pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random) {
         Setup::SlidingDoor => crate::button::setup_sliding_door(sp),
         Setup::CoWorker => crate::coworker::setup_coworker(sp),
         Setup::MailGuy => crate::mailguy::setup_mail_guy(sp),
+        Setup::Robot => crate::robot::setup_robot(sp, player),
     }
 }
 
@@ -81,6 +84,8 @@ pub struct Sprites {
     pub list: Vec<usize>,
     /// Freed records, the most recently freed last.
     pub free: Vec<usize>,
+    /// `gPlayerH/V` (h, v) for the setups (the robots face Harry).
+    pub player: (i16, i16),
 }
 
 impl Sprites {
@@ -110,7 +115,7 @@ impl Sprites {
     /// `SATNewSprite` with a setup.
     pub fn spawn(&mut self, kind: i16, h: i16, v: i16, setup: Setup, rng: &mut Random) -> usize {
         let i = self.new_sprite(kind, h, v);
-        run_setup(setup, &mut self.recs[i], rng);
+        run_setup(setup, &mut self.recs[i], rng, self.player);
         i
     }
 
@@ -284,8 +289,8 @@ impl World {
     pub fn generate_sprite(&mut self, h: i16, v: i16, kind: i16, index: i16, rng: &mut Random) -> bool {
         let idle = |w: &mut World, h: i16, v: i16, setup: Setup, rng: &mut Random| w.add_idle(kind, h, v, index, 0, setup, rng);
         match kind {
-            301..=319 | 1100..=1299 | 1700..=1849 | 1850..=1899 | 1900..=1999
-            | 2000..=2099 | 2200..=2299 | 3001 | 3900..=3999 | 4200..=4299 | 5000..=5999 | 6000..=6099 => return false,
+            301..=319 | 1100..=1299 | 1700..=1799 | 1850..=1899 | 1900..=1999
+            | 2200..=2299 | 3001 | 3900..=3999 | 4200..=4299 | 5000..=5999 | 6000..=6099 => return false,
             500 | 501 => idle(self, even(h), even(v), Setup::Cooler, rng),
             550 => idle(self, even(h), even(v), Setup::Barrel, rng),
             560 => idle(self, even(h), even(v), Setup::Chair, rng),
@@ -296,6 +301,7 @@ impl World {
                 Some((_, face)) => self.bg_props.add((v, h), face),
                 None => idle(self, h, v, Setup::DartEnemy, rng),
             },
+            1800..=1849 | 2000..=2099 => idle(self, h, v, Setup::Robot, rng),
             1300..=1449 => idle(self, even(h) + 1, even(v), Setup::CoWorker, rng),
             1601 | 1611 | 1621 | 1631 => {
                 let i = self.sprites.spawn(kind, h, v, Setup::MailGuy, rng);

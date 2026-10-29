@@ -73,6 +73,7 @@ fn buttons_match_the_original() {
                     "barrel" => Task::Barrel,
                     "chair" => Task::Chair,
                     "mailguy" => Task::MailGuy,
+                    "robot" => Task::Robot,
                     "playershot" => Task::PlayerShot,
                     "enemyshot" => Task::EnemyShot,
                     _ => Task::Bonus,

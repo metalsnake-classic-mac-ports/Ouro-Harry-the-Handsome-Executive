@@ -28,6 +28,7 @@ pub mod player;
 pub mod props;
 pub mod ramp;
 pub mod random;
+pub mod robot;
 pub mod sat;
 pub mod shots;
 pub mod sound;
