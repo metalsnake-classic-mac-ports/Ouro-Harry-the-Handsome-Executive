@@ -14,6 +14,7 @@ pub mod button;
 pub mod collider;
 pub mod coworker;
 pub mod dart_enemy;
+pub mod death;
 pub mod effect;
 pub mod enemy_shot;
 pub mod firepipe;

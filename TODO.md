@@ -65,7 +65,9 @@
 - [x] `EraseSprites`: +0x94 / +0x96 countdowns, frozen sprites leave, level entries updated
 - [x] Whole frame of level 1: player and held weapon creation, `FindUpperLeftCorner`, task dispatch, `CheckPlayerCollision`, `CheckTileCollisions` for all sprites (600 runs of up to 300 frames)
 - [x] Whole frames with weapons and items: player shots as records, `HitPlayerShotSprite`, effects (explosions), 900 runs
-- [ ] Harry's death (`HandlePlayerSpriteDeath`), `UpLevel`, the ripple, `CheckGameEvents`' other flag
+- [x] Harry's death (`HandlePlayerSpriteDeath`) to the end of the game loop (3000 runs + whole frames)
+- [ ] After the loop: `EndLevelEffect`, `AskToContinue`, restoring a saved game
+- [ ] `UpLevel`, the ripple
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one

@@ -175,7 +175,8 @@ fn episode_1_frames_match_the_original() {
             };
             let end = game.frame(&km, &assets, &mut show, &mut save);
             log.extend(balloons.into_inner());
-            let p = game.world.sprites.list.iter().copied().find(|&r| game.world.rec(r).kind == 69).unwrap();
+            // his record, as the recorder reads it (after the death he may have left the list)
+            let p = game.harry.unwrap();
             let at = game.world.rec(p).at;
             harry.push(format!("{}:{}", at.0, at.1));
             if debug {

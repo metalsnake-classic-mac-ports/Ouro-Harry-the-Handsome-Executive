@@ -342,7 +342,7 @@ fn main() -> Result<()> {
                     game = start(level, g, game.rng.seed);
                 }
                 FrameEnd::Died => {
-                    // HandlePlayerSpriteDeath is not ported yet: start the level again
+                    // after the death: AskToContinue is not ported yet, start the level again
                     game = start(level, PlayerGlobals::new_game(), game.rng.seed);
                 }
             }

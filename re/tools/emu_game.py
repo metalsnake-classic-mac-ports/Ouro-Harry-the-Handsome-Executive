@@ -4,7 +4,8 @@ of HandleIdleSprites, HandleSprites (SATRun + CheckPlayerCollision),
 FindUpperLeftCorner, the scroll origin (FUN_100251c8), CheckTileCollisions,
 EraseSprites, DrawSpritesBehindTiles / DrawSpritesAboveTiles, UpdateMeters
 and CheckGameEvents, with Harry's keys held at random (turning, scoot,
-inch, kick, items, weapons).
+inch, kick, items, weapons). A run ends when the level is done or the
+game loop would end (Harry's death over).
 
 Everything is real except sounds, the pixels (the SAT blit FUN_1006536c is
 caught and the face's draw proc called for each of its calls, the rest of
@@ -39,7 +40,7 @@ WALLS, OBSTACLE, PREFS, INVENTORY, LEVEL_COUNTER, SEEN_LEVEL = 0x100658D4, 0x100
 COMFORT, FAVOR, SURFACE, COMFORT_SHOWN, SURFACE_SHOWN, FAVOR_SHOWN, CUR_SLOT = (0x1006856A, 0x1006856E, 0x1006856C, 0x10068570,
                                                                              0x10068572, 0x10068574, 0x1006857A)
 KICK_CONTACT = 0x10065E1C
-TV_DEATH = 0x10066FAC                               # HandlePlayerSpriteDeath
+LOOP_DONE = 0x10068560                              # GameLoop ends (CheckGameEvents: Harry's death over)
 INITS = ("InitPlayerSprite", "InitHeldWeaponSprite", "InitBonusSprite", "InitItemSprite", "InitExitSprite", "InitDoorSprite",
          "InitCoolerSprite", "InitPlantSprite", "InitMessageSprite", "InitColliderSprite", "InitDartEnemySprite",
          "InitRampSprite", "InitEnemyShotSprite", "InitPlayerShotSprite", "InitEffectSprite", "InitTileHotRects",
@@ -215,7 +216,7 @@ def main():
         data, (start_v, start_h, start_dir), entries = levels[level]
         lvl = m.load_level(data)
         st = {"level": level, "seed": rnd.randint(1, 0x7FFFFFFE), "scroll": rnd.choice([0, 1, 2, 2, 3, 4]),
-              "comfort": rnd.choice([144, 100, 20]), "favor": rnd.choice([144, 60]), "frames": rnd.choice([rnd.randint(1, 60), rnd.randint(1, 300)]), "h": 0, "v": 0, "dir": 0,
+              "comfort": rnd.choice([144, 100, 20, 144, 100, 20, 0]), "favor": rnd.choice([144, 60]), "frames": rnd.choice([rnd.randint(1, 60), rnd.randint(1, 300)]), "h": 0, "v": 0, "dir": 0,
               "inv": "-", "curslot": -1, "staple": 0, "badass": 0, "shrapnel": 0,
               "balloons": "".join(rnd.choice("0001") for _ in range(16))}
         if rnd.random() < 0.6:
@@ -276,6 +277,7 @@ def main():
         m.call("SATNewSprite", 0, h, v, 0x1006724C)
         m.call("FindUpperLeftCorner")
         scroll()
+        m.write(LOOP_DONE, b"\0")                    # GameLoop clears it before the loop
         harry = []
         if debug_seed:
             print("start", dump(m, p, faces, tv), "rand", m.rand_seed)
@@ -305,7 +307,7 @@ def main():
                         print("   ", dump(m, a, faces, tv))
             if "uplevel" in log:
                 break
-            if m.r32(p + 0x1A) == TV_DEATH:
+            if m.read(LOOP_DONE, 1)[0]:
                 log.append("died")
                 break
         lst, a = [], m.r32(sat + 0x78)

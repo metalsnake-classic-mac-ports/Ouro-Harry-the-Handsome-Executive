@@ -1250,6 +1250,25 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   match. `SEED=<seed>` reruns one case with per-frame dumps, `TRACE` /
   `RAND` print routine calls and the callers of `Random`; the test's
   `GAME_DUMP=<seed>` prints the same for the port.
+- **Harry's death** (`harry_core::death`): `HandlePlayerSprite` hands
+  Harry to `HandlePlayerSpriteDeath` (timer 0) once comfort or favor
+  *shown* is below 1 and he is on the ground. Each frame clears the shot
+  kind and the recoil. Frame 0: `FadeMusic(0, 1)`, no hit / tile hit
+  task, no current item. He turns 2 steps a frame (frames 1–18), 3
+  (19–30), 4 (31–45), 5 (46–51); frame 18 plays 4901 (comfort gone) or
+  4900 (favor gone); frame 45: an explosion on him (`dir` 4), four
+  flames 4204 / 4203 / 4201 / 4202 left, right, above and below his
+  centre with `f6e` 3 (their last round), `f7c` their kind and +0x8b,
+  four explosions ±16 about him with +0x8b, the burst 602, a shake of
+  36. His face is the standing one (1101 + `dir`) until frame 51, then
+  none. Frame 110 freezes him (so `EraseSprites` takes him out) and sets
+  the "player off" flag `_DAT_10065acc`: `CheckGameEvents` then ends
+  `GameLoop` (`DAT_10068560`, cleared before the loop), `HandleSprites`
+  skips `CheckPlayerCollision`. After the loop: `EndLevelEffect`, then
+  `AskToContinue` (not ported; the port starts the level again).
+  `re/tools/emu_death.py`: 3000 runs of 1–130 frames from any timer,
+  all matching; 8 of 8 mutations caught. The whole-frame recorder now
+  runs on to the loop's end; 72 of its runs play the whole death.
 - **Shots made with their own fix**: the boss's (2281, 2291, 1211) keep
   `pos` / `at` where `SATNewSprite` put them until their first frame -
   so their hot rect is there for that frame's collisions - while the

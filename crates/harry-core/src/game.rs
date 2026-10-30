@@ -16,6 +16,7 @@ use crate::air::Air;
 use crate::bounce::Rect;
 use crate::collider::{ColliderWorld, CopierSave, centre, handle_collider, hit_collider, is_repelled, repel};
 use crate::dart_enemy::{handle_dart_enemy, hit_dart_enemy};
+use crate::death::{DeathEvent, handle_player_death};
 use crate::enemy_shot::{ShotMasks, handle_enemy_shot, hit_enemy_shot, hit_enemy_shot_tile};
 use crate::button::{handle_button, handle_sliding_door, hit_button};
 use crate::furniture::{self, FurnitureMasks, handle_barrel, handle_chair, hit_barrel, hit_chair};
@@ -194,7 +195,8 @@ pub enum FrameEnd {
     Running,
     /// The level counter changed (`UpLevel`).
     LevelDone,
-    /// Harry died (his task became `HandlePlayerSpriteDeath`; not ported).
+    /// Harry's death ran its course (`HandlePlayerSpriteDeath` set the
+    /// "player off" flag, `_DAT_10065acc`).
     Died,
 }
 
@@ -416,6 +418,31 @@ impl Game {
         }
     }
 
+    /// What Harry's death asks for.
+    fn death_events(&mut self, events: Vec<DeathEvent>) {
+        for e in events {
+            match e {
+                // the music is not ported yet
+                DeathEvent::FadeMusic => {}
+                DeathEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
+                DeathEvent::Explosion { h, v, dir, behind } => {
+                    let i = self.explosion(h, v, 0, dir);
+                    if behind {
+                        self.world.sprites.recs[i].b8b = true;
+                    }
+                }
+                DeathEvent::Flame { kind, h, v } => {
+                    let i = self.spawn_with(kind, h, v, Setup::Effect, None);
+                    let r = &mut self.world.sprites.recs[i];
+                    r.f6e = 3;
+                    r.f7c = kind;
+                    r.b8b = true;
+                }
+                DeathEvent::Shake(s) => self.view.shake = s,
+            }
+        }
+    }
+
     fn weapon_events(&mut self, events: Vec<WeaponEvent>, at: (i16, i16)) {
         for e in events {
             match e {
@@ -541,7 +568,7 @@ impl Game {
         step(g.favor, &mut g.favor_shown);
     }
 
-    /// Run sprite `i`'s task. Returns whether Harry died.
+    /// Run sprite `i`'s task. Returns whether Harry's death is over.
     fn task(&mut self, i: usize, keys: &KeyMap, assets: &Assets, show: &mut ShowBalloonFn) -> bool {
         let mut sp = std::mem::take(&mut self.world.sprites.recs[i]);
         let mut events = Vec::new();
@@ -561,9 +588,8 @@ impl Game {
                     |h, g, rng| handle_keys(h, g, &input, rng, &mut key_events),
                     &mut sounds,
                 );
-                died = h.dead;
                 harry_into(&h, &mut sp);
-                if died {
+                if h.dead {
                     sp.task = Some(Task::PlayerDeath);
                     sp.timer = 0;
                 }
@@ -783,7 +809,14 @@ impl Game {
             Some(Task::CoWorker) => crate::coworker::handle_coworker(&mut sp, &mut self.rng),
             Some(Task::Button) => handle_button(&mut sp, &mut self.level, &mut events),
             Some(Task::SlidingDoor) => handle_sliding_door(&mut sp, &self.level, &mut events),
-            Some(Task::Exit | Task::PlayerDeath | Task::Stairs) | None => {}
+            Some(Task::PlayerDeath) => {
+                let mut dev = Vec::new();
+                died = handle_player_death(&mut sp, &mut self.g, &mut dev);
+                self.world.sprites.recs[i] = std::mem::take(&mut sp);
+                self.death_events(dev);
+                sp = std::mem::take(&mut self.world.sprites.recs[i]);
+            }
+            Some(Task::Exit | Task::Stairs) | None => {}
         }
         let at = sp.at;
         self.world.sprites.recs[i] = sp;
