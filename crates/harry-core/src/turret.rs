@@ -88,7 +88,7 @@ pub fn handle_turret(sp: &mut Sprite, player: (i16, i16), drop: i16, rng: &mut R
         if rng.below(if quick { 35 } else { 60 }) == 1 {
             let mut speed = sp.speed;
             add_polar(&mut speed, sp.dir, &SHOT_SPEED);
-            events.push(SpriteEvent::Shot { kind: sp.kind, h: sp.pos.1.wrapping_add(7), v: sp.pos.0.wrapping_add(8), speed, dir: sp.dir, fix: None, timer: None, f7c: None });
+            events.push(SpriteEvent::Shot { kind: sp.kind, h: sp.pos.1.wrapping_add(7), v: sp.pos.0.wrapping_add(8), speed, dir: sp.dir, fix: None, to_fix: false, timer: None, f7c: None });
             events.push(SpriteEvent::Sound3D(crate::robot::snd::SHOT));
         }
     }

@@ -119,6 +119,7 @@ pub fn handle_scientist(sp: &mut Sprite, view: (i16, i16), player: (i16, i16), r
                         speed,
                         dir: 0,
                         fix: None,
+                        to_fix: false,
                         timer: Some(0),
                         f7c: None,
                     });

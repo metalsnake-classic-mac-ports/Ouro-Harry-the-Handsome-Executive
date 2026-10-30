@@ -118,6 +118,8 @@ struct Loaded {
     shot: harry_core::mask::Mask,
     ramps: Vec<harry_core::mask::Mask>,
     player_shot: harry_core::mask::Mask,
+    robot: harry_core::mask::Mask,
+    blob: harry_core::mask::Mask,
 }
 
 impl Loaded {
@@ -137,6 +139,8 @@ impl Loaded {
             shot: cicn(1299)?,
             ramps: (571..=574).map(cicn).collect::<Result<_>>()?,
             player_shot: face(4021)?,
+            robot: face(4251)?,
+            blob: face(1451)?,
         })
     }
 }
@@ -162,7 +166,7 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
         robot_flags: (false, false),
         reversor_flags: (false, false),
         blob_flags: (false, false),
-        magnet: 0,
+        magnet: 2,
         gun: 0,
         harry: None,
         words: data.words.clone(),
@@ -195,6 +199,8 @@ fn main() -> Result<()> {
         shot: &loaded.shot,
         ramps: [&loaded.ramps[0], &loaded.ramps[1], &loaded.ramps[2], &loaded.ramps[3]],
         player_shot: &loaded.player_shot,
+        robot: &loaded.robot,
+        blob: &loaded.blob,
         face_bounds: &face_bounds,
     };
     let mut level: usize = args.get(2).and_then(|s| s.parse::<usize>().ok()).map_or(0, |n| n.clamp(1, data.levels.len()) - 1);

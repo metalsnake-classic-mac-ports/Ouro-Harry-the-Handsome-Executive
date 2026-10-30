@@ -62,7 +62,8 @@ fn robot_tasks_match_the_original() {
         return;
     };
     let levels: Vec<_> = (1..=15).map(|i| hlvl::read(ep.get(b"Hlvl", i).unwrap()).unwrap()).collect();
-    let mask = masks::from_cicn(&gfx, 598).unwrap();
+    // cicn 598 encoded as face 4251: the faces' mirrored bits
+    let mask = masks::from_face(&harry_original::hrsp::decode(gfx.get(b"HrSp", 4251).unwrap()).unwrap());
     let obstacle = masks::from_cicn(&gfx, 290).unwrap();
     let walls = masks::walls(&app).unwrap();
     let (mut bad, mut n) = (0, 0);

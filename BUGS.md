@@ -29,7 +29,10 @@ option) and why.
   reading bits the QuickDraw way: `harry_original::masks::from_face`
   matches every face only with the mirror. Pixels whose mirrored place
   falls beyond the face width are lost (e.g. the right 4 px of a 44 px
-  face). Port: keep (`from_face` builds them the same way).
+  face). Port: keep (`from_face` builds them the same way). This also
+  hits the wall masks of robots and reversors (cicn 598, loaded as the
+  encoded face 4251) and blobs (face 1451): they bounce off mirrored
+  walls, unlike Harry and the furniture (the cicn read directly).
 
 - **Wall-shape masks indexed out of range.** `HitPlayerTileSprite`'s
   kick test looks up the mask of foreground kinds up to 54 in a table of
@@ -159,6 +162,12 @@ option) and why.
   recorder the next loaded face or garbage). The blob's first frame sets
   a proper face, so it only matters if it is drawn before that. Port: no
   face for those.
+
+- **The magnets' delay carries over.** The one counter for all magnets
+  (`_DAT_1006c4ac`) starts at 2 when the game launches and is never
+  reset, and every magnet in reach counts it down: where the first pull
+  comes depends on the levels played before and on how many magnets
+  reach Harry. Port: keep.
 
 ## Fixed in 1.0.1
 

@@ -126,9 +126,10 @@ pub enum SpriteEvent {
     /// moves on with `speed` (px a frame) while it plays.
     DynamicSound { id: i16, volume: i16, speed: Speed },
     /// `SATNewSprite(kind, h, v, SetupEnemyShotSprite)`, then speed and
-    /// `dir` set - and, if given, `fix` (with `pos` and `at` from it),
-    /// `timer` and `f7c`.
-    Shot { kind: i16, h: i16, v: i16, speed: Speed, dir: i16, fix: Option<(i32, i32)>, timer: Option<i16>, f7c: Option<i16> },
+    /// `dir` set - and, if given, `fix`, `timer` and `f7c`. With `to_fix`
+    /// `pos` and `at` move to `fix` too (the robots); otherwise they stay
+    /// until the shot's first frame (the boss).
+    Shot { kind: i16, h: i16, v: i16, speed: Speed, dir: i16, fix: Option<(i32, i32)>, to_fix: bool, timer: Option<i16>, f7c: Option<i16> },
     /// `GenerateSprite(h, v, kind, −1)`: an object of the level's kinds,
     /// without a level entry.
     Generate { kind: i16, h: i16, v: i16 },

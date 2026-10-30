@@ -136,14 +136,14 @@ fn volley(sp: &Sprite, fast: bool, last_dir_zero: bool, events: &mut Vec<SpriteE
     let mut speed = Speed::default();
     add_speed(&mut speed, sp.dir, 1500);
     speed = Speed { h: speed.h.wrapping_mul(k), v: speed.v.wrapping_mul(k) };
-    events.push(SpriteEvent::Shot { kind: 2291, h, v, speed, dir: sp.dir, fix: Some(fix), timer: None, f7c: None });
+    events.push(SpriteEvent::Shot { kind: 2291, h, v, speed, dir: sp.dir, fix: Some(fix), to_fix: false, timer: None, f7c: None });
     let (h2, v2) = ((fix.0 >> 8) as i16, (fix.1 >> 8) as i16);
     for (n, d) in [side(sp.dir, 2), side(sp.dir, -2)].into_iter().enumerate() {
         let mut s = Speed::default();
         add_speed(&mut s, d, 1500);
         s = Speed { h: s.h.wrapping_mul(k), v: s.v.wrapping_mul(k) };
         let dir = if n == 1 && last_dir_zero { 0 } else { d };
-        events.push(SpriteEvent::Shot { kind: 2291, h: h2, v: v2, speed: s, dir, fix: None, timer: None, f7c: None });
+        events.push(SpriteEvent::Shot { kind: 2291, h: h2, v: v2, speed: s, dir, fix: None, to_fix: false, timer: None, f7c: None });
     }
 }
 
@@ -259,13 +259,13 @@ pub fn handle_boss(
                 1 => {
                     let (speed, fix) = launch(sp, side(sp.dir, 2), sp.dir);
                     let (h, v) = (sp.at.1.wrapping_add(26), sp.at.0.wrapping_add(26));
-                    events.push(SpriteEvent::Shot { kind: 2281, h, v, speed, dir: sp.dir, fix: Some(fix), timer: None, f7c: None });
+                    events.push(SpriteEvent::Shot { kind: 2281, h, v, speed, dir: sp.dir, fix: Some(fix), to_fix: false, timer: None, f7c: None });
                     boss.cooldown = rng.below(5) + 6;
                 }
                 2 => {
                     let (speed, fix) = launch(sp, side(sp.dir, 2), sp.dir);
                     let (h, v) = (sp.at.1.wrapping_add(26), sp.at.0.wrapping_add(26));
-                    events.push(SpriteEvent::Shot { kind: 1211, h, v, speed, dir: 0, fix: Some(fix), timer: Some(0), f7c: Some(1) });
+                    events.push(SpriteEvent::Shot { kind: 1211, h, v, speed, dir: 0, fix: Some(fix), to_fix: false, timer: Some(0), f7c: Some(1) });
                     boss.cooldown = rng.below(25) + 30;
                 }
                 _ => {

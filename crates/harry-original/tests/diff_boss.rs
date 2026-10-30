@@ -20,7 +20,7 @@ fn root() -> PathBuf {
 /// The recorder's form of an event (see `emu_boss.py`).
 fn event(e: &SpriteEvent) -> Option<String> {
     Some(match *e {
-        SpriteEvent::Shot { kind, h, v, speed, dir, fix, timer, f7c } => {
+        SpriteEvent::Shot { kind, h, v, speed, dir, fix, timer, f7c, .. } => {
             let (fh, fv) = fix.unwrap_or((i32::from(h) << 8, i32::from(v) << 8));
             let mut s = format!("shot:{kind}:{h}:{v}:{}:{}:{dir}:{fh}:{fv}", speed.v, speed.h);
             if kind == 1211 {

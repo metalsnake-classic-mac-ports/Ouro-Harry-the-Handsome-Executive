@@ -53,8 +53,8 @@
 - [x] Scientists and blobs (16 000 runs), player shot hits on every kind (30 000); levels 8–14 have all their kinds
 - [x] The boss (4000 runs); every level of Episode 1 has all its kinds (hazards 3001 and desks 301–319 are not used)
 - [ ] Music (`Tune`), then the boss's `FadeMusic`
-- [ ] Whole-frame recorder (`emu_game.py`) for the other levels, with the draw pass (layer changes of draw procs)
-- [ ] `VendingDrawProc`: drawing the vending machine sets its +0x78 (and +0x8a)
+- [x] Whole-frame recorder (`emu_game.py`) for all 15 levels with the draw pass and every draw proc's effect (1500 runs)
+- [x] `VendingDrawProc`: drawing the vending machine sets its +0x78 (and +0x8a)
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
 - [ ] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
 - [x] Colliders: fans (`HandleRepulsions`), phone, copier, magnet, wall guns, vending machine, gate (20 000 cases)

@@ -117,7 +117,7 @@ pub fn event(e: &SpriteEvent) -> String {
         SpriteEvent::BigBlast { h, v } => format!("big:{h}:{v}"),
         SpriteEvent::ExplosionAt { h, v, a, b, timer } => format!("x:{h}:{v}:{a}:{b}:t{timer}"),
         SpriteEvent::Flame { pipe, h, v, kind } => format!("flame:{pipe}:{h}:{v}:{kind}"),
-        SpriteEvent::Shot { kind, h, v, speed, dir, fix, timer, f7c } => {
+        SpriteEvent::Shot { kind, h, v, speed, dir, fix, timer, f7c, .. } => {
             let (fh, fv) = fix.unwrap_or((i32::from(h) << 8, i32::from(v) << 8));
             let t = timer.map_or(String::new(), |t| format!(":t{t}"));
             let f = f7c.map_or(String::new(), |f| format!(":f{f}"));

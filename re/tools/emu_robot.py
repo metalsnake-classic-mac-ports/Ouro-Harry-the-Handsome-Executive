@@ -25,7 +25,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ppcmachine import Machine  # noqa: E402
-from sprites import Faces, tvectors, dump  # noqa: E402
+from sprites import Faces, tvectors, dump, face_region  # noqa: E402
 from emu_mask import masks  # noqa: E402
 from cicn import decode as cicn_decode  # noqa: E402
 
@@ -93,7 +93,7 @@ def main():
     obstacle = m.alloc(0x40)
     m.w32(m.glob(OBSTACLE), obstacle)
     robot_face = m.r32(m.glob(ROBOT_MASK))
-    barrel_mask, plant_mask = cicn_mask(work, 598), cicn_mask(work, 599)
+    robot_mask = face_region(work, 4251)            # cicn 598 with the faces' mirrored bits
     physics = m.glob(PHYSICS)
     for i, v in enumerate((50, 70, 245, 252, 150)):
         m.w16(physics + 2 * i, v)
@@ -103,7 +103,7 @@ def main():
         for k in range(32):
             m.w32(walls + 0x1A + k * 0x2E, m.make_region(ms[f"wall{k}"]))
         m.w32(obstacle + 0x1A, m.make_region(ms["obstacle"]))
-        m.w32(robot_face + 0x14, m.make_region(barrel_mask))
+        m.w32(robot_face + 0x14, m.make_region(robot_mask))
 
     def frame_events():
         out = []

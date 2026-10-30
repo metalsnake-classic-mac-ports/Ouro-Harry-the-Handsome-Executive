@@ -82,7 +82,8 @@ fn run(group: &str) {
         return;
     };
     let levels: Vec<_> = (1..=15).map(|i| hlvl::read(ep.get(b"Hlvl", i).unwrap()).unwrap()).collect();
-    let mask = masks::from_cicn(&gfx, 598).unwrap();
+    // cicn 598 encoded as face 1451: the faces' mirrored bits
+    let mask = masks::from_face(&harry_original::hrsp::decode(gfx.get(b"HrSp", 1451).unwrap()).unwrap());
     let walls = masks::walls(&app).unwrap();
     let physics = Physics::default();
     let mut face_bounds: HashMap<i16, [i16; 4]> = HashMap::new();

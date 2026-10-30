@@ -1,5 +1,10 @@
-//! Whole frames of level 1 against the original, recorded in Unicorn by
+//! Whole frames of the levels of Episode 1 against the original, recorded in Unicorn by
 //! `re/tools/emu_game.py`.
+//!
+//! Debugging: `GAME_TRIAGE=1` prints, per differing case, the first list
+//! entry that differs; `GAME_DUMP=<seed>` prints that case's frames as
+//! `emu_game.py` does with `SEED=<seed>` (and `KIND=<kind>` its sprites of
+//! that kind), so the two can be diffed.
 
 mod common;
 
@@ -28,7 +33,7 @@ fn installed(name: &str) -> Option<Resources> {
 }
 
 #[test]
-fn level_1_frames_match_the_original() {
+fn episode_1_frames_match_the_original() {
     let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/game.txt")) else {
         eprintln!("skipped: game.txt not found (run re/tools/emu_game.py)");
         return;
@@ -49,6 +54,8 @@ fn level_1_frames_match_the_original() {
     let cooler = masks::from_face(&face(2002));
     let shot = masks::from_cicn(&gfx, 1299).unwrap();
     let player_shot = masks::from_face(&face(4021));
+    let robot = masks::from_face(&face(4251));
+    let blob = masks::from_face(&face(1451));
     let ramps: Vec<_> = (571..=574).map(|id| masks::from_cicn(&gfx, id).unwrap()).collect();
     let bounds: HashMap<i16, [i16; 4]> =
         gfx.ids(b"HrSp").into_iter().map(|id| (id, hrsp::decode(gfx.get(b"HrSp", id).unwrap()).unwrap().bounds)).collect();
@@ -61,9 +68,11 @@ fn level_1_frames_match_the_original() {
         shot: &shot,
         ramps: [&ramps[0], &ramps[1], &ramps[2], &ramps[3]],
         player_shot: &player_shot,
+        robot: &robot,
+        blob: &blob,
         face_bounds: &face_bounds,
     };
-    let level1 = hlvl::read(ep.get(b"Hlvl", 1).unwrap()).unwrap();
+    let levels: Vec<_> = (1..=15).map(|i| hlvl::read(ep.get(b"Hlvl", i).unwrap()).unwrap()).collect();
     let words = harry_original::words::words(&app).unwrap();
     let bindings = Bindings { left: 0x7B, right: 0x7C, scoot: 0x7D, inch: 0x7E, kick: 0x31, select_item: 0x3B, use_item: 0x3A };
     let mut bad = 0;
@@ -104,28 +113,35 @@ fn level_1_frames_match_the_original() {
         g.ammo.shrapnel = w("shrapnel") as i16;
         // the data section's value (HandlePlayerSprite sets it each frame)
         g.tile.floor_kind = 1;
+        let number = w("level") as i16;
+        let level = &levels[number as usize - 1];
         let mut game = Game {
             world: World::default(),
-            physics: level1.effective_physics(),
-            level: level1.clone(),
+            physics: level.effective_physics(),
+            level: level.clone(),
             g,
             view: View::default(),
             rng: Random::new(w("seed") as u32),
             prefs: Prefs { scroll: w("scroll") as i16, even_v: false, blit: false, bindings },
-            counter: LevelCounter { current: 1, previous: 0 },
-            seen_level: 1,
+            counter: LevelCounter { current: number, previous: 0 },
+            seen_level: number,
             plant_flag: false,
-        robot_flags: (false, false),
-        reversor_flags: (false, false),
-        blob_flags: (false, false),
-            magnet: 0,
+            robot_flags: (false, false),
+            reversor_flags: (false, false),
+            blob_flags: (false, false),
+            magnet: 2,
             gun: 0,
             harry: None,
             words: words.clone(),
             sounds: Vec::new(),
         };
         let missing = game.start(w("h") as i16, w("v") as i16, w("dir") as i16, &assets);
-        assert!(missing.is_empty());
+        assert!(missing.is_empty(), "level {number}: {missing:?}");
+        let debug = std::env::var("GAME_DUMP").is_ok_and(|s| s == i["seed"]);
+        let kind = std::env::var("KIND").ok();
+        if debug {
+            eprintln!("start {} rand {}", dump(game.world.rec(game.harry.unwrap())), game.rng.seed);
+        }
         let mut log = Vec::new();
         let mut harry = Vec::new();
         let mut answers: Vec<bool> = i["balloons"].chars().rev().map(|c| c == '1').collect();
@@ -162,6 +178,15 @@ fn level_1_frames_match_the_original() {
             let p = game.world.sprites.list.iter().copied().find(|&r| game.world.rec(r).kind == 69).unwrap();
             let at = game.world.rec(p).at;
             harry.push(format!("{}:{}", at.0, at.1));
+            if debug {
+                let kinds: Vec<String> = game.world.sprites.list.iter().map(|&r| game.world.rec(r).kind.to_string()).collect();
+                eprintln!("{} {keys} {} comfort {} rand {} log {log:?} list {}", harry.len() - 1, dump(game.world.rec(p)), game.g.comfort, game.rng.seed, kinds.join(","));
+                for &r in &game.world.sprites.list {
+                    if kind.as_deref() == Some(game.world.rec(r).kind.to_string().as_str()) {
+                        eprintln!("    {}", dump(game.world.rec(r)));
+                    }
+                }
+            }
             if end == FrameEnd::LevelDone {
                 log.push("uplevel");
                 break;
@@ -202,6 +227,26 @@ fn level_1_frames_match_the_original() {
             if free.is_empty() { "-".to_string() } else { free.join(",") }
         );
         n += 1;
+        if debug {
+            eprintln!("WANT {b}\nGOT  {got}");
+        }
+        if got != b && std::env::var("GAME_TRIAGE").is_ok() {
+            // the first list entry that differs: its kind and fields
+            let list = |s: &str| s.split(' ').find(|x| x.starts_with("list=")).unwrap_or("").to_string();
+            let (wl, gl) = (list(b), list(&got));
+            let we: Vec<&str> = wl.trim_start_matches("list=").split(';').collect();
+            let ge: Vec<&str> = gl.trim_start_matches("list=").split(';').collect();
+            let other = |s: &str| s.split(' ').filter(|x| !x.starts_with("list=") && !x.starts_with("harry=")).collect::<Vec<_>>().join(" ");
+            let first = we.iter().zip(ge.iter()).position(|(x, y)| x != y);
+            let fields = first.map(|k| {
+                let wf: Vec<&str> = we[k].split(':').collect();
+                let gf: Vec<&str> = ge[k].split(':').collect();
+                let d: Vec<String> = wf.iter().zip(gf.iter()).filter(|(x, y)| x != y).map(|(x, y)| format!("{x}/{y}")).collect();
+                format!("{} {}", wf[0], d.join(","))
+            });
+            let o: Vec<String> = other(b).split(' ').zip(other(&got).split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("{x}/{y}")).collect();
+            eprintln!("TRIAGE level={} len={}/{} {:?} {}", i["level"], we.len(), ge.len(), fields, o.join(" "));
+        }
         if got != b {
             bad += 1;
             if bad <= 3 {

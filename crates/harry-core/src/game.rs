@@ -44,6 +44,58 @@ use crate::sound::{Channel, RATE, SoundEvent, snd, stereo};
 use crate::words::Words;
 use crate::world::{Setup, World};
 
+/// The scroll routine's origin (`FUN_100251c8`, `_DAT_1006596c/70`): the
+/// view's corner (v, h), not below 0 and not past 3648.
+fn scroll_origin(view: (i16, i16)) -> (i32, i32) {
+    let clamp = |x: i16| {
+        let x = x.max(0);
+        if (i32::from(x.wrapping_add(480)) / 32) > 128 {
+            3648
+        } else {
+            i32::from(x)
+        }
+    };
+    (clamp(view.0), clamp(view.1))
+}
+
+/// How often `WrapDrawSprite` calls the draw proc for a face of `size`
+/// (width, height) at `pos` (v, h): never unless it reaches into the view
+/// from the origin; then once, and again for each wrap of the 480-px ring
+/// buffer it crosses (a scaled face that crosses the right edge goes
+/// through the scale port, once).
+fn wrap_draws(pos: (i16, i16), size: (i16, i16), origin: (i32, i32), unscaled: bool) -> usize {
+    let (ov, oh) = origin;
+    let (mut y, mut x) = (i32::from(pos.0), i32::from(pos.1));
+    let (mut w, mut hgt) = (i32::from(size.0), i32::from(size.1));
+    if !(oh <= x + w && ov <= y + hgt && x <= oh + 448 && y <= ov + 448) {
+        return 0;
+    }
+    if ov + 448 < y + hgt {
+        hgt = ov + 448 - y;
+    }
+    if oh + 480 < x + w {
+        w = oh + 480 - x;
+    }
+    if x < oh {
+        w -= oh - x;
+        x = oh;
+    }
+    if y < ov {
+        hgt -= ov - y;
+        y = ov;
+    }
+    let (w, hgt) = (i32::from(w as i16), i32::from(hgt as i16));
+    let y = i32::from((y as i16) % 480);
+    let x = i32::from((x as i16) % 480);
+    if unscaled || (x >= 0 && x + w < 480) {
+        let down = y - 480 + hgt > 0;
+        let right = x - 480 + w > 0;
+        1 + usize::from(down) + usize::from(right) + usize::from(right && down)
+    } else {
+        1
+    }
+}
+
 /// Harry's faces: HrSp 1101 + pose (`dir` + 36 × pose set).
 pub const PLAYER_FACES: Face = 1101;
 
@@ -73,6 +125,10 @@ pub struct Assets<'a> {
     pub ramps: [&'a Mask; 4],
     /// The player shots' mask (HrSp 4021).
     pub player_shot: &'a Mask,
+    /// The robots' and reversors' wall mask (HrSp 4251, cicn 598 encoded,
+    /// so with the faces' mirrored bits) and the blobs' (HrSp 1451).
+    pub robot: &'a Mask,
+    pub blob: &'a Mask,
     /// The bounds (top, left, bottom, right) of a face; (0, 0, 0, 0) for
     /// none.
     pub face_bounds: &'a dyn Fn(Face) -> Rect,
@@ -99,7 +155,8 @@ pub struct Game {
     pub reversor_flags: (bool, bool),
     /// And for the blobs (`PTR_DAT_10065f00` / `…efc`).
     pub blob_flags: (bool, bool),
-    /// `_DAT_1006c4ac`, the magnets' delay.
+    /// `_DAT_1006c4ac`, the magnets' delay: 2 at launch (data section),
+    /// never reset, so it carries over from level to level.
     pub magnet: i16,
     /// The drawn gun (`PTR_DAT_100660dc`).
     pub gun: u8,
@@ -290,7 +347,7 @@ impl Game {
                     // the port does not move the sound with the sprite yet
                     self.play(id, volume, Some(at), RATE, Channel::Effect);
                 }
-                SpriteEvent::Shot { kind, h, v, speed, dir, fix, timer, f7c } => {
+                SpriteEvent::Shot { kind, h, v, speed, dir, fix, to_fix, timer, f7c } => {
                     let i = self.spawn_with(kind, h, v, Setup::EnemyShot, Some(speed));
                     let r = &mut self.world.sprites.recs[i];
                     r.dir = dir;
@@ -302,8 +359,10 @@ impl Game {
                     }
                     if let Some(f) = fix {
                         r.fix = f;
-                        r.pos = ((f.1 >> 8) as i16, (f.0 >> 8) as i16);
-                        r.at = r.pos;
+                        if to_fix {
+                            r.pos = ((f.1 >> 8) as i16, (f.0 >> 8) as i16);
+                            r.at = r.pos;
+                        }
                     }
                 }
                 SpriteEvent::Generate { kind, h, v } => {
@@ -844,37 +903,113 @@ impl Game {
     }
 
     /// What drawing does to the game (`DrawSpritesBehindTiles` /
-    /// `DrawSpritesAboveTiles` → `WrapDrawSprite` → the face's draw proc):
-    /// every sprite with a task and a face whose `at` lies within the view
-    /// − 64 … + 512 and whose face reaches into the 448 × 448 view is
-    /// drawn, and some draw procs change it - a hit robot is drawn lit and
-    /// goes back to layer 7 (turrets and blobs too), a hit grate to 9. (Scaled sprites are placed
-    /// by `FindScaledPosAndBounds` in the original; the port tests their
-    /// `at`.)
+    /// `DrawSpritesAboveTiles` → `WrapDrawSprite` → the face's draw proc,
+    /// once for each copy in the 480-px ring buffer the screen is drawn
+    /// in): every sprite with a task and a face whose `at` lies within the
+    /// view − 64 … + 512 is drawn where its face reaches into the view.
+    /// Some draw procs change the sprite (the draw proc goes with the
+    /// face): a hit robot, big robot, turret or reversor (layer 10) goes
+    /// back to 7, a blob too (+0x8a), a hit grate to 9; the vending
+    /// machine sets +0x78; Harry's face sets +0x8a while his comfort falls
+    /// or the shrapnel gun charges, and on caffeine draws a random number
+    /// (`SATRand(10)`) - as does the boss in phase 3 (`SATRand(15)`).
     fn draw_pass(&mut self, assets: &Assets) {
         let (vv, vh) = (i32::from(self.view.corner.0), i32::from(self.view.corner.1));
-        for k in 0..self.world.sprites.list.len() {
-            let i = self.world.sprites.list[k];
-            let sp = &self.world.sprites.recs[i];
-            if sp.task.is_none() || sp.face == 0 {
-                continue;
+        let origin = scroll_origin(self.view.corner);
+        // behind the tiles (+0x8b set), then above them
+        for behind in [true, false] {
+            for k in 0..self.world.sprites.list.len() {
+                let i = self.world.sprites.list[k];
+                let sp = &self.world.sprites.recs[i];
+                if sp.task.is_none() || sp.face == 0 || sp.b8b != behind {
+                    continue;
+                }
+                let (v, h) = (i32::from(sp.at.0), i32::from(sp.at.1));
+                if !(vv - 64 <= v && v < vv + 512 && vh - 64 <= h && h < vh + 512) {
+                    continue;
+                }
+                let b = (assets.face_bounds)(sp.face);
+                let unscaled = sp.scale[0] == 0x100 && sp.scale[1] == 0x100;
+                let (pos, size) = if unscaled {
+                    (sp.at, (b[3], b[2]))
+                } else {
+                    // FindScaledPosAndBounds
+                    let fw = b[3].wrapping_sub(b[1]);
+                    let fh = b[2].wrapping_sub(b[0]);
+                    let w = ((i32::from(sp.scale[0]) * i32::from(fw)) >> 8) as i16;
+                    let hh = ((i32::from(sp.scale[1]) * i32::from(fh)) >> 8) as i16;
+                    let pos = (
+                        sp.at.0.wrapping_add(((i32::from(fh) - i32::from(hh)) >> 1) as i16),
+                        sp.at.1.wrapping_add(((i32::from(fw) - i32::from(w)) >> 1) as i16),
+                    );
+                    if sp.scale[0] <= 0x100 && sp.scale[1] <= 0x100 {
+                        (pos, (b[3], b[2]))
+                    } else {
+                        (pos, (b[1].wrapping_add(w), b[0].wrapping_add(hh)))
+                    }
+                };
+                let calls = wrap_draws(pos, size, origin, unscaled);
+                for _ in 0..calls {
+                    self.drawn(i);
+                }
             }
-            let (v, h) = (i32::from(sp.at.0), i32::from(sp.at.1));
-            if !(vv - 64 <= v && v < vv + 512 && vh - 64 <= h && h < vh + 512) {
-                continue;
+        }
+    }
+
+    /// One call of a sprite's draw proc.
+    fn drawn(&mut self, i: usize) {
+        let g = &self.g;
+        let boss = self.world.sprites.boss;
+        let sp = &mut self.world.sprites.recs[i];
+        match sp.face {
+            // TintDrawProc (Harry)
+            1101..=1244 => {
+                if sp.kind == 10 {
+                    sp.b8a = true;
+                } else if g.caffeine < 1 {
+                    let item = usize::try_from(g.cur_slot)
+                        .ok()
+                        .and_then(|s| g.inventory.get(s))
+                        .map_or(-1, |e| e.0);
+                    if g.fire_hold < 1 || item != 11999 {
+                        if g.comfort < g.comfort_shown {
+                            sp.b8a = true;
+                        }
+                    } else {
+                        sp.b8a = true;
+                    }
+                } else {
+                    self.rng.below(10);
+                }
             }
-            let b = (assets.face_bounds)(sp.face);
-            let (w, ht) = (i32::from(b[3]), i32::from(b[2]));
-            if !(vh <= h + w && vv <= v + ht && h <= vh + 448 && v <= vv + 448) {
-                continue;
+            // RobotTintDrawProc, MGTintDrawProc, TurretTintDrawProc
+            4201..=4236 | 4701..=4772 | 4601..=4632 => {
+                if sp.layer == 10 {
+                    sp.layer = 7;
+                }
             }
-            let sp = &mut self.world.sprites.recs[i];
-            match sp.task {
-                Some(Task::Robot | Task::Turret) if sp.layer == 10 => sp.layer = 7,
-                Some(Task::Grate) => crate::grate::drawn(sp),
-                Some(Task::Blob) => crate::blob::drawn(sp),
-                _ => {}
+            1401..=1424 => crate::blob::drawn(sp),
+            3401..=3404 => crate::grate::drawn(sp),
+            // VendingDrawProc
+            1902 | 1903 => {
+                let empty = usize::try_from(sp.level_index)
+                    .ok()
+                    .and_then(|x| self.level.sprites.get(x))
+                    .is_some_and(|e| e.info[1] < 1);
+                if sp.f78 == 1 && empty {
+                    sp.b8a = true;
+                }
+                sp.f78 = 1;
             }
+            // BossTintDrawProc
+            4902..=4937 => {
+                if sp.f6e < 0 {
+                    sp.b8a = true;
+                } else if (boss.anim == 2 || boss.anim == 6 || boss.phase != 2) && boss.phase == 3 {
+                    self.rng.below(15);
+                }
+            }
+            _ => {}
         }
     }
 
@@ -951,16 +1086,16 @@ impl Game {
                     }
                     HitTileTask::Robot => {
                         let (wall, obstacle) = &mut self.robot_flags;
-                        crate::robot::hit_robot_tile(sp, hit, &self.level, assets.barrel, walls, &assets.player.obstacle, wall, obstacle);
+                        crate::robot::hit_robot_tile(sp, hit, &self.level, assets.robot, walls, &assets.player.obstacle, wall, obstacle);
                     }
                     HitTileTask::Reversor => {
                         let (wall, obstacle) = &mut self.reversor_flags;
-                        crate::reversor::hit_reversor_tile(sp, hit, &self.level, assets.barrel, walls, &assets.player.obstacle, wall, obstacle);
+                        crate::reversor::hit_reversor_tile(sp, hit, &self.level, assets.robot, walls, &assets.player.obstacle, wall, obstacle);
                     }
                     HitTileTask::Boss => {}
                     HitTileTask::Blob => {
                         let (wall, obstacle) = &mut self.blob_flags;
-                        crate::blob::hit_blob_tile(sp, hit, assets.barrel, walls, wall, obstacle);
+                        crate::blob::hit_blob_tile(sp, hit, assets.blob, walls, wall, obstacle);
                     }
                     HitTileTask::Boulder => crate::boulder::hit_boulder_tile(sp, hit),
                     HitTileTask::MailGuy => crate::mailguy::hit_mail_guy_tile(sp, hit),

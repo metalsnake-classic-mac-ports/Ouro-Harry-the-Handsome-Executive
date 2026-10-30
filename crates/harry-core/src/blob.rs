@@ -261,7 +261,8 @@ pub fn hit_blob(sp: &mut Sprite, other: &Sprite, physics: &Physics, kick_contact
 }
 
 /// `HitBlobTileSprite`: walls (`WallBounce`, centre + 16, bounce 255,
-/// mask cicn 598; a bounce makes it slide) and, on the floor, obstacles
+/// mask face 1451 - cicn 598 with the faces' mirrored bits; a bounce
+/// makes it slide) and, on the floor, obstacles
 /// (it bounces back) - the first blob of the frame only, each.
 #[allow(clippy::too_many_arguments)]
 pub fn hit_blob_tile(

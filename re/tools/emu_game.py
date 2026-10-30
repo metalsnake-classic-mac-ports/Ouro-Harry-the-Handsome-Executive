@@ -1,18 +1,24 @@
-"""Record whole frames of level 1: the level start of GameLoop
-(SetupLevelSprites, Harry and his weapon, the view), then frames of
-HandleIdleSprites, HandleSprites (SATRun + CheckPlayerCollision),
-FindUpperLeftCorner, CheckTileCollisions, EraseSprites, UpdateMeters and
-CheckGameEvents, with Harry's move keys held at random (turning, scoot,
-inch, kick - no weapons or items yet).
+"""Record whole frames of the levels of Episode 1: the level start of
+GameLoop (SetupLevelSprites, Harry and his weapon, the view), then frames
+of HandleIdleSprites, HandleSprites (SATRun + CheckPlayerCollision),
+FindUpperLeftCorner, the scroll origin (FUN_100251c8), CheckTileCollisions,
+EraseSprites, DrawSpritesBehindTiles / DrawSpritesAboveTiles, UpdateMeters
+and CheckGameEvents, with Harry's keys held at random (turning, scoot,
+inch, kick, items, weapons).
 
-Everything is real except sounds, drawing, ShowBalloon / CopierSave
-(answer 0), the phone / buzzword texts and UpLevel (logged).
+Everything is real except sounds, the pixels (the SAT blit FUN_1006536c is
+caught and the face's draw proc called for each of its calls, the rest of
+drawing stubbed), ShowBalloon / CopierSave (answers per run), the phone /
+buzzword texts and UpLevel (logged).
 
 Each line: "<name=value ...> -> <name=value ...>"
   keys    per frame the held move keys as letters l r s i k, "-" none, ","-joined
   list    per sprite in SAT order: "<record>/<dump with ':'>", ";"-joined
   harry   per frame Harry's at "v:h", ","-joined
 Usage: python3 -I emu_game.py [re/work]
+Debugging: SEED=<seed> runs only that case (writing nothing) and prints
+Harry per frame; with KIND=<kind> also the sprites of that kind, ADDR=<hex>
+the record there, RAND=1 / TRACE=<routine,...> see trace_hooks.
 """
 import os
 import random
@@ -20,9 +26,10 @@ import struct
 import sys
 
 from unicorn import UC_HOOK_CODE
+from unicorn.ppc_const import UC_PPC_REG_LR
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ppcmachine import Machine, DATA_END  # noqa: E402
+from ppcmachine import Machine, DATA_END, TOC  # noqa: E402
 from sprites import Faces, tvectors, dump, load_words  # noqa: E402
 from emu_mask import masks  # noqa: E402
 from cicn import decode as cicn_decode  # noqa: E402
@@ -36,13 +43,17 @@ TV_DEATH = 0x10066FAC                               # HandlePlayerSpriteDeath
 INITS = ("InitPlayerSprite", "InitHeldWeaponSprite", "InitBonusSprite", "InitItemSprite", "InitExitSprite", "InitDoorSprite",
          "InitCoolerSprite", "InitPlantSprite", "InitMessageSprite", "InitColliderSprite", "InitDartEnemySprite",
          "InitRampSprite", "InitEnemyShotSprite", "InitPlayerShotSprite", "InitEffectSprite", "InitTileHotRects",
-         "InitPlayerKickRects")
+         "InitPlayerKickRects", "InitBarrelSprite", "InitChairSprite", "InitStairsSprite", "InitButtonSprite",
+         "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitRobotSprite", "InitFirePipeSprite",
+         "InitGrateSprite", "InitGhostSprite", "InitTurretSprite", "InitReversorSprite", "InitBoulderSprite",
+         "InitScientistSprite", "InitBlobSprite", "InitBossSprite")
 BINDINGS = [0x7B, 0x7C, 0x7D, 0x7E, 0x31, 0x3B, 0x3A]
 KEYS = {"l": 0x7B, "r": 0x7C, "s": 0x7D, "i": 0x7E, "k": 0x31, "e": 0x3B, "u": 0x3A, "1": 0x12, "2": 0x13, "3": 0x14,
         "4": 0x15}
 PROP_FACES = {0x10065A60: 6034, 0x10065A5C: 6035, 0x10065A58: 6036, 0x10065A54: 6037,
-              0x10065A40: 6051, 0x10065A3C: 6052, 0x10065A38: 6053, 0x10065A34: 6054}
-CASES = 900
+              0x10065A40: 6051, 0x10065A3C: 6052, 0x10065A38: 6053, 0x10065A34: 6054,
+              0x10065A0C: 6041, 0x10065A04: 6042, 0x10065A00: 6043, 0x100659FC: 6044}     # the fire pipes
+CASES = 1500
 ITEMS = [11299, 11599, 11799, 11999, 11899, 11499, 11699]
 AMMO = {"staple": 0x10065AEC, "badass": 0x10065AE8, "shrapnel": 0x10065AE4}
 
@@ -52,6 +63,29 @@ def iter_list(m, sat):
     while a:
         yield a
         a = m.r32(a + 0x2E)
+
+
+def heap(m, x):
+    """x as a record's kind if it points into the heap, else ""."""
+    return m.r16(x) if 0x30000000 <= x < 0x40000000 else ""
+
+
+def trace_hooks(m):
+    """The debug traces: RAND=1 each Random call's caller, TRACE=<names>
+    each call of these routines (r3–r6 and the caller)."""
+    if os.environ.get("RAND"):
+        def traced_random():
+            print("  rand from", m.where(m.uc.reg_read(UC_PPC_REG_LR)))
+            return m.tb_random()
+        m.stub("Random", traced_random)
+
+    def call(uc, _a, _s, name):
+        r3, r4 = m.get(3), m.get(4)
+        print("  call", name, hex(r3), heap(m, r3), "r4", hex(r4), heap(m, r4), "r5", m.get(5) & 0xFFFF,
+              "r6", m.get(6) & 0xFFFF, "from", m.where(uc.reg_read(UC_PPC_REG_LR)))
+    for name in filter(None, os.environ.get("TRACE", "").split(",")):
+        a = m.addr(name)
+        m.uc.hook_add(UC_HOOK_CODE, call, begin=a, end=a, user_data=name)
 
 
 def main():
@@ -80,6 +114,14 @@ def main():
         rec = m.alloc(0x1C)
         faces.ids[rec] = hrsp
         m.w32(m.glob(slot), rec)
+    # the face loaders give every face a draw proc; the stubbed ones leave
+    # those the game does not set at 0: a draw proc that only blits
+    plain = m.alloc(8)
+    m.w32(plain, m.addr("BlitEncFace"))
+    m.w32(plain + 4, TOC)
+    for rec in faces.ids:
+        if m.r32(rec + 0x18) == 0:
+            m.w32(rec + 0x18, plain)
     ms = masks(work)
     walls = m.alloc(64 * 0x2E)
     m.w32(m.glob(WALLS), walls)
@@ -92,11 +134,22 @@ def main():
     log = []
     for f in ("STPlayRegSound", "STPlay3DSound", "STPlay3DSoundPitched", "HaltTalkingSounds", 0x10056C0C,
               "GammaFadeOut", "GammaFadeIn", 0x1002549C, "AddFGRedraw", "CheckWorldCorruption", "LoadLevelTilesets",
-              "InitTrackMap", "LoadLevelSounds", 0x1005F7EC, "IsPressed", "AddRectToUpdate", "FindScaledPosAndBounds",
-              0x10024DE8, "DebugHook", "UpdateAmmo", "CopyStatRect",
+              "InitTrackMap", "LoadLevelSounds", 0x1005F7EC, "IsPressed", "AddRectToUpdate",
+              0x10024DE8, "RedrawGrid", "RedrawFGTiles", "GetScalePort", "CopyToScalePort", "CopyScalePortBack",
+              "BlitEncFace", "FadeMusic", "DebugHook", "UpdateAmmo", "CopyStatRect",
               "PlotEncFace", "DrawNumItems", "FindInvItemFace", "UpdateInventory", 0x1005F738, "DrawBlackLines"):
         m.stub_routine(f, 0)
     m.stub_routine(0x10056DE8, 0)                   # nothing is playing
+
+    def draw():
+        """The drawing of a frame: WrapDrawSprite calls each face's draw proc
+        (through __ptr_glue); BlitEncFace, the pixels, is stubbed."""
+        m.call("DrawSpritesBehindTiles")
+        m.call("DrawSpritesAboveTiles")
+
+    def scroll():
+        """FUN_100251c8(view h, view v): the scroll origin."""
+        m.call(0x100251C8, m.r16(view + 2), m.r16(view))
     answers = []
 
     def show_balloon(mm):
@@ -134,26 +187,34 @@ def main():
             stale[0] = True
     hp = m.addr("HitPlayerSprite")
     m.uc.hook_add(UC_HOOK_CODE, hit_player, begin=hp, end=hp)
+    if debug_seed:
+        trace_hooks(m)
     keymap = bytearray(16)
     m.stub("GetKeys", lambda: m.write(m.get(3), keymap))
     sat, view, target, prefs = m.glob(SAT), m.glob(VIEW), m.glob(TARGET), m.glob(PREFS)
     inv = m.r32(INVENTORY)
-    data = open(f"{work}/res/Episode_1/Hlvl_1.bin", "rb").read()
-    start_v, start_h, start_dir = struct.unpack(">hhh", data[0x120F4:0x120FA])
-    entries = [struct.unpack(">hh", data[0x1000C + i * 16:0x10010 + i * 16]) for i in range(256) if data[0x10000 + i * 16]]
+    levels = {}
+    for n in range(1, 16):
+        data = open(f"{work}/res/Episode_1/Hlvl_{n}.bin", "rb").read()
+        start = struct.unpack(">hhh", data[0x120F4:0x120FA])
+        entries = [struct.unpack(">hh", data[0x1000C + i * 16:0x10010 + i * 16]) for i in range(256) if data[0x10000 + i * 16]]
+        levels[n] = (data, start, entries)
     load_words(m, work)
     # every case starts from the globals as they are now
     data_start = 0x10065800
     globals_after_init = m.read(data_start, DATA_END - data_start)
     mark = m.heap
     rnd = random.Random("game")
-    out = open(f"{work}/diff/game.txt", "w")
-    out.write("# whole frames of level 1: name=value inputs -> name=value outputs\n")
+    # SEED=<seed> runs and prints only that case
+    out = open(os.devnull if debug_seed else f"{work}/diff/game.txt", "w")
+    out.write("# whole frames of Episode 1: name=value inputs -> name=value outputs\n")
     for case in range(CASES):
         m.heap = mark
         m.write(data_start, globals_after_init)
+        level = rnd.choice([1, 1] + list(range(1, 16)))
+        data, (start_v, start_h, start_dir), entries = levels[level]
         lvl = m.load_level(data)
-        st = {"seed": rnd.randint(1, 0x7FFFFFFE), "scroll": rnd.choice([0, 1, 2, 2, 3, 4]),
+        st = {"level": level, "seed": rnd.randint(1, 0x7FFFFFFE), "scroll": rnd.choice([0, 1, 2, 2, 3, 4]),
               "comfort": rnd.choice([144, 100, 20]), "favor": rnd.choice([144, 60]), "frames": rnd.choice([rnd.randint(1, 60), rnd.randint(1, 300)]), "h": 0, "v": 0, "dir": 0,
               "inv": "-", "curslot": -1, "staple": 0, "badass": 0, "shrapnel": 0,
               "balloons": "".join(rnd.choice("0001") for _ in range(16))}
@@ -177,6 +238,8 @@ def main():
                 held = "".join(sorted(set(rnd.sample(pool, rnd.choice([0, 1, 1, 1, 2])))))
             keys.append(held or "-")
         st["keys"] = ",".join(keys)
+        if debug_seed and debug_seed != st["seed"]:
+            continue
         m.w32(sat + 0x78, 0)
         m.w32(sat + 0x110, 0)
         m.write(prefs, bytes(0x20))
@@ -194,8 +257,8 @@ def main():
         for a, v in ((COMFORT, st["comfort"]), (COMFORT_SHOWN, st["comfort"]), (FAVOR, st["favor"]),
                      (FAVOR_SHOWN, st["favor"]), (SURFACE, 75), (SURFACE_SHOWN, 75)):
             m.w16(a, v)
-        m.w16(m.glob(LEVEL_COUNTER), 1)
-        m.w16(SEEN_LEVEL, 1)
+        m.w16(m.glob(LEVEL_COUNTER), level)
+        m.w16(SEEN_LEVEL, level)
         m.rand_seed = st["seed"]
         log.clear()
         stale[0] = False
@@ -212,7 +275,10 @@ def main():
         m.write(view, struct.pack(">hh", v - 208, h - 208))
         m.call("SATNewSprite", 0, h, v, 0x1006724C)
         m.call("FindUpperLeftCorner")
+        scroll()
         harry = []
+        if debug_seed:
+            print("start", dump(m, p, faces, tv), "rand", m.rand_seed)
         for f in range(st["frames"]):
             keymap[:] = bytes(16)
             for c in keys[f]:
@@ -222,14 +288,21 @@ def main():
             m.call("HandleIdleSprites")
             m.call("HandleSprites")
             m.call("FindUpperLeftCorner")
+            scroll()
             m.call("CheckTileCollisions")
             m.call("EraseSprites")
+            draw()
             m.call("UpdateMeters", 1)
             m.call("CheckGameEvents")
             harry.append("%d:%d" % (m.r16(p + 0x5A), m.r16(p + 0x5C)))
             if debug_seed == st["seed"]:
                 print(f, keys[f], dump(m, p, faces, tv), "comfort", m.r16(COMFORT), "slot", m.r16(CUR_SLOT), "rand", m.rand_seed,
                       "log", log[-3:], "list", ",".join(str(m.r16(a)) for a in iter_list(m, sat)))
+                if os.environ.get("ADDR"):
+                    print("   @", dump(m, int(os.environ["ADDR"], 16), faces, tv))
+                for a in iter_list(m, sat):
+                    if m.r16(a) == int(os.environ.get("KIND", "-1")):
+                        print("   ", dump(m, a, faces, tv))
             if "uplevel" in log:
                 break
             if m.r32(p + 0x1A) == TV_DEATH:

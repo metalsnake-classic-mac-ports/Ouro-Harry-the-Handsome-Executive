@@ -65,6 +65,18 @@ class Faces:
         return self.ids.get(p, -1)
 
 
+def face_region(work, fid):
+    """The pixels of face fid's mask region as BuildMaskRegion makes it
+    (diff/facemasks.txt) - for a face loaded from a cicn, its mask with the
+    faces' mirrored bits."""
+    lines = open(f"{work}/diff/facemasks.txt").read().splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith(f"= {fid} "):
+            _, _, w, h = line.split()
+            return {(x, y) for y in range(int(h)) for x in range(int(w)) if lines[i + 1 + y][x] == "#"}
+    raise KeyError(fid)
+
+
 def tvectors(ppc_dir):
     names = {0: "-"}
     for line in open(os.path.join(ppc_dir, "toc_functions.txt")):

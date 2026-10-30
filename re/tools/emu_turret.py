@@ -24,9 +24,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ppcmachine import Machine  # noqa: E402
-from sprites import Faces, tvectors, dump  # noqa: E402
+from sprites import Faces, tvectors, dump, face_region  # noqa: E402
 from emu_mask import masks  # noqa: E402
-from cicn import decode as cicn_decode  # noqa: E402
 
 SAT, LEVEL_H, WALLS, OBSTACLE, PHYSICS = 0x10065B70, 0x10065B64, 0x100658D4, 0x100658D0, 0x100659D8
 PLAYER_H, PLAYER_V, SCORE = 0x100659B4, 0x100659B0, 0x10065AF8
@@ -81,8 +80,7 @@ def main():
     obstacle = m.alloc(0x40)
     m.w32(m.glob(OBSTACLE), obstacle)
     robot_face = m.r32(m.glob(ROBOT_MASK))
-    w, h, mk, _, _ = cicn_decode(open(f"{work}/res/Harry_Graphics/cicn_598.bin", "rb").read())
-    robot_mask = {(x, y) for y in range(h) for x in range(w) if mk[y][x]}
+    robot_mask = face_region(work, 4251)              # cicn 598 with the faces' mirrored bits
     ms = masks(work)
     physics = m.glob(PHYSICS)
     for i, v in enumerate((50, 70, 245, 252, 150)):

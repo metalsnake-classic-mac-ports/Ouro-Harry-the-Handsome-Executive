@@ -986,9 +986,27 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   the 448 × 448 view. Some draw procs change the sprite: robots, big
   robots and turrets on layer 10 (hit) go back to 7, blobs too (and get
   +0x8a), a hit grate goes to 9, the vending machine sets its +0x78. The
-  port has a draw pass in `Game::frame` for robots, turrets, blobs and
-  grates (the vending machine's +0x78 is not ported yet); scaled sprites
-  are tested at `at`.
+  port has the draw pass in `Game::frame` (`draw_pass`): two passes
+  (+0x8b set: behind the tiles, then above), the face's size - or for a
+  scaled sprite the position and size from `FindScaledPosAndBounds` -
+  wrapped on the 480-px ring buffer (`wrap_draws`) around the scroll
+  origin (`FUN_100251c8`: clamped to ≥ 0, 3648 past tile column 128)
+  gives how many times the draw proc runs, and each run has its effect
+  (`drawn`): Harry's `TintDrawProc` (faces 1101–1244) sets +0x8a (kind
+  10; or, off caffeine, unless he holds the fire extinguisher 11999 with
+  fire held, only when comfort fell below the shown value) or, on
+  caffeine, draws `SATRand(10)`; robots, big robots and turrets 10 → 7;
+  blobs and grates mark themselves drawn; the vending machine (1902–1903)
+  sets +0x8a if +0x78 was 1 and its entry's info #1 < 1, then +0x78 = 1;
+  the boss (4902–4937) sets +0x8a while `f6e` < 0, else in phase 3
+  (unless animation 2 or 6 in phase 2) draws `SATRand(15)`. The draw
+  procs are called through `__ptr_glue` (0x1006536C, the TVector in r12)
+  with no null check: the recorder gives faces without one a plain
+  TVector to `BlitEncFace` (stubbed).
+- **Mirrored masks.** `BuildMaskRegion` on an encoded face mirrors the
+  bits within each byte, so the wall masks that robots and reversors
+  (face 4251, cicn 598 encoded) and blobs (face 1451) test against are
+  mirrored too (`masks::from_face`); the cicn itself is not.
 - `re/tools/emu_grate.py`: 15 000 grate runs of 1–300 frames with hits,
   30 000 `GrateBounce` cases and 15 000 ghost runs of 1–120 frames (Harry
   and the view moving, shots), all matching; 18 of 21 mutations caught
@@ -1071,7 +1089,9 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   - **Magnet** 9300: Harry above it (his v + 32 < at.v + 12), less than
     96 px to the side (centres), with any ammo: every third frame (one
     counter for all magnets, `_DAT_1006c4ac`) sound 602, his speed v =
-    2500, comfort − 5 unless on caffeine.
+    2500, comfort − 5 unless on caffeine. The counter is 2 at launch (the
+    data section) and never reset: it carries over between levels, and
+    each magnet in reach counts it down.
   - **Wall gun** 9401 up, 9411 down, 9421 right, 9431 left: fires while
     its switch is on - the switch is the level entry named by info #0
     (negative: on while its info #1 ≠ 0, else while it is 0) - or while
@@ -1224,6 +1244,16 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   Harry's path, view, meters, inventory, ammo, random seed. The other 8
   kick the locked door 913, which reads stale stack values (BUGS.md). Not
   covered yet: Harry's death itself, the ripple, the frontend.
+  Now 1500 runs over all 15 levels (level 1 a little more often) with
+  the real draw pass (`DrawSpritesBehindTiles` / `…AboveTiles` with the
+  draw procs, the scroll origin each frame): all 1494 comparable runs
+  match. `SEED=<seed>` reruns one case with per-frame dumps, `TRACE` /
+  `RAND` print routine calls and the callers of `Random`; the test's
+  `GAME_DUMP=<seed>` prints the same for the port.
+- **Shots made with their own fix**: the boss's (2281, 2291, 1211) keep
+  `pos` / `at` where `SATNewSprite` put them until their first frame -
+  so their hot rect is there for that frame's collisions - while the
+  robots set `pos` and `at` from `fix` right away (`to_fix`).
 - **Player shots in the frame**: records with `SetupPlayerShotSprite`
   (layer 11, timer 3, hot rect (−2, −2, 10, 10), the swivel (10) (27, 27,
   37, 37), +0x8b); faces staple 4001 + frame, B.A.D.A.S.S. 4011 + frame,
