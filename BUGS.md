@@ -163,6 +163,14 @@ option) and why.
   a proper face, so it only matters if it is drawn before that. Port: no
   face for those.
 
+- **A copier save does not name its world.** `DoCopierSaveGame` writes
+  everything but the world file's name (+0x5518), which only
+  `DoSaveGame` writes; `ContinueGame` opens a world other than Episode 1
+  by that name. A copier save in a custom world before any other save
+  of the session (with autosave off) keeps an empty or stale name and
+  cannot be continued, or opens the wrong world. Port: keep for now (the
+  port has only Episode 1); to fix with the fan worlds.
+
 - **The magnets' delay carries over.** The one counter for all magnets
   (`_DAT_1006c4ac`) starts at 2 when the game launches and is never
   reset, and every magnet in reach counts it down: where the first pull

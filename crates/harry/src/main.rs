@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow};
+use harry_core::savegame::SaveGame;
 use harry_core::game::{Assets, Balloon, FrameEnd, Game, LevelStart, Prefs, UpLevel};
 use harry_core::keys::{Bindings, KeyMap};
 use harry_core::kinds::LevelCounter;
@@ -98,6 +99,12 @@ fn keymap(state: &KeyboardState) -> KeyMap {
     k
 }
 
+/// Now in Mac seconds (since 1904).
+fn mac_seconds() -> u32 {
+    let unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    (unix + 2_082_844_800) as u32
+}
+
 fn find_pack(arg: Option<&String>) -> Result<PathBuf> {
     if let Some(a) = arg {
         return Ok(PathBuf::from(a));
@@ -159,6 +166,7 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
             even_v: false,
             blit: false,
             bindings: Bindings { left: 0x7B, right: 0x7C, scoot: 0x7D, inch: 0x7E, kick: 0x31, select_item: 0x3B, use_item: 0x3A },
+            autosave: true,
         },
         counter: LevelCounter { current: level as i16 + 1, previous: level as i16 },
         seen_level: level as i16 + 1,
@@ -174,6 +182,7 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
         level_start: LevelStart::default(),
         track: Default::default(),
         keep_track: false,
+        session: Default::default(),
     }
 }
 
@@ -224,6 +233,10 @@ fn main() -> Result<()> {
         game
     };
     let mut game = start(level, PlayerGlobals::new_game(), seed);
+    // the saved game (the record as the original keeps it in its HrSG
+    // resource); continuing needs one saved in this session
+    let save_path = sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok().map(|d| d.join("Harry Save.hrsg"));
+    let mut have_save = false;
     let fonts = text::Fonts::load();
     let mut score = ScoreShown::default();
     if let Some((out, frames)) = screenshot {
@@ -327,7 +340,8 @@ fn main() -> Result<()> {
                 asked = balloon::place(b, &data, &fonts);
                 asked.is_some()
             };
-            let mut save = || false;
+            // CopierSave's dialog is not ported: at the copier Harry saves
+            let mut save = || true;
             let end = game.frame(&keys, &assets, &mut show, &mut save);
             frames_run += 1;
             mixer.events(&game.sounds, game.level.own_sounds);
@@ -351,8 +365,35 @@ fn main() -> Result<()> {
                     }
                 },
                 FrameEnd::Died => {
-                    // after the death: AskToContinue is not ported yet, start the level again
-                    game = start(level, PlayerGlobals::new_game(), game.rng.seed);
+                    // AskToContinue's dialog is not ported: with a game saved
+                    // in this session it goes on from there, else a new game
+                    // starts at this level
+                    let saved = save_path.as_ref().filter(|_| have_save).and_then(|p| std::fs::read(p).ok());
+                    match saved.map(|b| SaveGame::from_bytes(&b)) {
+                        Some(sg) => {
+                            if let Some(missing) = game.continue_game(&sg, &data.levels, &assets) {
+                                level = (sg.level as usize).saturating_sub(1);
+                                if !missing.is_empty() {
+                                    eprintln!("level {}: not ported yet: {missing:?}", level + 1);
+                                }
+                            }
+                        }
+                        None => {
+                            let session = std::mem::take(&mut game.session);
+                            game = start(level, PlayerGlobals::new_game(), game.rng.seed);
+                            game.session = session;
+                        }
+                    }
+                }
+            }
+            if std::mem::take(&mut game.session.save_pending) {
+                // SaveSG: the record, dated, to the save file
+                game.session.save.date = mac_seconds();
+                if let Some(p) = &save_path {
+                    match std::fs::write(p, game.session.save.to_bytes()) {
+                        Ok(()) => have_save = true,
+                        Err(e) => eprintln!("{}: {e}", p.display()),
+                    }
                 }
             }
         }

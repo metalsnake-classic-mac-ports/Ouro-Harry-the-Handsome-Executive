@@ -66,7 +66,8 @@
 - [x] Whole frame of level 1: player and held weapon creation, `FindUpperLeftCorner`, task dispatch, `CheckPlayerCollision`, `CheckTileCollisions` for all sprites (600 runs of up to 300 frames)
 - [x] Whole frames with weapons and items: player shots as records, `HitPlayerShotSprite`, effects (explosions), 900 runs
 - [x] Harry's death (`HandlePlayerSpriteDeath`) to the end of the game loop (3000 runs + whole frames)
-- [ ] After the loop: `EndLevelEffect`, `AskToContinue`, restoring a saved game
+- [x] Saved games: the record, `DoSaveGame` (autosave), `DoCopierSaveGame`, `ContinueGame` (whole frames)
+- [ ] Dialogs: `CopierSave`, `AskToContinue`; `EndLevelEffect`; the file format of the original's save files (resource fork)
 - [x] `UpLevel`: next level in the same loop, score, level-start state (whole frames, 37 level changes)
 - [ ] `Win`, `EndLevelEffect`, `ScrollPlot` pictures, `IntroLevel` (frontend)
 - [ ] The ripple

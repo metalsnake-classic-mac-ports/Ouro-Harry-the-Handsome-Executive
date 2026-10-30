@@ -17,7 +17,8 @@ use crate::bounce::Rect;
 use crate::collider::{ColliderWorld, CopierSave, centre, handle_collider, hit_collider, is_repelled, repel};
 use crate::dart_enemy::{handle_dart_enemy, hit_dart_enemy};
 use crate::frame::SLOTS;
-use crate::inventory::{EMPTY, item, remove_item, switch_item};
+use crate::inventory::{EMPTY, get_item, item, remove_item, switch_item};
+use crate::savegame::{CUSTOM, DEFAULT_WORLD, SaveGame};
 use crate::keys::Ammo;
 use crate::death::{DeathEvent, handle_player_death};
 use crate::enemy_shot::{ShotMasks, handle_enemy_shot, hit_enemy_shot, hit_enemy_shot_tile};
@@ -114,6 +115,8 @@ pub struct Prefs {
     pub even_v: bool,
     pub blit: bool,
     pub bindings: Bindings,
+    /// prefs +1: save at each level's start.
+    pub autosave: bool,
 }
 
 /// The masks and face sizes the routines need.
@@ -178,6 +181,36 @@ pub struct Game {
     /// `uRam10072719`: the next `SetupLevelSprites` keeps the track map
     /// (a restored copier save brings its own).
     pub keep_track: bool,
+    /// The saved game and the world.
+    pub session: Session,
+}
+
+/// What lasts the whole session: the saved-game record and the world.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Session {
+    /// The record (`_DAT_10065b60`); saves change parts of it.
+    pub save: SaveGame,
+    /// A save changed the record: the frontend writes it (`SaveSG`; the
+    /// date is set then).
+    pub save_pending: bool,
+    /// Hwld +0x100 and the world file's name.
+    pub world_id: u32,
+    pub world_name: Vec<u8>,
+    /// `PTR_DAT_10065904`: a restored game; the next `SetupPlayerSprite`
+    /// rebuilds the inventory.
+    pub restored: bool,
+}
+
+impl Default for Session {
+    fn default() -> Self {
+        Session {
+            save: SaveGame::default(),
+            save_pending: false,
+            world_id: DEFAULT_WORLD,
+            world_name: b"Episode 1".to_vec(),
+            restored: false,
+        }
+    }
 }
 
 /// The state at a level's start, set by `UpLevel` (and the copier's save):
@@ -296,8 +329,8 @@ pub fn harry_into(h: &Harry, r: &mut Sprite) {
 /// `SetupPlayerSprite` on a new record at (h, v): kind 69, layer 10, the
 /// direction from `gPlayerDir` mod 35 (sic: 35, so 35 becomes 0), his
 /// normal hot rect; the move timers, pose, impulse, wetness, ripple and
-/// comfort delta cleared. (The inventory rebuild after a restored game and
-/// the cooldown `_DAT_10065e68` are not ported.)
+/// comfort delta cleared. (The cooldown `_DAT_10065e68` is not ported;
+/// the inventory rebuild after a restored game is `rebuild_inventory`.)
 pub fn setup_player(sp: &mut Sprite, g: &mut PlayerGlobals) {
     sp.init();
     sp.kind = 69;
@@ -319,6 +352,20 @@ pub fn setup_player(sp: &mut Sprite, g: &mut PlayerGlobals) {
     sp.b8b = true;
     g.wavy_on = false;
     g.tile.comfort_delta = 0;
+}
+
+/// `SetupPlayerSprite` after a restored game: the inventory made again
+/// item by item with `GetInvItem` (so the first item is selected).
+pub fn rebuild_inventory(g: &mut PlayerGlobals) {
+    let old = g.inventory;
+    g.inventory = [(EMPTY, 0); SLOTS];
+    for (id, n) in old {
+        if id != EMPTY {
+            for _ in 0..n {
+                get_item(g, id);
+            }
+        }
+    }
 }
 
 /// `SetupHeldWeaponSprite`: layer 11, hot rect (−4, −4, 16, 16), the
@@ -346,6 +393,9 @@ impl Game {
         let p = self.world.sprites.new_sprite(0, h, v);
         self.harry = Some(p);
         setup_player(&mut self.world.sprites.recs[p], &mut self.g);
+        if std::mem::take(&mut self.session.restored) {
+            rebuild_inventory(&mut self.g);
+        }
         self.world.sprites.recs[p].dir = dir;
         self.g.player_pos = (h.wrapping_sub(32), v.wrapping_sub(32));
         let corner = (v.wrapping_sub(208), h.wrapping_sub(208));
@@ -357,6 +407,107 @@ impl Game {
         find_upper_left_corner(&mut self.view, self.g.player_pos, self.prefs.scroll, self.prefs.even_v, self.prefs.blit);
         self.seen_level = self.counter.current;
         missing
+    }
+
+    /// `DoSaveGame`: the level's start into the record - world, level,
+    /// comfort, surface, favor, score, ammunition, the inventory copy and
+    /// the world's name; position, track map and level stay as they were.
+    pub fn do_save_game(&mut self) {
+        let (st, sv) = (&self.level_start, &mut self.session.save);
+        sv.world = self.session.world_id;
+        sv.world_name = self.session.world_name.clone();
+        sv.level = self.counter.current;
+        sv.comfort = st.comfort;
+        sv.surface = st.surface;
+        sv.favor = st.favor;
+        sv.score = st.score;
+        sv.ammo = st.ammo;
+        sv.inventory = st.inventory;
+        self.session.save_pending = true;
+    }
+
+    /// `DoCopierSaveGame`: the game as it is into the record (a copier
+    /// save: world, level, meters, score, ammunition, inventory, Harry's
+    /// position and direction, track map, the level's sprite list and
+    /// custom tables - not the world's name), and it becomes the level's
+    /// start.
+    pub fn copier_save_game(&mut self, dir: i16) {
+        let g = &self.g;
+        self.level_start = LevelStart::of(g);
+        let sv = &mut self.session.save;
+        sv.world = self.session.world_id;
+        sv.copier = true;
+        sv.level = self.counter.current;
+        sv.comfort = g.comfort;
+        sv.surface = g.surface;
+        sv.favor = g.favor;
+        sv.score = g.score;
+        sv.ammo = g.ammo;
+        sv.pos = g.player_pos;
+        sv.dir = dir;
+        sv.inventory = g.inventory;
+        sv.track = self.track.cells.clone();
+        sv.entries = self.level.sprites.clone();
+        sv.custom = self.level.rest[CUSTOM].to_vec();
+        self.session.save_pending = true;
+    }
+
+    /// `ContinueGame` with a record (`OpenSG`; after the death, the last
+    /// file saved): `InitGameGlobals`, the record's values, its level (a
+    /// copier save with its sprite list, custom tables and track map),
+    /// and `GameLoop`'s start - at the level's start, or for a copier save
+    /// where Harry was. `levels` are the world's. Returns the object ids
+    /// the port cannot make yet; `None` for a level the world lacks.
+    pub fn continue_game(&mut self, save: &SaveGame, levels: &[Level], assets: &Assets) -> Option<Vec<i16>> {
+        let level = levels.get(usize::try_from(save.level - 1).ok()?)?;
+        self.init_game_globals();
+        self.session.save = save.clone();
+        self.world.sprites.kill_all();
+        self.counter.current = save.level;
+        self.seen_level = save.level;
+        let g = &mut self.g;
+        (g.comfort, g.comfort_shown) = (save.comfort, save.comfort);
+        (g.favor, g.favor_shown) = (save.favor, save.favor);
+        (g.surface, g.surface_shown) = (save.surface, save.surface);
+        g.score = save.score;
+        g.ammo = save.ammo;
+        g.inventory = save.inventory;
+        self.level_start = LevelStart::of(g);
+        self.session.restored = true;
+        self.level = level.clone();
+        if save.copier {
+            self.keep_track = true;
+            self.track.cells.clone_from(&save.track);
+            self.level.sprites.clone_from(&save.entries);
+            self.level.rest[CUSTOM].copy_from_slice(&save.custom);
+        }
+        self.physics = self.level.effective_physics();
+        let (h, v, dir) = if save.copier {
+            (save.pos.0, save.pos.1, save.dir)
+        } else {
+            (self.level.start.0 - 32, self.level.start.1 - 32, self.level.start_dir)
+        };
+        Some(self.start(h, v, dir, assets))
+    }
+
+    /// `InitGameGlobals`: a new game's meters (72), no item, score,
+    /// ammunition, caffeine, shaking or chatter; the record no copier
+    /// save; the next level clears the track map.
+    pub fn init_game_globals(&mut self) {
+        let g = &mut self.g;
+        (g.comfort, g.comfort_shown) = (72, 72);
+        (g.favor, g.favor_shown) = (72, 72);
+        (g.surface, g.surface_shown) = (72, 72);
+        g.cur_slot = -1;
+        g.score = 0;
+        g.ammo = Ammo::default();
+        g.caffeine = 0;
+        g.chatter = 0;
+        g.inventory = [(EMPTY, 0); SLOTS];
+        self.view.shake = 0;
+        self.level_start = LevelStart::default();
+        self.session.save.copier = false;
+        self.keep_track = false;
     }
 
     /// `SetupLevelSprites`: the level's sprites, and the track map cleared
@@ -409,6 +560,10 @@ impl Game {
         };
         g.score = g.score.wrapping_add(i32::from(self.counter.current - 1) * 5000);
         self.level_start = LevelStart::of(g);
+        self.session.save.copier = false;
+        if self.prefs.autosave {
+            self.do_save_game();
+        }
         self.world.sprites.kill_all();
         self.level = level.clone();
         self.physics = self.level.effective_physics();
@@ -422,6 +577,9 @@ impl Game {
         let p = self.world.sprites.new_sprite(0, sh.wrapping_sub(32), sv.wrapping_sub(32));
         self.harry = Some(p);
         setup_player(&mut self.world.sprites.recs[p], &mut self.g);
+        if std::mem::take(&mut self.session.restored) {
+            rebuild_inventory(&mut self.g);
+        }
         self.world.sprites.recs[p].dir = self.level.start_dir;
         let holder = self.holder(p, assets);
         let w = self.world.sprites.new_sprite(0, sh, sv);
@@ -997,11 +1155,21 @@ impl Game {
             Some(HitTask::Collider) => {
                 let (view, player) = (self.view.corner, self.g.player_pos);
                 let mut calls = Vec::new();
-                hit_collider(&mut sp, &o, &mut self.level, &mut self.words, &mut self.rng, save, &mut |s, t, m| {
+                // CopierSave: the dialog, then DoCopierSaveGame (the level
+                // as it is then: hit_collider marks the copier used before)
+                let mut saved = false;
+                let mut dialog = || {
+                    saved = save();
+                    saved
+                };
+                hit_collider(&mut sp, &o, &mut self.level, &mut self.words, &mut self.rng, &mut dialog, &mut |s, t, m| {
                     let r = show(&Balloon { text: t, mode: m, at: s.at, view, player });
                     calls.push((r, m, s.pos));
                     r
                 });
+                if saved {
+                    self.copier_save_game(o.dir);
+                }
                 self.balloons(calls, sp.at);
             }
             Some(HitTask::EnemyShot) => hit_enemy_shot(&mut sp, &mut o, &mut events),

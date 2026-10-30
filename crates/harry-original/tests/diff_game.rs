@@ -13,6 +13,7 @@ use std::path::PathBuf;
 
 use common::dump;
 use harry_core::frame::PlayerGlobals;
+use harry_core::savegame::SaveGame;
 use harry_core::game::{Assets, FrameEnd, Game, LevelStart, Prefs, UpLevel};
 use harry_core::keys::{Bindings, KeyMap};
 use harry_core::kinds::LevelCounter;
@@ -30,6 +31,52 @@ fn root() -> PathBuf {
 fn installed(name: &str) -> Option<Resources> {
     let bytes = std::fs::read(root().join("re/work/installed").join(name)).ok()?;
     Some(Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap())
+}
+
+/// The saved game a run continues from, as `emu_game.py`'s `record`
+/// builds it.
+fn record(i: &HashMap<&str, &str>, level: &harry_core::Level) -> SaveGame {
+    let w = |k: &str| i[k].parse::<i64>().unwrap();
+    let mut s = SaveGame {
+        world: harry_core::savegame::DEFAULT_WORLD,
+        copier: w("cont") == 1,
+        level: w("level") as i16,
+        score: w("score") as i32,
+        comfort: w("comfort") as i16,
+        surface: w("surface") as i16,
+        favor: w("favor") as i16,
+        pos: (w("h") as i16, w("v") as i16),
+        dir: w("dir") as i16,
+        ammo: harry_core::keys::Ammo { staple: w("staple") as i16, badass: w("badass") as i16, shrapnel: w("shrapnel") as i16 },
+        entries: level.sprites.clone(),
+        custom: level.rest[harry_core::savegame::CUSTOM].to_vec(),
+        world_name: b"Episode 1".to_vec(),
+        ..SaveGame::default()
+    };
+    s.inventory = [(-1, 0); 12];
+    if i["inv"] != "-" {
+        for (slot, e) in s.inventory.iter_mut().zip(i["inv"].split(',')) {
+            let (a, b) = e.split_once(':').unwrap();
+            *slot = (a.parse().unwrap(), b.parse().unwrap());
+        }
+    }
+    if i["seen"] != "-" {
+        for spot in i["seen"].split(',') {
+            let (th, tv) = spot.split_once(':').unwrap();
+            let (th, tv): (usize, usize) = (th.parse().unwrap(), tv.parse().unwrap());
+            for x in th.saturating_sub(7)..(th + 7).min(128) {
+                for y in tv.saturating_sub(7)..(tv + 7).min(128) {
+                    s.track[x * 128 + y] = 1;
+                }
+            }
+        }
+    }
+    if i["gone"] != "-" {
+        for k in i["gone"].split(',') {
+            s.entries[k.parse::<usize>().unwrap()].present = false;
+        }
+    }
+    s
 }
 
 #[test]
@@ -122,7 +169,7 @@ fn episode_1_frames_match_the_original() {
             g,
             view: View::default(),
             rng: Random::new(w("seed") as u32),
-            prefs: Prefs { scroll: w("scroll") as i16, even_v: false, blit: false, bindings },
+            prefs: Prefs { scroll: w("scroll") as i16, even_v: false, blit: false, bindings, autosave: false },
             counter: LevelCounter { current: number, previous: 0 },
             seen_level: number,
             plant_flag: false,
@@ -137,8 +184,14 @@ fn episode_1_frames_match_the_original() {
             level_start: LevelStart::default(),
             track: Default::default(),
             keep_track: false,
+            session: Default::default(),
         };
-        let missing = game.start(w("h") as i16, w("v") as i16, w("dir") as i16, &assets);
+        let missing = if w("cont") >= 0 {
+            let save = record(&i, level);
+            game.continue_game(&save, &levels, &assets).unwrap()
+        } else {
+            game.start(w("h") as i16, w("v") as i16, w("dir") as i16, &assets)
+        };
         assert!(missing.is_empty(), "level {number}: {missing:?}");
         let debug = std::env::var("GAME_DUMP").is_ok_and(|s| s == i["seed"]);
         let kind = std::env::var("KIND").ok();
@@ -148,6 +201,8 @@ fn episode_1_frames_match_the_original() {
         let mut log = Vec::new();
         let mut harry = Vec::new();
         let mut answers: Vec<bool> = i["balloons"].chars().rev().map(|c| c == '1').collect();
+        let mut copier: Vec<bool> = i["copier"].chars().rev().map(|c| c == '1').collect();
+        game.prefs.autosave = w("autosave") != 0;
         for keys in i["keys"].split(',') {
             let mut km = KeyMap::default();
             for c in keys.chars() {
@@ -173,8 +228,9 @@ fn episode_1_frames_match_the_original() {
                 ans
             };
             let mut save = || {
-                balloons.borrow_mut().push("save");
-                false
+                let ans = copier.pop().unwrap_or(false);
+                balloons.borrow_mut().push(if ans { "save1" } else { "save0" });
+                ans
             };
             let end = game.frame(&km, &assets, &mut show, &mut save);
             log.extend(balloons.into_inner());
@@ -212,7 +268,7 @@ fn episode_1_frames_match_the_original() {
             game.world.sprites.list.iter().map(|&r| format!("{r}/{}", dump(game.world.rec(r)).replace(' ', ":"))).collect();
         let free: Vec<String> = game.world.sprites.free.iter().rev().map(|r| r.to_string()).collect();
         let got = format!(
-            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} track={} harry={} list={} free={}",
+            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} track={} save={} harry={} list={} free={}",
             harry.len(),
             game.rng.seed,
             game.view.corner.0,
@@ -245,6 +301,12 @@ fn episode_1_frames_match_the_original() {
                 let t = &game.track;
                 let seen: Vec<usize> = (0..t.cells.len()).filter(|&i| t.cells[i] != 0).collect();
                 format!("{}:{}:{}:{}", seen.len(), seen.iter().map(|i| i + 1).sum::<usize>(), t.last.0, t.last.1)
+            },
+            {
+                let sv = &game.session.save;
+                let d = sv.to_bytes();
+                let sum = d.iter().enumerate().fold(0u32, |a, (i, &b)| a.wrapping_add((i as u32 + 1).wrapping_mul(u32::from(b))));
+                format!("{}:{}:{}:{sum}", u8::from(sv.copier), sv.level, sv.score)
             },
             harry.join(","),
             list.join(";"),

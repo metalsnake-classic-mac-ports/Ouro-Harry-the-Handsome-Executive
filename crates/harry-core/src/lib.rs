@@ -38,6 +38,7 @@ pub mod random;
 pub mod reversor;
 pub mod robot;
 pub mod sat;
+pub mod savegame;
 pub mod scientist;
 pub mod shots;
 pub mod sound;

@@ -1303,6 +1303,40 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   reset. `SetupLevelSprites` clears the map (`InitTrackMap`) unless a
   restored copier save brought one (`uRam10072719`). Whole frames
   compare the seen tiles and the last tile: all matching.
+- **Saved games** (`harry_core::savegame`, `Game::do_save_game`,
+  `copier_save_game`, `continue_game`): one record of 0x95d8 bytes
+  (`_DAT_10065b60`) for the whole session, written by `SaveSG` as
+  resource `HrSG` 0 of a file of type `HrSG`, creator `Hary` (layout in
+  the module). Saves change only their part of it:
+  - `UpLevel` clears the copier flag (+4) and, with prefs +1 (autosave),
+    calls `DoSaveGame`: world id, level, the level-start meters, score,
+    ammunition and inventory copy, the date, the world file's name -
+    not position, track map or sprite list.
+  - `CopierSave` (dialog: Save / Cancel) → `DoCopierSaveGame`: world id,
+    copier flag, level, the current meters, score, ammunition,
+    inventory, `gPlayerH/V` and Harry's direction, track map, the
+    level's sprite list (positions − 6) and custom tables - not the
+    world's name - and all of it becomes the level's start.
+  - `ContinueGame` (from the menu, or after a death when `AskToContinue`
+    says so - it asks only once something was saved or opened this
+    session, `PTR_DAT_10065954`, and prefs +0x22 is 0; then it reads that
+    file): `InitGameGlobals`, `OpenSG`, the record's values into the
+    globals and the level start, `PTR_DAT_10065904` set (the next
+    `SetupPlayerSprite` rebuilds the inventory with `GetInvItem`, so the
+    first item is selected), the level; a copier save also brings its
+    track map (kept by `SetupLevelSprites`), sprite list and custom
+    tables and starts `GameLoop` at the saved position and direction
+    (with `gPlayerH/V` 32 less until the first frame), otherwise at the
+    level's start.
+  The whole-frame recorder runs the real `CopierSave` (dialog answers
+  per run), `DoSaveGame` (autosave per run) and `ContinueGame` (15 % of
+  the runs start from a random record: copier or not, other meters,
+  score, track map, sprites gone; `GameLoop` reports where it would
+  start) and compares the record: all matching; 8 of 9 mutations caught
+  (the survivor needs chatter, which the runs leave at 0). The frontend
+  saves at every level start and at every copier (no dialogs yet) to
+  `Harry Save.hrsg` in SDL's pref path and continues from it after a
+  death.
 - **Shots made with their own fix**: the boss's (2281, 2291, 1211) keep
   `pos` / `at` where `SATNewSprite` put them until their first frame -
   so their hot rect is there for that frame's collisions - while the

@@ -77,6 +77,36 @@ def s16(x):
     return x - 0x10000 if x & 0x8000 else x
 
 
+def record(st, data):
+    """A saved-game record for a run that continues (see the cases)."""
+    d = bytearray(0x95D8)
+    d[0:4] = (0x0B07CF71).to_bytes(4, "big")
+    d[4] = st["cont"]
+    slots = [tuple(map(int, x.split(":"))) for x in st["inv"].split(",")] if st["inv"] != "-" else []
+    slots += [(-1, 0)] * (12 - len(slots))
+    struct.pack_into(">hi3h", d, 6, st["level"], st["score"], st["comfort"], st["surface"], st["favor"])
+    for i, (oid, cnt) in enumerate(slots):
+        struct.pack_into(">hh", d, 0x12 + 4 * i, oid, cnt)
+    struct.pack_into(">6h", d, 0x42, st["h"], st["v"], st["dir"], st["staple"], st["badass"], st["shrapnel"])
+    if st["seen"] != "-":
+        for spot in st["seen"].split(","):
+            th, tv = map(int, spot.split(":"))
+            for x in range(max(th - 7, 0), min(th + 7, 128)):
+                for y in range(max(tv - 7, 0), min(tv + 7, 128)):
+                    d[0x4E + x * 128 + y] = 1
+    gone = set(map(int, st["gone"].split(","))) if st["gone"] != "-" else set()
+    for k in range(256):
+        e = bytearray(data[0x10000 + k * 16:0x10010 + k * 16])
+        if k in gone:
+            e[0] = 0
+        v, h = struct.unpack(">hh", e[12:16])
+        struct.pack_into(">hh", e, 12, v - 6, h - 6)
+        d[0x4058 + k * 16:0x4068 + k * 16] = e
+    d[0x5058:0x5518] = data[0x11000:0x114C0]
+    d[0x5518:0x5522] = b"\x09Episode 1"
+    return bytes(d)
+
+
 def heap(m, x):
     """x as a record's kind if it points into the heap, else ""."""
     return m.r16(x) if 0x30000000 <= x < 0x40000000 else ""
@@ -167,6 +197,13 @@ def main():
         seen = [i for i, c in enumerate(cells) if c]
         return "%d:%d:%d:%d" % (len(seen), sum(i + 1 for i in seen), s16(m.r16(TRACK_LAST + 2)), s16(m.r16(TRACK_LAST)))
 
+    def saved():
+        """The saved-game record: copier flag, level, score and the sum of
+        all bytes times their index + 1."""
+        d = m.read(m.r32(m.r32(m.glob(0x10065B60))), 0x95D8)
+        return "%d:%d:%d:%d" % (d[4], struct.unpack(">h", d[6:8])[0], struct.unpack(">i", d[8:12])[0],
+                                sum((i + 1) * b for i, b in enumerate(d)) & 0xFFFFFFFF)
+
     def draw():
         """The drawing of a frame: WrapDrawSprite calls each face's draw proc
         (through __ptr_glue); BlitEncFace, the pixels, is stubbed."""
@@ -198,7 +235,35 @@ def main():
             mm.w16(view, mm.r16(view) + (-16 if mm.r16(sp + 2) + 32 < pv + 32 else 16))
         return ans
     m.stub_routine("ShowBalloon", show_balloon)
-    m.stub_routine("CopierSave", lambda mm: log.append("save") or 0)
+    # CopierSave runs: its dialog answers from the run's list (1 save, 2
+    # cancel), SaveSG (the file) succeeds; DoSaveGame runs too (autosave)
+    copier_answers = []
+
+    def modal_dialog():
+        item = copier_answers.pop(0) if copier_answers else 2
+        log.append("save%d" % (item == 1))
+        m.w16(m.get(4), item)
+    for n in ("GetNewDialog", "SetPort", "BeginUpdate", "GetDialogItem", "InsetRect", "PenSize", "FrameRoundRect",
+              "EndUpdate", "DrawDialog", "ShowWindow", "SelectWindow", "DisposeDialog", "FlushEvents", "GetDateTime"):
+        m.stub(n, m.tb_nop)
+    m.stub("ModalDialog", modal_dialog)
+    for f in ("SaveSG", "RestoreWindowBackground", "ShowCursorSafe", "HideCursorSafe", 0x1005FBA8):
+        m.stub_routine(f, 1 if f == "SaveSG" else 0)
+    m.w32(m.glob(0x10065B60), m.new_handle(bytes(0x95D8)))
+    # ContinueGame: OpenSG brings the run's record, GameLoop only says
+    # where it would start (the recorder does its level start)
+    cont_record, loop_args = [b""], []
+
+    def open_sg(mm):
+        mm.write(mm.r32(mm.r32(mm.glob(0x10065B60))), cont_record[0])
+        return 1
+    m.stub_routine("OpenSG", open_sg)
+    m.stub_routine("GameLoop", lambda mm: loop_args.append(tuple(s16(mm.get(i)) for i in (3, 4, 5, 6))) or 0)
+    m.stub_routine("OpenDefaultWorld", 1)              # the world is loaded
+    for f in ("DrawPICTToBackScreen", "ResetCursor", "ShowMenuBar", "HideMenuBar", "DrawMainMenu", "UpdateMenus",
+              "AskToContinue"):
+        m.stub_routine(f, 0)
+    m.write(m.glob(0x1006598C), b"\x09Episode 1")     # the world file's name
     # UpLevel runs: the pictures, dialogs, saving and music stubbed, the
     # unregistered check answering "registered", the next level's data
     # put where OpenDefaultWorldLevel would (SetupLevelSprites loads the
@@ -206,7 +271,7 @@ def main():
     ul = m.addr("UpLevel")
     m.uc.hook_add(UC_HOOK_CODE, lambda uc, a, s_, _: log.append("uplevel"), begin=ul, end=ul)
     m.stub_routine("Win", lambda mm: log.append("won") or 0)
-    for f in ("EndLevelEffect", "RestorePreExistingWindowBackground", "ScrollPlot", "LevelLimit", "DoSaveGame",
+    for f in ("EndLevelEffect", "RestorePreExistingWindowBackground", "ScrollPlot", "LevelLimit",
               "IntroLevel", "SetMusic", "UpdateText", "RedrawGameArea"):
         m.stub_routine(f, 0)
     m.stub_routine(0x10057CB0, lambda mm: mm.write(mm.get(3), b"\1") or 0)
@@ -269,7 +334,8 @@ def main():
         st = {"level": level, "seed": rnd.randint(1, 0x7FFFFFFE), "scroll": rnd.choice([0, 1, 2, 2, 3, 4]),
               "comfort": rnd.choice([144, 100, 20, 144, 100, 20, 0]), "favor": rnd.choice([144, 60]), "frames": rnd.choice([rnd.randint(1, 60), rnd.randint(1, 300)]), "h": 0, "v": 0, "dir": 0,
               "inv": "-", "curslot": -1, "staple": 0, "badass": 0, "shrapnel": 0,
-              "balloons": "".join(rnd.choice("0001") for _ in range(16))}
+              "balloons": "".join(rnd.choice("0001") for _ in range(16)), "copier": "".join(rnd.choice("12") for _ in range(4)),
+              "autosave": rnd.choice([0, 1])}
         if rnd.random() < 0.6:
             items = rnd.sample(ITEMS, rnd.randint(1, 4))
             st["inv"] = ",".join(f"{i}:{rnd.randint(1, 3)}" for i in items)
@@ -288,6 +354,15 @@ def main():
             e = rnd.choice(entries)
             st["h"], st["v"] = e[1] - 6 + rnd.randint(-70, 40), e[0] - 6 + rnd.randint(-70, 40)
             st["dir"] = rnd.randint(0, 35)
+        # or from a saved game: a copier save (where Harry is) or one at the
+        # level's start, with other meters, score, track map and sprite list
+        st["cont"] = -1
+        if rnd.random() < 0.15:
+            present = [i for i in range(256) if data[0x10000 + i * 16]]
+            st["cont"] = rnd.choice([0, 1])
+            st["surface"], st["score"] = rnd.randint(1, 144), rnd.randint(0, 200000)
+            st["gone"] = ",".join(map(str, rnd.sample(present, min(len(present), rnd.randint(0, 6))))) or "-"
+            st["seen"] = ",".join(f"{rnd.randint(0, 127)}:{rnd.randint(0, 127)}" for _ in range(rnd.randint(0, 5))) or "-"
         held, keys = "", []
         for _f in range(st["frames"]):
             if rnd.random() < 0.15:
@@ -320,12 +395,20 @@ def main():
         log.clear()
         stale[0] = False
         answers[:] = [int(c) for c in st["balloons"]]
+        copier_answers[:] = [int(c) for c in st["copier"]]
+        m.write(m.r32(m.r32(m.glob(0x10065B60))), bytes(0x95D8))   # the record, cleared
+        m.write(prefs + 1, bytes([st["autosave"]]))
         # the level start of GameLoop
+        h, v, start_dir_ = st["h"], st["v"], st["dir"]
+        if st["cont"] >= 0:
+            cont_record[0] = record(st, data)
+            loop_args.clear()
+            m.call("ContinueGame", 0)
+            h, v, start_dir_, _intro = loop_args[0]
         m.call("SetupLevelSprites")
-        h, v = st["h"], st["v"]
         p = m.call("SATNewSprite", 0, h, v, 0x10066FB4)
         m.w32(m.glob(PLAYER_SPRITE), p)
-        m.w16(p + 0x66, st["dir"])
+        m.w16(p + 0x66, start_dir_)
         m.w16(m.glob(PLAYER_H), h - 32)
         m.w16(m.glob(PLAYER_V), v - 32)
         m.write(target, struct.pack(">hh", v - 208, h - 208))
@@ -383,7 +466,7 @@ def main():
              "log": ",".join(log) or "-", "staledoor": int(stale[0]),
              "inv": ",".join("%d:%d" % (m.r16(inv + 4 * i), m.r16(inv + 4 * i + 2)) for i in range(12)),
              "curslot": m.r16(CUR_SLOT), "ammo": ":".join(str(m.r16(m.glob(a))) for a in AMMO.values()),
-             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "track": track(), "harry": ",".join(harry),
+             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "track": track(), "save": saved(), "harry": ",".join(harry),
              "list": ";".join(f"{ids[a]}/{dump(m, a, faces, tv).replace(' ', ':')}" for a in lst),
              "free": ",".join(str(ids[a]) for a in free) or "-"}
         out.write(" ".join(f"{k}={v}" for k, v in st.items()) + " -> " + " ".join(f"{k}={v}" for k, v in o.items()) + "\n")
