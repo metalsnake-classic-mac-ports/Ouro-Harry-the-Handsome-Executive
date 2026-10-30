@@ -1269,6 +1269,32 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   `re/tools/emu_death.py`: 3000 runs of 1–130 frames from any timer,
   all matching; 8 of 8 mutations caught. The whole-frame recorder now
   runs on to the loop's end; 72 of its runs play the whole death.
+- **`UpLevel`** (`Game::up_level`): `CheckGameEvents` calls it at the
+  end of a frame in which the level counter changed; the game loop goes
+  on in the next level. It plays 4800 (`_DAT_10065b54`, volume 10),
+  shows `EndLevelEffect`, removes the debug items 11397–11399 (select,
+  use up, until none is left), and ends the loop with `Win` when the
+  counter is past the world's levels (Hwld +0x1c6: 15 in Episode 1).
+  Otherwise the outro picture (level +0x1207e); counter −255 means the
+  level after the one before (`_DAT_10068568` + 1). An unregistered
+  copy stops after level 5 (`FUN_10057cb0` → `LevelLimit`; the port
+  plays as registered). Then the score grows by (level − 1) × 5000, the
+  state becomes the level's start (comfort, surface, favor, score,
+  ammunition, the inventory copy - what `DoSaveGame` saves; autosave if
+  prefs +1), `KillAllSprites`, `OpenDefaultWorldLevel`, `IntroLevel`,
+  `0x1007e3a6` = 69 (never read), Harry's position = start − 32, view
+  and target = start − 240, the intro picture, `SetupLevelSprites` (it
+  loads tile sets, tile kinds, physics and sounds), Harry at start − 32
+  with the start direction, his weapon at the start (it moves onto him
+  in its first frame), the music. Unlike `GameLoop`'s start there is no
+  `FindUpperLeftCorner` and the generated sprites see the new position.
+  `InitGameGlobals` (a new game) sets the level start to 72 / 72 / 72
+  and nothing else.
+- The whole-frame recorder lets `UpLevel` run (pictures, dialogs, saves
+  and music stubbed; the registration check says registered; the next
+  level's data put where `OpenDefaultWorldLevel` would) with the world
+  loaded, starts some runs next to an exit and compares score and level
+  start too: 37 runs change level (and play on), 10 win.
 - **Shots made with their own fix**: the boss's (2281, 2291, 1211) keep
   `pos` / `at` where `SATNewSprite` put them until their first frame -
   so their hot rect is there for that frame's collisions - while the

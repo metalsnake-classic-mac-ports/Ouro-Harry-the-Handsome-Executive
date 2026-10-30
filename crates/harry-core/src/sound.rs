@@ -66,6 +66,8 @@ pub mod snd {
     pub const BOUNCE: i16 = 208;
     pub const FALL: i16 = 4901;
     pub const RETURN: i16 = 224;
+    /// The level's end (`UpLevel`, `_DAT_10065b54`).
+    pub const LEVEL_DONE: i16 = 4800;
     /// The plant's halfpipe, landing and bouncing sound.
     pub const PLANT: i16 = 1101;
     pub const WATER: i16 = 215;

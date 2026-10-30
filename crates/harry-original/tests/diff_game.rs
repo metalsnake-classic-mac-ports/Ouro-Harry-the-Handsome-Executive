@@ -13,7 +13,7 @@ use std::path::PathBuf;
 
 use common::dump;
 use harry_core::frame::PlayerGlobals;
-use harry_core::game::{Assets, FrameEnd, Game, Prefs};
+use harry_core::game::{Assets, FrameEnd, Game, LevelStart, Prefs, UpLevel};
 use harry_core::keys::{Bindings, KeyMap};
 use harry_core::kinds::LevelCounter;
 use harry_core::player::Masks;
@@ -134,6 +134,7 @@ fn episode_1_frames_match_the_original() {
             harry: None,
             words: words.clone(),
             sounds: Vec::new(),
+            level_start: LevelStart::default(),
         };
         let missing = game.start(w("h") as i16, w("v") as i16, w("dir") as i16, &assets);
         assert!(missing.is_empty(), "level {number}: {missing:?}");
@@ -175,6 +176,13 @@ fn episode_1_frames_match_the_original() {
             };
             let end = game.frame(&km, &assets, &mut show, &mut save);
             log.extend(balloons.into_inner());
+            // CheckGameEvents calls UpLevel at the end of the frame
+            let won = end == FrameEnd::LevelDone && {
+                log.push("uplevel");
+                let (up, missing) = game.up_level(&levels, &assets);
+                assert!(missing.is_empty(), "level {}: {missing:?}", game.counter.current);
+                up == UpLevel::Won
+            };
             // his record, as the recorder reads it (after the death he may have left the list)
             let p = game.harry.unwrap();
             let at = game.world.rec(p).at;
@@ -188,8 +196,8 @@ fn episode_1_frames_match_the_original() {
                     }
                 }
             }
-            if end == FrameEnd::LevelDone {
-                log.push("uplevel");
+            if won {
+                log.push("won");
                 break;
             }
             if end == FrameEnd::Died {
@@ -202,7 +210,7 @@ fn episode_1_frames_match_the_original() {
             game.world.sprites.list.iter().map(|&r| format!("{r}/{}", dump(game.world.rec(r)).replace(' ', ":"))).collect();
         let free: Vec<String> = game.world.sprites.free.iter().rev().map(|r| r.to_string()).collect();
         let got = format!(
-            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} harry={} list={} free={}",
+            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} harry={} list={} free={}",
             harry.len(),
             game.rng.seed,
             game.view.corner.0,
@@ -223,6 +231,14 @@ fn episode_1_frames_match_the_original() {
             gl.ammo.staple,
             gl.ammo.badass,
             gl.ammo.shrapnel,
+            gl.score,
+            {
+                let st = &game.level_start;
+                let mut f = vec![st.comfort.to_string(), st.surface.to_string(), st.favor.to_string(), st.score.to_string()];
+                f.extend([st.ammo.staple, st.ammo.badass, st.ammo.shrapnel].map(|a| a.to_string()));
+                f.extend(st.inventory.iter().map(|(a, b)| format!("{a}/{b}")));
+                f.join(":")
+            },
             harry.join(","),
             list.join(";"),
             if free.is_empty() { "-".to_string() } else { free.join(",") }

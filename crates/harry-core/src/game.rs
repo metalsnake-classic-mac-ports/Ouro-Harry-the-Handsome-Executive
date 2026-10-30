@@ -16,6 +16,9 @@ use crate::air::Air;
 use crate::bounce::Rect;
 use crate::collider::{ColliderWorld, CopierSave, centre, handle_collider, hit_collider, is_repelled, repel};
 use crate::dart_enemy::{handle_dart_enemy, hit_dart_enemy};
+use crate::frame::SLOTS;
+use crate::inventory::{EMPTY, item, remove_item, switch_item};
+use crate::keys::Ammo;
 use crate::death::{DeathEvent, handle_player_death};
 use crate::enemy_shot::{ShotMasks, handle_enemy_shot, hit_enemy_shot, hit_enemy_shot_tile};
 use crate::button::{handle_button, handle_sliding_door, hit_button};
@@ -167,6 +170,58 @@ pub struct Game {
     pub words: Words,
     /// The sounds of the last frame, in order.
     pub sounds: Vec<SoundEvent>,
+    /// What the level started with (what a saved game keeps).
+    pub level_start: LevelStart,
+}
+
+/// The state at a level's start, set by `UpLevel` (and the copier's save):
+/// comfort `_DAT_10065b1c`, surface `PTR_DAT_10065b04`, favor
+/// `PTR_DAT_10065b10`, score `_DAT_10065af0`, ammunition `_DAT_10065ae0` /
+/// `…adc` / `…ad8`, the inventory copy at `_DAT_10065ac0`. A new game
+/// starts with 72 / 72 / 72, no score, no ammunition, no items.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LevelStart {
+    pub score: i32,
+    pub comfort: i16,
+    pub surface: i16,
+    pub favor: i16,
+    pub ammo: Ammo,
+    pub inventory: [(i16, i16); SLOTS],
+}
+
+impl Default for LevelStart {
+    fn default() -> Self {
+        LevelStart {
+            score: 0,
+            comfort: 72,
+            surface: 72,
+            favor: 72,
+            ammo: Ammo::default(),
+            inventory: [(EMPTY, 0); SLOTS],
+        }
+    }
+}
+
+impl LevelStart {
+    fn of(g: &PlayerGlobals) -> Self {
+        LevelStart {
+            score: g.score,
+            comfort: g.comfort,
+            surface: g.surface,
+            favor: g.favor,
+            ammo: g.ammo,
+            inventory: g.inventory,
+        }
+    }
+}
+
+/// How `UpLevel` ended.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UpLevel {
+    /// The next level is set up and the game loop goes on.
+    Next,
+    /// The counter is past the world's last level: `Win`, the loop ends.
+    Won,
 }
 
 /// What a `ShowBalloon` call ended with: (shown, mode, the sprite's `pos`).
@@ -296,6 +351,66 @@ impl Game {
         find_upper_left_corner(&mut self.view, self.g.player_pos, self.prefs.scroll, self.prefs.even_v, self.prefs.blit);
         self.seen_level = self.counter.current;
         missing
+    }
+
+    /// `UpLevel`, which `CheckGameEvents` calls when the level counter
+    /// changed (after a frame that ended with `FrameEnd::LevelDone`;
+    /// `levels` are the world's). The jingle 4800; the debug items
+    /// 11397–11399 go; past the last level the game is won. Otherwise
+    /// (counter −255: the level after the one before) the score grows by
+    /// (level − 1) × 5000, the state is kept as the level's start, every
+    /// sprite is killed and the next level set up as the loop goes on:
+    /// Harry's position at its start − 32, the view and its target at the
+    /// start − 240, `SetupLevelSprites`, Harry there with the start
+    /// direction, his weapon at the start itself. Not here: the pictures
+    /// before and after (`ScrollPlot`), the autosave (prefs +1), the
+    /// music, and the unregistered game's stop after level 5
+    /// (`LevelLimit`) - the port plays as registered. Returns the object
+    /// ids the port cannot make yet with `Next`.
+    pub fn up_level(&mut self, levels: &[Level], assets: &Assets) -> (UpLevel, Vec<i16>) {
+        self.play(snd::LEVEL_DONE, 0x100, None, RATE, Channel::Effect);
+        let g = &mut self.g;
+        let mut again = true;
+        while again {
+            again = false;
+            for s in 0..SLOTS {
+                let (id, n) = g.inventory[s];
+                if (item::DEBUG_ITEM..=item::DEBUG_ITEM + 2).contains(&id) && n > 0 {
+                    switch_item(g, s as i16);
+                    remove_item(g, s as i16);
+                    again = true;
+                }
+            }
+        }
+        let won = (levels.len() as i16) < self.counter.current;
+        if self.counter.current == -255 {
+            self.counter.current = self.counter.previous.wrapping_add(1);
+        }
+        let Some(level) = usize::try_from(self.counter.current - 1).ok().and_then(|n| levels.get(n)).filter(|_| !won) else {
+            self.seen_level = self.counter.current;
+            return (UpLevel::Won, Vec::new());
+        };
+        g.score = g.score.wrapping_add(i32::from(self.counter.current - 1) * 5000);
+        self.level_start = LevelStart::of(g);
+        self.world.sprites.kill_all();
+        self.level = level.clone();
+        self.physics = self.level.effective_physics();
+        let (sh, sv) = self.level.start;
+        self.g.player_pos = (sh.wrapping_sub(32), sv.wrapping_sub(32));
+        let corner = (sv.wrapping_sub(240), sh.wrapping_sub(240));
+        self.view.target = corner;
+        self.view.corner = corner;
+        self.world.sprites.player = self.g.player_pos;
+        let missing = self.world.setup_level_sprites(&self.level, &mut self.rng);
+        let p = self.world.sprites.new_sprite(0, sh.wrapping_sub(32), sv.wrapping_sub(32));
+        self.harry = Some(p);
+        setup_player(&mut self.world.sprites.recs[p], &mut self.g);
+        self.world.sprites.recs[p].dir = self.level.start_dir;
+        let holder = self.holder(p, assets);
+        let w = self.world.sprites.new_sprite(0, sh, sv);
+        setup_held_weapon(&mut self.world.sprites.recs[w], &holder, &self.g);
+        self.seen_level = self.counter.current;
+        (UpLevel::Next, missing)
     }
 
     fn player(&self) -> Option<usize> {

@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow};
-use harry_core::game::{Assets, Balloon, FrameEnd, Game, Prefs};
+use harry_core::game::{Assets, Balloon, FrameEnd, Game, LevelStart, Prefs, UpLevel};
 use harry_core::keys::{Bindings, KeyMap};
 use harry_core::kinds::LevelCounter;
 use harry_core::player::Masks;
@@ -171,6 +171,7 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
         harry: None,
         words: data.words.clone(),
         sounds: Vec::new(),
+        level_start: LevelStart::default(),
     }
 }
 
@@ -334,13 +335,19 @@ fn main() -> Result<()> {
             }
             match end {
                 FrameEnd::Running => {}
-                FrameEnd::LevelDone => {
-                    let n = (game.counter.current as usize).saturating_sub(1);
-                    level = if n < data.levels.len() { n } else { 0 };
-                    let mut g = game.g.clone();
-                    g.tile.floor_kind = 1;
-                    game = start(level, g, game.rng.seed);
-                }
+                FrameEnd::LevelDone => match game.up_level(&data.levels, &assets) {
+                    (UpLevel::Next, missing) => {
+                        level = (game.counter.current as usize).saturating_sub(1);
+                        if !missing.is_empty() {
+                            eprintln!("level {}: not ported yet: {missing:?}", level + 1);
+                        }
+                    }
+                    // Win is not ported yet: a new game
+                    (UpLevel::Won, _) => {
+                        level = 0;
+                        game = start(level, PlayerGlobals::new_game(), game.rng.seed);
+                    }
+                },
                 FrameEnd::Died => {
                     // after the death: AskToContinue is not ported yet, start the level again
                     game = start(level, PlayerGlobals::new_game(), game.rng.seed);

@@ -67,7 +67,9 @@
 - [x] Whole frames with weapons and items: player shots as records, `HitPlayerShotSprite`, effects (explosions), 900 runs
 - [x] Harry's death (`HandlePlayerSpriteDeath`) to the end of the game loop (3000 runs + whole frames)
 - [ ] After the loop: `EndLevelEffect`, `AskToContinue`, restoring a saved game
-- [ ] `UpLevel`, the ripple
+- [x] `UpLevel`: next level in the same loop, score, level-start state (whole frames, 37 level changes)
+- [ ] `Win`, `EndLevelEffect`, `ScrollPlot` pictures, `IntroLevel` (frontend)
+- [ ] The ripple
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one

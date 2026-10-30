@@ -10,7 +10,7 @@ game loop would end (Harry's death over).
 Everything is real except sounds, the pixels (the SAT blit FUN_1006536c is
 caught and the face's draw proc called for each of its calls, the rest of
 drawing stubbed), ShowBalloon / CopierSave (answers per run), the phone /
-buzzword texts and UpLevel (logged).
+buzzword texts, UpLevel's pictures, saving and music.
 
 Each line: "<name=value ...> -> <name=value ...>"
   keys    per frame the held move keys as letters l r s i k, "-" none, ","-joined
@@ -40,6 +40,11 @@ WALLS, OBSTACLE, PREFS, INVENTORY, LEVEL_COUNTER, SEEN_LEVEL = 0x100658D4, 0x100
 COMFORT, FAVOR, SURFACE, COMFORT_SHOWN, SURFACE_SHOWN, FAVOR_SHOWN, CUR_SLOT = (0x1006856A, 0x1006856E, 0x1006856C, 0x10068570,
                                                                              0x10068572, 0x10068574, 0x1006857A)
 KICK_CONTACT = 0x10065E1C
+SCORE = 0x10065AF8
+# the state at the level's start (UpLevel): comfort, surface, favor (shorts),
+# score (long), staple / B.A.D.A.S.S. / shrapnel ammo (shorts); the
+# inventory copy
+START_SHORTS, START_SCORE, START_AMMO, START_INV = (0x10065B1C, 0x10065B04, 0x10065B10), 0x10065AF0, (0x10065AE0, 0x10065ADC, 0x10065AD8), 0x10065AC0
 LOOP_DONE = 0x10068560                              # GameLoop ends (CheckGameEvents: Harry's death over)
 INITS = ("InitPlayerSprite", "InitHeldWeaponSprite", "InitBonusSprite", "InitItemSprite", "InitExitSprite", "InitDoorSprite",
          "InitCoolerSprite", "InitPlantSprite", "InitMessageSprite", "InitColliderSprite", "InitDartEnemySprite",
@@ -64,6 +69,11 @@ def iter_list(m, sat):
     while a:
         yield a
         a = m.r32(a + 0x2E)
+
+
+def s16(x):
+    x &= 0xFFFF
+    return x - 0x10000 if x & 0x8000 else x
 
 
 def heap(m, x):
@@ -142,6 +152,13 @@ def main():
         m.stub_routine(f, 0)
     m.stub_routine(0x10056DE8, 0)                   # nothing is playing
 
+    def level_start():
+        inv_copy = m.glob(START_INV)
+        return ":".join([str(s16(m.r16(m.glob(a)))) for a in START_SHORTS] +
+                        [str(struct.unpack(">i", m.read(m.glob(START_SCORE), 4))[0])] +
+                        [str(s16(m.r16(m.glob(a)))) for a in START_AMMO] +
+                        [f"{s16(m.r16(inv_copy + 4 * i))}/{s16(m.r16(inv_copy + 4 * i + 2))}" for i in range(12)])
+
     def draw():
         """The drawing of a frame: WrapDrawSprite calls each face's draw proc
         (through __ptr_glue); BlitEncFace, the pixels, is stubbed."""
@@ -174,7 +191,27 @@ def main():
         return ans
     m.stub_routine("ShowBalloon", show_balloon)
     m.stub_routine("CopierSave", lambda mm: log.append("save") or 0)
-    m.stub_routine("UpLevel", lambda mm: log.append("uplevel") or 0)
+    # UpLevel runs: the pictures, dialogs, saving and music stubbed, the
+    # unregistered check answering "registered", the next level's data
+    # put where OpenDefaultWorldLevel would (SetupLevelSprites loads the
+    # rest)
+    ul = m.addr("UpLevel")
+    m.uc.hook_add(UC_HOOK_CODE, lambda uc, a, s_, _: log.append("uplevel"), begin=ul, end=ul)
+    m.stub_routine("Win", lambda mm: log.append("won") or 0)
+    for f in ("EndLevelEffect", "RestorePreExistingWindowBackground", "ScrollPlot", "LevelLimit", "DoSaveGame",
+              "IntroLevel", "SetMusic", "UpdateText", "RedrawGameArea"):
+        m.stub_routine(f, 0)
+    m.stub_routine(0x10057CB0, lambda mm: mm.write(mm.get(3), b"\1") or 0)
+
+    def open_level(mm):
+        data = levels[mm.get(3) & 0xFFFF][0]
+        h = mm.alloc(4)
+        p = mm.alloc(len(data), clear=False)
+        mm.write(p, data)
+        mm.w32(h, p)
+        mm.w32(mm.glob(0x10065B64), h)
+        return 1
+    m.stub_routine("OpenDefaultWorldLevel", open_level)
     for n in ("UnionRect", "ForeColor", "BackColor", "PaintRect", "RGBForeColor", "TextFont", "TextSize", "TextFace",
               "MoveTo", "DrawString", "NumToString", "LineTo", "FrameRect", "EraseRect", "InvertRect", "CopyBits"):
         m.stub(n, m.tb_nop)
@@ -198,9 +235,15 @@ def main():
     for n in range(1, 16):
         data = open(f"{work}/res/Episode_1/Hlvl_{n}.bin", "rb").read()
         start = struct.unpack(">hhh", data[0x120F4:0x120FA])
-        entries = [struct.unpack(">hh", data[0x1000C + i * 16:0x10010 + i * 16]) for i in range(256) if data[0x10000 + i * 16]]
+        entries = [struct.unpack(">hh", data[0x1000C + i * 16:0x10010 + i * 16]) + struct.unpack(">h", data[0x10002 + i * 16:0x10004 + i * 16])
+                   for i in range(256) if data[0x10000 + i * 16]]
         levels[n] = (data, start, entries)
     load_words(m, work)
+    # the world (Hwld 0): UpLevel reads its number of levels (+0x1c6)
+    m.w32(m.glob(0x10065B68), m.new_handle(open(f"{work}/res/Episode_1/Hwld_0.bin", "rb").read()))
+    # a new game (the level-start state: 72 / 72 / 72, nothing else)
+    m.stub_routine("InitDynamicSounds", 0)
+    m.call("InitGameGlobals")
     # every case starts from the globals as they are now
     data_start = 0x10065800
     globals_after_init = m.read(data_start, DATA_END - data_start)
@@ -225,8 +268,13 @@ def main():
             st["curslot"] = rnd.randint(0, len(items) - 1)
             for k in AMMO:
                 st[k] = rnd.choice([0, 3, 50, 100])
-        # Harry at the level's start or next to one of its sprites
-        if rnd.random() < 0.3:
+        # Harry at the level's start, next to an exit or next to one of its sprites
+        exits = [e for e in entries if 9990 <= e[2] <= 9999]
+        if exits and rnd.random() < 0.1:
+            e = rnd.choice(exits)
+            st["h"], st["v"] = e[1] - 6 + rnd.randint(-40, 20), e[0] - 6 + rnd.randint(-40, 20)
+            st["dir"] = rnd.randint(0, 35)
+        elif rnd.random() < 0.3:
             st["h"], st["v"], st["dir"] = start_h - 32, start_v - 32, start_dir
         else:
             e = rnd.choice(entries)
@@ -296,6 +344,7 @@ def main():
             draw()
             m.call("UpdateMeters", 1)
             m.call("CheckGameEvents")
+            p = m.r32(m.glob(PLAYER_SPRITE))                # UpLevel makes him anew
             harry.append("%d:%d" % (m.r16(p + 0x5A), m.r16(p + 0x5C)))
             if debug_seed == st["seed"]:
                 print(f, keys[f], dump(m, p, faces, tv), "comfort", m.r16(COMFORT), "slot", m.r16(CUR_SLOT), "rand", m.rand_seed,
@@ -305,10 +354,9 @@ def main():
                 for a in iter_list(m, sat):
                     if m.r16(a) == int(os.environ.get("KIND", "-1")):
                         print("   ", dump(m, a, faces, tv))
-            if "uplevel" in log:
-                break
             if m.read(LOOP_DONE, 1)[0]:
-                log.append("died")
+                if "won" not in log:
+                    log.append("died")
                 break
         lst, a = [], m.r32(sat + 0x78)
         while a:
@@ -325,7 +373,8 @@ def main():
              "contact": m.r16(m.glob(KICK_CONTACT)), "counter": m.r16(m.glob(LEVEL_COUNTER)),
              "log": ",".join(log) or "-", "staledoor": int(stale[0]),
              "inv": ",".join("%d:%d" % (m.r16(inv + 4 * i), m.r16(inv + 4 * i + 2)) for i in range(12)),
-             "curslot": m.r16(CUR_SLOT), "ammo": ":".join(str(m.r16(m.glob(a))) for a in AMMO.values()), "harry": ",".join(harry),
+             "curslot": m.r16(CUR_SLOT), "ammo": ":".join(str(m.r16(m.glob(a))) for a in AMMO.values()),
+             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "harry": ",".join(harry),
              "list": ";".join(f"{ids[a]}/{dump(m, a, faces, tv).replace(' ', ':')}" for a in lst),
              "free": ",".join(str(ids[a]) for a in free) or "-"}
         out.write(" ".join(f"{k}={v}" for k, v in st.items()) + " -> " + " ".join(f"{k}={v}" for k, v in o.items()) + "\n")
