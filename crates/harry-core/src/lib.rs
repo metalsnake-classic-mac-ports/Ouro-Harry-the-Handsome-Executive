@@ -46,6 +46,7 @@ pub mod stairs;
 pub mod tiles;
 pub mod text;
 pub mod touch;
+pub mod track;
 pub mod turret;
 pub mod view;
 pub mod words;

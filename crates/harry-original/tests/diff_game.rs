@@ -135,6 +135,8 @@ fn episode_1_frames_match_the_original() {
             words: words.clone(),
             sounds: Vec::new(),
             level_start: LevelStart::default(),
+            track: Default::default(),
+            keep_track: false,
         };
         let missing = game.start(w("h") as i16, w("v") as i16, w("dir") as i16, &assets);
         assert!(missing.is_empty(), "level {number}: {missing:?}");
@@ -210,7 +212,7 @@ fn episode_1_frames_match_the_original() {
             game.world.sprites.list.iter().map(|&r| format!("{r}/{}", dump(game.world.rec(r)).replace(' ', ":"))).collect();
         let free: Vec<String> = game.world.sprites.free.iter().rev().map(|r| r.to_string()).collect();
         let got = format!(
-            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} harry={} list={} free={}",
+            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} track={} harry={} list={} free={}",
             harry.len(),
             game.rng.seed,
             game.view.corner.0,
@@ -238,6 +240,11 @@ fn episode_1_frames_match_the_original() {
                 f.extend([st.ammo.staple, st.ammo.badass, st.ammo.shrapnel].map(|a| a.to_string()));
                 f.extend(st.inventory.iter().map(|(a, b)| format!("{a}/{b}")));
                 f.join(":")
+            },
+            {
+                let t = &game.track;
+                let seen: Vec<usize> = (0..t.cells.len()).filter(|&i| t.cells[i] != 0).collect();
+                format!("{}:{}:{}:{}", seen.len(), seen.iter().map(|i| i + 1).sum::<usize>(), t.last.0, t.last.1)
             },
             harry.join(","),
             list.join(";"),

@@ -172,6 +172,8 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
         words: data.words.clone(),
         sounds: Vec::new(),
         level_start: LevelStart::default(),
+        track: Default::default(),
+        keep_track: false,
     }
 }
 

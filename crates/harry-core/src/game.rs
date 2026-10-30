@@ -41,6 +41,7 @@ use crate::shots::{HeldWeapon, Holder, Shot, WeaponEvent, handle_held_weapon, ha
 use crate::sprite::{Face, HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{sect, touched_tiles};
 use crate::touch::{TouchEvent, TouchWorld, touch};
+use crate::track::TrackMap;
 use crate::view::{View, find_upper_left_corner};
 use crate::air::AirSound;
 use crate::moves::MoveSound;
@@ -172,6 +173,11 @@ pub struct Game {
     pub sounds: Vec<SoundEvent>,
     /// What the level started with (what a saved game keeps).
     pub level_start: LevelStart,
+    /// The map of where Harry has been.
+    pub track: TrackMap,
+    /// `uRam10072719`: the next `SetupLevelSprites` keeps the track map
+    /// (a restored copier save brings its own).
+    pub keep_track: bool,
 }
 
 /// The state at a level's start, set by `UpLevel` (and the copier's save):
@@ -336,7 +342,7 @@ impl Game {
     /// Returns the object ids the port cannot make yet.
     pub fn start(&mut self, h: i16, v: i16, dir: i16, assets: &Assets) -> Vec<i16> {
         self.world.sprites.player = self.g.player_pos;
-        let missing = self.world.setup_level_sprites(&self.level, &mut self.rng);
+        let missing = self.setup_level_sprites();
         let p = self.world.sprites.new_sprite(0, h, v);
         self.harry = Some(p);
         setup_player(&mut self.world.sprites.recs[p], &mut self.g);
@@ -351,6 +357,15 @@ impl Game {
         find_upper_left_corner(&mut self.view, self.g.player_pos, self.prefs.scroll, self.prefs.even_v, self.prefs.blit);
         self.seen_level = self.counter.current;
         missing
+    }
+
+    /// `SetupLevelSprites`: the level's sprites, and the track map cleared
+    /// unless a restored game brought it.
+    fn setup_level_sprites(&mut self) -> Vec<i16> {
+        if !std::mem::take(&mut self.keep_track) {
+            self.track.clear();
+        }
+        self.world.setup_level_sprites(&self.level, &mut self.rng)
     }
 
     /// `UpLevel`, which `CheckGameEvents` calls when the level counter
@@ -388,6 +403,8 @@ impl Game {
         }
         let Some(level) = usize::try_from(self.counter.current - 1).ok().and_then(|n| levels.get(n)).filter(|_| !won) else {
             self.seen_level = self.counter.current;
+            // the rest of the loop's pass
+            self.track.update(self.g.player_pos);
             return (UpLevel::Won, Vec::new());
         };
         g.score = g.score.wrapping_add(i32::from(self.counter.current - 1) * 5000);
@@ -401,7 +418,7 @@ impl Game {
         self.view.target = corner;
         self.view.corner = corner;
         self.world.sprites.player = self.g.player_pos;
-        let missing = self.world.setup_level_sprites(&self.level, &mut self.rng);
+        let missing = self.setup_level_sprites();
         let p = self.world.sprites.new_sprite(0, sh.wrapping_sub(32), sv.wrapping_sub(32));
         self.harry = Some(p);
         setup_player(&mut self.world.sprites.recs[p], &mut self.g);
@@ -410,6 +427,7 @@ impl Game {
         let w = self.world.sprites.new_sprite(0, sh, sv);
         setup_held_weapon(&mut self.world.sprites.recs[w], &holder, &self.g);
         self.seen_level = self.counter.current;
+        self.track.update(self.g.player_pos);
         (UpLevel::Next, missing)
     }
 
@@ -652,11 +670,12 @@ impl Game {
         self.world.erase_sprites(&mut self.level);
         self.draw_pass(assets);
         self.update_meters();
-        // CheckGameEvents
+        // CheckGameEvents (UpLevel, the caller's, then updates the track map)
         if self.seen_level != self.counter.current {
             self.seen_level = self.counter.current;
             return FrameEnd::LevelDone;
         }
+        self.track.update(self.g.player_pos);
         if died { FrameEnd::Died } else { FrameEnd::Running }
     }
 

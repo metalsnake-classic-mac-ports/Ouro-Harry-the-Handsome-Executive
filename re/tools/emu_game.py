@@ -45,6 +45,7 @@ SCORE = 0x10065AF8
 # score (long), staple / B.A.D.A.S.S. / shrapnel ammo (shorts); the
 # inventory copy
 START_SHORTS, START_SCORE, START_AMMO, START_INV = (0x10065B1C, 0x10065B04, 0x10065B10), 0x10065AF0, (0x10065AE0, 0x10065ADC, 0x10065AD8), 0x10065AC0
+TRACK, TRACK_LAST = 0x10072730, 0x1007272C       # the map; Harry's last tile v, h
 LOOP_DONE = 0x10068560                              # GameLoop ends (CheckGameEvents: Harry's death over)
 INITS = ("InitPlayerSprite", "InitHeldWeaponSprite", "InitBonusSprite", "InitItemSprite", "InitExitSprite", "InitDoorSprite",
          "InitCoolerSprite", "InitPlantSprite", "InitMessageSprite", "InitColliderSprite", "InitDartEnemySprite",
@@ -145,7 +146,7 @@ def main():
     log = []
     for f in ("STPlayRegSound", "STPlay3DSound", "STPlay3DSoundPitched", "HaltTalkingSounds", 0x10056C0C,
               "GammaFadeOut", "GammaFadeIn", 0x1002549C, "AddFGRedraw", "CheckWorldCorruption", "LoadLevelTilesets",
-              "InitTrackMap", "LoadLevelSounds", 0x1005F7EC, "IsPressed", "AddRectToUpdate",
+              "LoadLevelSounds", 0x1005F7EC, "IsPressed", "AddRectToUpdate",
               0x10024DE8, "RedrawGrid", "RedrawFGTiles", "GetScalePort", "CopyToScalePort", "CopyScalePortBack",
               "BlitEncFace", "FadeMusic", "DebugHook", "UpdateAmmo", "CopyStatRect",
               "PlotEncFace", "DrawNumItems", "FindInvItemFace", "UpdateInventory", 0x1005F738, "DrawBlackLines"):
@@ -158,6 +159,13 @@ def main():
                         [str(struct.unpack(">i", m.read(m.glob(START_SCORE), 4))[0])] +
                         [str(s16(m.r16(m.glob(a)))) for a in START_AMMO] +
                         [f"{s16(m.r16(inv_copy + 4 * i))}/{s16(m.r16(inv_copy + 4 * i + 2))}" for i in range(12)])
+
+    def track():
+        """The track map: how many tiles are seen and the sum of their
+        indices + 1; Harry's last tile."""
+        cells = m.read(TRACK, 128 * 128)
+        seen = [i for i, c in enumerate(cells) if c]
+        return "%d:%d:%d:%d" % (len(seen), sum(i + 1 for i in seen), s16(m.r16(TRACK_LAST + 2)), s16(m.r16(TRACK_LAST)))
 
     def draw():
         """The drawing of a frame: WrapDrawSprite calls each face's draw proc
@@ -344,6 +352,7 @@ def main():
             draw()
             m.call("UpdateMeters", 1)
             m.call("CheckGameEvents")
+            m.call("UpdateTrackMap")
             p = m.r32(m.glob(PLAYER_SPRITE))                # UpLevel makes him anew
             harry.append("%d:%d" % (m.r16(p + 0x5A), m.r16(p + 0x5C)))
             if debug_seed == st["seed"]:
@@ -374,7 +383,7 @@ def main():
              "log": ",".join(log) or "-", "staledoor": int(stale[0]),
              "inv": ",".join("%d:%d" % (m.r16(inv + 4 * i), m.r16(inv + 4 * i + 2)) for i in range(12)),
              "curslot": m.r16(CUR_SLOT), "ammo": ":".join(str(m.r16(m.glob(a))) for a in AMMO.values()),
-             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "harry": ",".join(harry),
+             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "track": track(), "harry": ",".join(harry),
              "list": ";".join(f"{ids[a]}/{dump(m, a, faces, tv).replace(' ', ':')}" for a in lst),
              "free": ",".join(str(ids[a]) for a in free) or "-"}
         out.write(" ".join(f"{k}={v}" for k, v in st.items()) + " -> " + " ".join(f"{k}={v}" for k, v in o.items()) + "\n")

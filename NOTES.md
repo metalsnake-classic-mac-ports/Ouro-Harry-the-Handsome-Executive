@@ -1295,6 +1295,14 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   level's data put where `OpenDefaultWorldLevel` would) with the world
   loaded, starts some runs next to an exit and compares score and level
   start too: 37 runs change level (and play on), 10 win.
+- **Track map** (`harry_core::track`, for the map screen `ShowMap`):
+  128 × 128 bytes at 0x10072730, `[h * 128 + v]` in 32-px tiles.
+  `UpdateTrackMap`, the last of a loop pass: when the tile under Harry's
+  centre (`gPlayerH/V` + 32) changed, the tiles from 7 before to 6 after
+  it (14 × 14) are seen; the last tile (`sRam1007272e` / `…2c`) is never
+  reset. `SetupLevelSprites` clears the map (`InitTrackMap`) unless a
+  restored copier save brought one (`uRam10072719`). Whole frames
+  compare the seen tiles and the last tile: all matching.
 - **Shots made with their own fix**: the boss's (2281, 2291, 1211) keep
   `pos` / `at` where `SATNewSprite` put them until their first frame -
   so their hot rect is there for that frame's collisions - while the
