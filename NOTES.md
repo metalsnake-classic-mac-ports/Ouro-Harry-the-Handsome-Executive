@@ -1243,7 +1243,8 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   dies). All 892 comparable runs match - list, free list, every record,
   Harry's path, view, meters, inventory, ammo, random seed. The other 8
   kick the locked door 913, which reads stale stack values (BUGS.md). Not
-  covered yet: Harry's death itself, the ripple, the frontend.
+  covered yet: Harry's death itself, the ripple, the frontend (since
+  covered except the frontend).
   Now 1500 runs over all 15 levels (level 1 a little more often) with
   the real draw pass (`DrawSpritesBehindTiles` / `…AboveTiles` with the
   draw procs, the scroll origin each frame): all 1494 comparable runs
@@ -1337,6 +1338,27 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   saves at every level start and at every copier (no dialogs yet) to
   `Harry Save.hrsg` in SDL's pref path and continues from it after a
   death.
+- **Ripple** (`harry_core::ripple`): level info #10–#12 are its length
+  (rows per wave), width (px) and speed (1/256 rows a frame); in Episode
+  1 only level 10 ripples (40, 3, 384); W-A-V-Y-G-R-A-V-Y sets 100, 16,
+  0x300 or 0, 0, 0 and the phase to 0. The phase (`*_DAT_1006592c`)
+  grows by the speed after the drawing of every loop pass and is never
+  reset otherwise (it carries over levels). `BuildSineTable` (from
+  `IntroLevel`, so at every level start, and from the cheat) cuts the
+  length to 100 in the level itself and fills entry i with
+  `(int)((float)sin((float)((float)(6.28318 / length) · i)) · width)` -
+  the product in single precision (`emu_sine.py`: 7865 lengths and
+  widths, all matching; in double precision six differ by 1). 6.28318
+  is the original's 2π. `DoubleBlitUniversal` uses `DoubleBlitSine`
+  when the width is at least 1, the frame is not a full redraw and the
+  scroll mode is at most 2: screen row y of the game area is shifted by
+  table[(view v + phase / 256 + y) mod length] - right leaving its first
+  pixels as the screen had them, left reading past the area's right
+  edge in the ring buffer. The port's renderer draws the area 480 px
+  wide and copies it row by row the same way (the left pixels of a row
+  shifted right: unshifted). The whole-frame recorder types the cheat in
+  6 % of its runs (the phase, as `GameLoop` adds it, and the table
+  compared): all matching.
 - **Shots made with their own fix**: the boss's (2281, 2291, 1211) keep
   `pos` / `at` where `SATNewSprite` put them until their first frame -
   so their hot rect is there for that frame's collisions - while the

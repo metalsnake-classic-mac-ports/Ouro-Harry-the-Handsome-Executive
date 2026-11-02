@@ -36,6 +36,7 @@ pub mod props;
 pub mod ramp;
 pub mod random;
 pub mod reversor;
+pub mod ripple;
 pub mod robot;
 pub mod sat;
 pub mod savegame;

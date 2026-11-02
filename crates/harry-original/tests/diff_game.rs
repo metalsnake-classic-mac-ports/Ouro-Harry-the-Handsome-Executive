@@ -218,6 +218,12 @@ fn episode_1_frames_match_the_original() {
                     '2' => km.press(0x13),
                     '3' => km.press(0x14),
                     '4' => km.press(0x15),
+                    'W' => km.press(0x0D),
+                    'A' => km.press(0x00),
+                    'V' => km.press(0x09),
+                    'Y' => km.press(0x10),
+                    'G' => km.press(0x05),
+                    'R' => km.press(0x0F),
                     _ => {}
                 }
             }
@@ -268,7 +274,7 @@ fn episode_1_frames_match_the_original() {
             game.world.sprites.list.iter().map(|&r| format!("{r}/{}", dump(game.world.rec(r)).replace(' ', ":"))).collect();
         let free: Vec<String> = game.world.sprites.free.iter().rev().map(|r| r.to_string()).collect();
         let got = format!(
-            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} track={} save={} harry={} list={} free={}",
+            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} track={} save={} ripple={} harry={} list={} free={}",
             harry.len(),
             game.rng.seed,
             game.view.corner.0,
@@ -307,6 +313,12 @@ fn episode_1_frames_match_the_original() {
                 let d = sv.to_bytes();
                 let sum = d.iter().enumerate().fold(0u32, |a, (i, &b)| a.wrapping_add((i as u32 + 1).wrapping_mul(u32::from(b))));
                 format!("{}:{}:{}:{sum}", u8::from(sv.copier), sv.level, sv.score)
+            },
+            {
+                let info = &game.level.info;
+                let table = harry_core::ripple::sine_table(&mut game.level.clone());
+                let sum: i64 = table.iter().enumerate().map(|(i, &x)| (i as i64 + 1) * i64::from(x)).sum();
+                format!("{}:{}:{}:{}:{sum}", game.session.ripple_phase, info[10], info[11], info[12])
             },
             harry.join(","),
             list.join(";"),

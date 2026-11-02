@@ -70,7 +70,7 @@
 - [ ] Dialogs: `CopierSave`, `AskToContinue`; `EndLevelEffect`; the file format of the original's save files (resource fork)
 - [x] `UpLevel`: next level in the same loop, score, level-start state (whole frames, 37 level changes)
 - [ ] `Win`, `EndLevelEffect`, `ScrollPlot` pictures, `IntroLevel` (frontend)
-- [ ] The ripple
+- [x] The ripple: phase, cheat, `BuildSineTable` (7865 cases), row shifts in the renderer
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
 - [ ] Sprite kinds one by one

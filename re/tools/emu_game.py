@@ -21,13 +21,14 @@ Debugging: SEED=<seed> runs only that case (writing nothing) and prints
 Harry per frame; with KIND=<kind> also the sprites of that kind, ADDR=<hex>
 the record there, RAND=1 / TRACE=<routine,...> see trace_hooks.
 """
+import math
 import os
 import random
 import struct
 import sys
 
 from unicorn import UC_HOOK_CODE
-from unicorn.ppc_const import UC_PPC_REG_LR
+from unicorn.ppc_const import UC_PPC_REG_FPR1, UC_PPC_REG_LR
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ppcmachine import Machine, DATA_END, TOC  # noqa: E402
@@ -56,7 +57,7 @@ INITS = ("InitPlayerSprite", "InitHeldWeaponSprite", "InitBonusSprite", "InitIte
          "InitScientistSprite", "InitBlobSprite", "InitBossSprite")
 BINDINGS = [0x7B, 0x7C, 0x7D, 0x7E, 0x31, 0x3B, 0x3A]
 KEYS = {"l": 0x7B, "r": 0x7C, "s": 0x7D, "i": 0x7E, "k": 0x31, "e": 0x3B, "u": 0x3A, "1": 0x12, "2": 0x13, "3": 0x14,
-        "4": 0x15}
+        "4": 0x15, "W": 0x0D, "A": 0x00, "V": 0x09, "Y": 0x10, "G": 0x05, "R": 0x0F}
 PROP_FACES = {0x10065A60: 6034, 0x10065A5C: 6035, 0x10065A58: 6036, 0x10065A54: 6037,
               0x10065A40: 6051, 0x10065A3C: 6052, 0x10065A38: 6053, 0x10065A34: 6054,
               0x10065A0C: 6041, 0x10065A04: 6042, 0x10065A00: 6043, 0x100659FC: 6044}     # the fire pipes
@@ -204,6 +205,15 @@ def main():
         return "%d:%d:%d:%d" % (d[4], struct.unpack(">h", d[6:8])[0], struct.unpack(">i", d[8:12])[0],
                                 sum((i + 1) * b for i, b in enumerate(d)) & 0xFFFFFFFF)
 
+    def ripple():
+        """The ripple: phase, the level's length, width and speed, the sum
+        of the sine table's entries times their index + 1."""
+        lvl = m.r32(m.r32(m.glob(0x10065B64)))
+        n, wd, sp = struct.unpack(">3h", m.read(lvl + 0x12088, 6))
+        tab = struct.unpack(">%dh" % max(n, 0), m.read(m.glob(0x10065D04), 2 * max(n, 0)))
+        return "%d:%d:%d:%d:%d" % (struct.unpack(">i", m.read(m.glob(0x1006592C), 4))[0], n, wd, sp,
+                                   sum((i + 1) * x for i, x in enumerate(tab)))
+
     def draw():
         """The drawing of a frame: WrapDrawSprite calls each face's draw proc
         (through __ptr_glue); BlitEncFace, the pixels, is stubbed."""
@@ -247,6 +257,12 @@ def main():
               "EndUpdate", "DrawDialog", "ShowWindow", "SelectWindow", "DisposeDialog", "FlushEvents", "GetDateTime"):
         m.stub(n, m.tb_nop)
     m.stub("ModalDialog", modal_dialog)
+
+    def sine():
+        """MathLib sin: f1 in, f1 out."""
+        x = struct.unpack(">d", m.uc.reg_read(UC_PPC_REG_FPR1).to_bytes(8, "big"))[0]
+        m.uc.reg_write(UC_PPC_REG_FPR1, int.from_bytes(struct.pack(">d", math.sin(x)), "big"))
+    m.stub("sin", sine)
     for f in ("SaveSG", "RestoreWindowBackground", "ShowCursorSafe", "HideCursorSafe", 0x1005FBA8):
         m.stub_routine(f, 1 if f == "SaveSG" else 0)
     m.w32(m.glob(0x10065B60), m.new_handle(bytes(0x95D8)))
@@ -369,6 +385,15 @@ def main():
                 pool = "llrrsssssiikk" + ("uuuue1234" if st["inv"] != "-" else "")
                 held = "".join(sorted(set(rnd.sample(pool, rnd.choice([0, 1, 1, 1, 2])))))
             keys.append(held or "-")
+        # W-A-V-Y-G-R-A-V-Y typed (once or twice): the ripple on / off
+        if rnd.random() < 0.06:
+            f0 = rnd.randint(0, st["frames"])
+            for _ in range(rnd.choice([1, 1, 2])):
+                for c in "WAVYGRAVY-":
+                    if f0 < len(keys):
+                        keys[f0] = c
+                    f0 += 1
+                f0 += rnd.randint(0, 40)
         st["keys"] = ",".join(keys)
         if debug_seed and debug_seed != st["seed"]:
             continue
@@ -406,6 +431,7 @@ def main():
             m.call("ContinueGame", 0)
             h, v, start_dir_, _intro = loop_args[0]
         m.call("SetupLevelSprites")
+        m.call("BuildSineTable")                        # GameLoop's IntroLevel
         p = m.call("SATNewSprite", 0, h, v, 0x10066FB4)
         m.w32(m.glob(PLAYER_SPRITE), p)
         m.w16(p + 0x66, start_dir_)
@@ -433,8 +459,16 @@ def main():
             m.call("CheckTileCollisions")
             m.call("EraseSprites")
             draw()
+            # GameLoop: the ripple's phase grows by the level's speed
+            lvl = m.r32(m.r32(m.glob(0x10065B64)))
+            ph = m.glob(0x1006592C)
+            phase = struct.unpack(">i", m.read(ph, 4))[0] + s16(m.r16(lvl + 0x1208C))
+            m.write(ph, struct.pack(">i", (phase + 2**31) % 2**32 - 2**31))
             m.call("UpdateMeters", 1)
+            ups = log.count("uplevel")
             m.call("CheckGameEvents")
+            if log.count("uplevel") > ups and "won" not in log:
+                m.call("BuildSineTable")                # UpLevel's IntroLevel (stubbed) builds it
             m.call("UpdateTrackMap")
             p = m.r32(m.glob(PLAYER_SPRITE))                # UpLevel makes him anew
             harry.append("%d:%d" % (m.r16(p + 0x5A), m.r16(p + 0x5C)))
@@ -466,7 +500,7 @@ def main():
              "log": ",".join(log) or "-", "staledoor": int(stale[0]),
              "inv": ",".join("%d:%d" % (m.r16(inv + 4 * i), m.r16(inv + 4 * i + 2)) for i in range(12)),
              "curslot": m.r16(CUR_SLOT), "ammo": ":".join(str(m.r16(m.glob(a))) for a in AMMO.values()),
-             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "track": track(), "save": saved(), "harry": ",".join(harry),
+             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "track": track(), "save": saved(), "ripple": ripple(), "harry": ",".join(harry),
              "list": ";".join(f"{ids[a]}/{dump(m, a, faces, tv).replace(' ', ':')}" for a in lst),
              "free": ",".join(str(ids[a]) for a in free) or "-"}
         out.write(" ".join(f"{k}={v}" for k, v in st.items()) + " -> " + " ".join(f"{k}={v}" for k, v in o.items()) + "\n")

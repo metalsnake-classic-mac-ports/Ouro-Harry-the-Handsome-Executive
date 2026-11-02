@@ -5,10 +5,15 @@
 //! other sprites (`DrawSpritesAboveTiles`) - each in SAT's list order, at
 //! their `at`, scaled when their scale is not 1.0.
 //!
-//! Not drawn yet: the sprites' tints (draw procs), the ripple, the panel's
-//! texts (level name, score) and the meters' rounded ends.
+//! The game area is drawn 480 px wide, like the original's ring buffer,
+//! and copied to the screen row by row - shifted sideways where the level
+//! ripples (`DoubleBlitSine`).
+//!
+//! Not drawn yet: the sprites' tints (draw procs), the panel's texts
+//! (level name, score) and the meters' rounded ends.
 
 use harry_core::game::Game;
+use harry_core::ripple;
 use harry_core::level::{NO_TILE, SIZE};
 use harry_core::shots::scaled_pos;
 use harry_core::sprite::Sprite;
@@ -19,6 +24,8 @@ pub const SCREEN_HEIGHT: usize = 480;
 /// The game area: 448 × 448 at (16, 16).
 const AREA: i32 = 16;
 const AREA_SIZE: i32 = 448;
+/// The width the game area is drawn in (the ring buffer's).
+const RING: i32 = 480;
 const BLACK: u8 = 255;
 
 /// An image of palette indices.
@@ -26,19 +33,22 @@ pub struct Canvas {
     pub width: usize,
     pub height: usize,
     pub pixels: Vec<u8>,
+    /// Where level positions are drawn: (x, y, width, height).
+    area: (i32, i32, i32, i32),
 }
 
 impl Canvas {
     pub fn new(width: usize, height: usize, fill: u8) -> Canvas {
-        Canvas { width, height, pixels: vec![fill; width * height] }
+        Canvas { width, height, pixels: vec![fill; width * height], area: (AREA, AREA, AREA_SIZE, AREA_SIZE) }
     }
 
     /// Set a pixel of the game area at level position (h, v).
     fn plot(&mut self, view: (i16, i16), h: i32, v: i32, c: u8) {
         let x = h - i32::from(view.1);
         let y = v - i32::from(view.0);
-        if (0..AREA_SIZE).contains(&x) && (0..AREA_SIZE).contains(&y) {
-            self.pixels[(AREA + y) as usize * self.width + (AREA + x) as usize] = c;
+        let (ax, ay, aw, ah) = self.area;
+        if (0..aw).contains(&x) && (0..ah).contains(&y) {
+            self.pixels[(ay + y) as usize * self.width + (ax + x) as usize] = c;
         }
     }
 
@@ -105,6 +115,24 @@ impl Canvas {
     }
 }
 
+/// The game area onto the screen, each row shifted by the ripple's table
+/// where the level ripples. A row shifted right leaves its first pixels
+/// as they were on the screen (the port: unshifted); one shifted left
+/// reads past the area's right edge, in the ring buffer.
+fn copy_area(c: &mut Canvas, ring: &Canvas, game: &Game) {
+    let mut level = game.level.clone();
+    let table = if ripple::active(&level, game.prefs.scroll, false) { ripple::sine_table(&mut level) } else { Vec::new() };
+    for y in 0..AREA_SIZE {
+        let s = i32::from(ripple::row_shift(&table, game.view.corner.0, game.session.ripple_phase, y));
+        let src = &ring.pixels[y as usize * ring.width..];
+        let dst = &mut c.pixels[(AREA + y) as usize * c.width + AREA as usize..][..AREA_SIZE as usize];
+        for (x, d) in dst.iter_mut().enumerate() {
+            let sx = x as i32 - s;
+            *d = src[if (0..RING).contains(&sx) { sx as usize } else { x }];
+        }
+    }
+}
+
 fn draw_sprite(c: &mut Canvas, data: &GameData, view: (i16, i16), s: &Sprite) {
     let Some(face) = data.faces.get(&s.face) else { return };
     let img = &face.image;
@@ -125,9 +153,32 @@ pub fn draw(data: &GameData, game: &Game) -> Canvas {
         c.draw_image(screen, (0, 0, screen.width, screen.height), 0, 0);
     }
     c.fill(AREA as usize, AREA as usize, AREA_SIZE as usize, AREA_SIZE as usize, BLACK);
+    let Some(ring) = draw_area(data, game) else { return c };
+    copy_area(&mut c, &ring, game);
+    // the meters (`UpdateMeters`): the empty strip of PICT 150, then the
+    // value's strip up to the shown value (3 px shorter above 8, where a
+    // rounded end - cicn 10135-10137, not drawn yet - closes it).
+    // Surface resistance is drawn inverted.
+    if let Some(m) = data.pictures.get(&150) {
+        let g = &game.g;
+        for (row, y, v) in [(1, 386, g.comfort_shown), (2, 416, 144 - g.surface_shown), (3, 446, g.favor_shown)] {
+            c.draw_image(m, (0, 0, 147, 11), 473, y);
+            let v = v.clamp(0, 144) as usize;
+            let len = if v > 8 { v - 3 } else { v };
+            c.draw_image(m, (0, row * 11, len, 11), 473, y);
+        }
+    }
+    c
+}
+
+/// The game area as the ring buffer holds it: tiles, props and sprites,
+/// 480 px wide from the view's corner. None without the level's tile set.
+fn draw_area(data: &GameData, game: &Game) -> Option<Canvas> {
     let view = game.view.corner;
     let level = &game.level;
-    let Some(tiles) = data.tile_set(level) else { return c };
+    let tiles = data.tile_set(level)?;
+    let mut c = Canvas::new(RING as usize, AREA_SIZE as usize, BLACK);
+    c.area = (0, 0, RING, AREA_SIZE);
     let (x0, y0) = ((i32::from(view.1) >> 5).max(0), (i32::from(view.0) >> 5).max(0));
     let (x1, y1) = ((x0 + AREA_SIZE / 32 + 1).min(SIZE as i32 - 1), (y0 + AREA_SIZE / 32 + 1).min(SIZE as i32 - 1));
     for x in x0..=x1 {
@@ -166,20 +217,7 @@ pub fn draw(data: &GameData, game: &Game) -> Canvas {
     for s in sprites.iter().filter(|s| !s.b8b) {
         draw_sprite(&mut c, data, view, s);
     }
-    // the meters (`UpdateMeters`): the empty strip of PICT 150, then the
-    // value's strip up to the shown value (3 px shorter above 8, where a
-    // rounded end - cicn 10135-10137, not drawn yet - closes it).
-    // Surface resistance is drawn inverted.
-    if let Some(m) = data.pictures.get(&150) {
-        let g = &game.g;
-        for (row, y, v) in [(1, 386, g.comfort_shown), (2, 416, 144 - g.surface_shown), (3, 446, g.favor_shown)] {
-            c.draw_image(m, (0, 0, 147, 11), 473, y);
-            let v = v.clamp(0, 144) as usize;
-            let len = if v > 8 { v - 3 } else { v };
-            c.draw_image(m, (0, row * 11, len, 11), 473, y);
-        }
-    }
-    c
+    Some(c)
 }
 
 /// A 24-bit BMP of RGB pixels (for screenshots).

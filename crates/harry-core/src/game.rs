@@ -36,6 +36,7 @@ use crate::physics::Physics;
 use crate::player::{Masks, Player, TileSound, hit_player_tile};
 use crate::ramp::{RampMasks, handle_ramp, hit_ramp, hit_ramp_tile};
 use crate::random::Random;
+use crate::ripple;
 use crate::sat::{absolute, collisions, sort_pass};
 use crate::effect::handle_effect;
 use crate::shots::{HeldWeapon, Holder, Shot, WeaponEvent, handle_held_weapon, handle_shot, hit_player_shot, hit_shot_tile, weapon_face};
@@ -199,6 +200,10 @@ pub struct Session {
     /// `PTR_DAT_10065904`: a restored game; the next `SetupPlayerSprite`
     /// rebuilds the inventory.
     pub restored: bool,
+    /// The ripple's phase (`*_DAT_1006592c`, 1/256 rows): grows by the
+    /// level's ripple speed every pass of the game loop; only the cheat
+    /// sets it back to 0.
+    pub ripple_phase: i32,
 }
 
 impl Default for Session {
@@ -209,6 +214,7 @@ impl Default for Session {
             world_id: DEFAULT_WORLD,
             world_name: b"Episode 1".to_vec(),
             restored: false,
+            ripple_phase: 0,
         }
     }
 }
@@ -389,6 +395,8 @@ impl Game {
     /// Returns the object ids the port cannot make yet.
     pub fn start(&mut self, h: i16, v: i16, dir: i16, assets: &Assets) -> Vec<i16> {
         self.world.sprites.player = self.g.player_pos;
+        // IntroLevel's BuildSineTable (it cuts the ripple's length to 100)
+        ripple::sine_table(&mut self.level);
         let missing = self.setup_level_sprites();
         let p = self.world.sprites.new_sprite(0, h, v);
         self.harry = Some(p);
@@ -573,6 +581,8 @@ impl Game {
         self.view.target = corner;
         self.view.corner = corner;
         self.world.sprites.player = self.g.player_pos;
+        // IntroLevel's BuildSineTable (it cuts the ripple's length to 100)
+        ripple::sine_table(&mut self.level);
         let missing = self.setup_level_sprites();
         let p = self.world.sprites.new_sprite(0, sh.wrapping_sub(32), sv.wrapping_sub(32));
         self.harry = Some(p);
@@ -827,6 +837,7 @@ impl Game {
         self.check_tile_collisions(assets);
         self.world.erase_sprites(&mut self.level);
         self.draw_pass(assets);
+        self.session.ripple_phase = self.session.ripple_phase.wrapping_add(i32::from(self.level.info[ripple::SPEED]));
         self.update_meters();
         // CheckGameEvents (UpLevel, the caller's, then updates the track map)
         if self.seen_level != self.counter.current {
@@ -901,7 +912,7 @@ impl Game {
                         KeyEvent::Explosion { h, v, flag } => {
                             self.explosion(h, v, flag, 0);
                         }
-                        KeyEvent::Ripple(_) => panic!("the ripple is not ported into the frame yet"),
+                        KeyEvent::Ripple(on) => ripple::toggle(&mut self.level, &mut self.session.ripple_phase, on),
                         KeyEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
                         KeyEvent::ChargeSound(id) => self.play(id, 0x100, None, RATE, Channel::Charge),
                         KeyEvent::StopCharge => self.sounds.push(SoundEvent::StopCharge),
