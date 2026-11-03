@@ -185,6 +185,7 @@ fn episode_1_frames_match_the_original() {
             track: Default::default(),
             keep_track: false,
             blits: Vec::new(),
+            meters: Default::default(),
             session: Default::default(),
         };
         let missing = if w("cont") >= 0 {
@@ -283,7 +284,7 @@ fn episode_1_frames_match_the_original() {
             game.world.sprites.list.iter().map(|&r| format!("{r}/{}", dump(game.world.rec(r)).replace(' ', ":"))).collect();
         let free: Vec<String> = game.world.sprites.free.iter().rev().map(|r| r.to_string()).collect();
         let got = format!(
-            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} track={} save={} ripple={} blits={}:{} harry={} list={} free={}",
+            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} track={} save={} ripple={} blits={}:{} meterdraw={} harry={} list={} free={}",
             harry.len(),
             game.rng.seed,
             game.view.corner.0,
@@ -331,6 +332,7 @@ fn episode_1_frames_match_the_original() {
             },
             nblits,
             blit_crc,
+            game.meters.iter().map(|d| format!("{}:{}", d.len, u8::from(d.end))).collect::<Vec<_>>().join(","),
             harry.join(","),
             list.join(";"),
             if free.is_empty() { "-".to_string() } else { free.join(",") }
@@ -354,7 +356,7 @@ fn episode_1_frames_match_the_original() {
                 format!("{} {}", wf[0], d.join(","))
             });
             let o: Vec<String> = other(b).split(' ').zip(other(&got).split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("{x}/{y}")).collect();
-            eprintln!("TRIAGE level={} len={}/{} {:?} {}", i["level"], we.len(), ge.len(), fields, o.join(" "));
+            eprintln!("TRIAGE level={} seed={} len={}/{} {:?} {}", i["level"], i["seed"], we.len(), ge.len(), fields, o.join(" "));
         }
         if got != b {
             bad += 1;

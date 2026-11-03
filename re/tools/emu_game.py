@@ -16,6 +16,7 @@ Each line: "<name=value ...> -> <name=value ...>"
   keys    per frame the held move keys as letters l r s i k, "-" none, ","-joined
   list    per sprite in SAT order: "<record>/<dump with ':'>", ";"-joined
   harry   per frame Harry's at "v:h", ","-joined
+  meterdraw  per meter what UpdateMeters drew last: "<strip length>:<end>"
   blits   the draw procs' BlitEncFace calls "<face>:<mode>:<arg>;", each
           frame ended by "|": their number and CRC-32
 Usage: python3 -I emu_game.py [re/work]
@@ -325,8 +326,26 @@ def main():
         return 1
     m.stub_routine("OpenDefaultWorldLevel", open_level)
     for n in ("UnionRect", "ForeColor", "BackColor", "PaintRect", "RGBForeColor", "TextFont", "TextSize", "TextFace",
-              "MoveTo", "DrawString", "NumToString", "LineTo", "FrameRect", "EraseRect", "InvertRect", "CopyBits"):
+              "MoveTo", "DrawString", "NumToString", "LineTo", "FrameRect", "EraseRect", "InvertRect"):
         m.stub(n, m.tb_nop)
+    # UpdateMeters' drawing: a value strip is CopyBits from PICT 150's row
+    # 11 / 22 / 33 (length = the source's right edge), the rounded end
+    # FUN_10062a0c(face, port, point, ...) at v 387 / 417 / 447
+    meters_drawn = [[0, 0] for _ in range(3)]
+
+    def copy_bits():
+        top, _left, _bottom, right = struct.unpack(">4h", m.read(m.get(5), 8))
+        if top in (11, 22, 33):
+            meters_drawn[top // 11 - 1][:] = [right, 0]
+    m.stub("CopyBits", copy_bits)
+
+    def meter_end(mm):
+        v, h = s16(mm.get(5) >> 16), s16(mm.get(5) & 0xFFFF)
+        if v in (387, 417, 447):
+            meters_drawn[(v - 387) // 30][1] = 1
+            assert h - 473 == meters_drawn[(v - 387) // 30][0]
+        return 0
+    m.stub_routine(0x10062A0C, meter_end)
     # kicking a locked door reads two never-set stack locals (BUGS.md):
     # mark such cases, the port cannot follow them
     stale = [False]
@@ -371,7 +390,7 @@ def main():
         data, (start_v, start_h, start_dir), entries = levels[level]
         lvl = m.load_level(data)
         st = {"level": level, "seed": rnd.randint(1, 0x7FFFFFFE), "scroll": rnd.choice([0, 1, 2, 2, 3, 4]),
-              "comfort": rnd.choice([144, 100, 20, 144, 100, 20, 0]), "favor": rnd.choice([144, 60]), "frames": rnd.choice([rnd.randint(1, 60), rnd.randint(1, 300)]), "h": 0, "v": 0, "dir": 0,
+              "comfort": rnd.choice([144, 100, 20, 144, 100, 20, 0]), "favor": rnd.choice([144, 60, 5]), "frames": rnd.choice([rnd.randint(1, 60), rnd.randint(1, 300)]), "h": 0, "v": 0, "dir": 0,
               "inv": "-", "curslot": -1, "staple": 0, "badass": 0, "shrapnel": 0,
               "balloons": "".join(rnd.choice("0001") for _ in range(16)), "copier": "".join(rnd.choice("12") for _ in range(4)),
               "autosave": rnd.choice([0, 1])}
@@ -455,6 +474,8 @@ def main():
             h, v, start_dir_, _intro = loop_args[0]
         m.call("SetupLevelSprites")
         m.call("BuildSineTable")                        # GameLoop's IntroLevel
+        for d in meters_drawn:
+            d[:] = [0, 0]
         p = m.call("SATNewSprite", 0, h, v, 0x10066FB4)
         m.w32(m.glob(PLAYER_SPRITE), p)
         m.w16(p + 0x66, start_dir_)
@@ -463,6 +484,7 @@ def main():
         m.write(target, struct.pack(">hh", v - 208, h - 208))
         m.write(view, struct.pack(">hh", v - 208, h - 208))
         m.call("SATNewSprite", 0, h, v, 0x1006724C)
+        m.call("UpdateMeters", 0)                       # GameLoop: all meters drawn
         m.call("FindUpperLeftCorner")
         scroll()
         m.write(LOOP_DONE, b"\0")                    # GameLoop clears it before the loop
@@ -532,7 +554,8 @@ def main():
              "log": ",".join(log) or "-", "staledoor": int(stale[0]),
              "inv": ",".join("%d:%d" % (m.r16(inv + 4 * i), m.r16(inv + 4 * i + 2)) for i in range(12)),
              "curslot": m.r16(CUR_SLOT), "ammo": ":".join(str(m.r16(m.glob(a))) for a in AMMO.values()),
-             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "track": track(), "save": saved(), "ripple": ripple(), "blits": "%d:%d" % (nblits, crc), "harry": ",".join(harry),
+             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "track": track(), "save": saved(), "ripple": ripple(), "blits": "%d:%d" % (nblits, crc),
+             "meterdraw": ",".join("%d:%d" % tuple(d) for d in meters_drawn), "harry": ",".join(harry),
              "list": ";".join(f"{ids[a]}/{dump(m, a, faces, tv).replace(' ', ':')}" for a in lst),
              "free": ",".join(str(ids[a]) for a in free) or "-"}
         out.write(" ".join(f"{k}={v}" for k, v in st.items()) + " -> " + " ".join(f"{k}={v}" for k, v in o.items()) + "\n")

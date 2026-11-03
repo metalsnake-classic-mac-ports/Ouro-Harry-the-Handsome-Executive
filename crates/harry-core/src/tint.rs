@@ -106,6 +106,64 @@ pub fn prop_blit(face: Face, level: &Level) -> Blit {
     Blit { face, mode, arg }
 }
 
+/// A second face a draw proc puts over the sprite's: at the sprite's `at`
+/// + `offset` (v, h), in `blit`'s colours.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SecondFace {
+    pub offset: (i16, i16),
+    pub blit: Blit,
+}
+
+/// The fans' grille (`ACDrawProc`, faces 1931–1934 from cicn 2305–2308):
+/// an 8 px band over the fan's edge - fan 2301 the top, 2302 the bottom
+/// (row 24), 2303 the left, 2304 the right (column 24), always plain. The
+/// dart enemies' loaded dart (`DartEnemyTintDrawProc`): face 3041 (the
+/// first enemy dart face) while +0x66 is not 0 and the level entry's info
+/// #0 is 1, at `GetDartEnemyProjOffset` by kind and +0x66, in the level's
+/// tint. (The original clips both to the part of the sprite being drawn.)
+pub fn second_face(sp: &Sprite, level: &Level) -> Option<SecondFace> {
+    match proc_of(sp.face) {
+        Proc::Fan => {
+            let (face, offset) = match sp.kind {
+                2301 => (1931, (0, 0)),
+                2302 => (1932, (24, 0)),
+                2303 => (1933, (0, 0)),
+                2304 => (1934, (0, 24)),
+                _ => return None,
+            };
+            Some(SecondFace { offset, blit: Blit { face, mode: 0, arg: 0 } })
+        }
+        Proc::Dart => {
+            let loaded = sp.dir != 0
+                && sp.level_index != -1
+                && usize::try_from(sp.level_index).ok().and_then(|i| level.sprites.get(i)).is_some_and(|e| e.info[0] == 1);
+            if !loaded {
+                return None;
+            }
+            let offset = dart_offset(sp.kind, sp.dir)?;
+            let tint = level.info[0];
+            let (mode, arg) = if tint == 0 { (0, 0) } else { (1, tint) };
+            Some(SecondFace { offset, blit: Blit { face: 3041, mode, arg } })
+        }
+        _ => None,
+    }
+}
+
+/// `GetDartEnemyProjOffset`: where the loaded dart sits in the face (v, h)
+/// by kind and state 1–6 (other states leave a coordinate unset in the
+/// original: none here).
+fn dart_offset(kind: i16, state: i16) -> Option<(i16, i16)> {
+    let k = usize::try_from(state - 1).ok().filter(|&k| k < 6)?;
+    Some(match kind {
+        // states 1, 2, 3, 4, 5, 6
+        1011 => (if k == 0 { 21 } else { 19 }, [22, 20, 18, 14, 13, 23][k]),
+        1021 => (if k == 0 { 0 } else { 4 }, [5, 1, 6, 10, 11, 1][k]),
+        1031 => ([2, 3, 6, 10, 11, 1][k], if k == 0 { 22 } else { 20 }),
+        1041 => ([22, 21, 16, 12, 11, 21][k], if k == 0 { 2 } else { 4 }),
+        _ => return None,
+    })
+}
+
 /// The fire extinguisher (Harry heats up while it sprays).
 const EXTINGUISHER: i16 = 11999;
 

@@ -101,8 +101,9 @@
 - [x] Frontend: panel texts (level name, score), balloons (world texts, buzzwords, phone)
 - [x] Frontend: sound (all `snd`s, 3-D volumes, rates, channels)
 - [x] Sprite tints: the draw procs' blits (whole frames), the colour tables (13 812 colours), drawn in the frontend
-- [ ] `MakeITable`'s inverse table exactly (the port takes the nearest colour); the fans' grilles and the dart enemies' darts (second faces of their draw procs)
-- [ ] Frontend: meter ends (cicn 10135–10137), music (`Tune`), menus, preferences
+- [x] Meters as `UpdateMeters` draws them, with the rounded ends (cicn 10135–10137 in the pack); the fans' grilles and the dart enemies' darts
+- [ ] `MakeITable`'s inverse table exactly (the port takes the nearest colour); second faces clipped like the original at the ring buffer's wrap
+- [ ] Frontend: music (`Tune`), menus, preferences; free scaling as an option next to integer scaling
 - [ ] Sound feedback into the game: "is a voice / the fan / the bump playing" (the original asks its channels; the port answers no)
 - [x] Frontend: letters by the keyboard layout (an improvement, NOTES "Port improvements"); F1–F4, F12, F13, N and P mapped
 - [ ] `KeyEvent::Balloon` (the random messages of the B-E-N sequence and other keys) in the frontend

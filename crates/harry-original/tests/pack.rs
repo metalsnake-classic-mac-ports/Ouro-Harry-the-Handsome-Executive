@@ -43,6 +43,15 @@ fn pack_holds_the_original_data() {
         assert_eq!(*m, masks::from_cicn(&gfx, *id).unwrap(), "cicn {id}");
     }
     assert_eq!(data.masks.walls, masks::walls(&app).unwrap());
+    let pal = harry_data::clut8();
+    for id in harry_data::ICONS {
+        let c = harry_original::cicn::decode(gfx.get(b"cicn", id).unwrap());
+        let icon = &data.icons[&id];
+        assert_eq!((icon.width, icon.height), (c.width, c.height), "cicn {id}");
+        let want: Vec<Option<[u8; 3]>> = c.rgb.iter().zip(&c.mask).map(|(&rgb, &m)| m.then_some(rgb)).collect();
+        let got: Vec<Option<[u8; 3]>> = icon.pixels.iter().map(|p| p.map(|i| pal[usize::from(i)])).collect();
+        assert_eq!(got, want, "cicn {id}");
+    }
     for l in &data.levels {
         assert!(data.tile_set(l).is_some());
     }

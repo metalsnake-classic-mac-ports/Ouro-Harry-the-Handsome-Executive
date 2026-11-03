@@ -10,6 +10,7 @@
 //!   `tiles/fg_ID.png` (256 × 256, transparent where the mask is clear) and
 //!   `tiles/bg_ID.png` (256 × 384)
 //! - `pictures/ID.png`: pictures (RGBA, opaque)
+//! - `icons/ID.png`: colour icons (RGBA, transparent outside the mask)
 //! - `masks/cicn_ID.png`, `masks/walls.png`: collision masks (grey, white
 //!   = set)
 //! - `levels/NN.txt`: the levels of Episode 1 (`level`)
@@ -28,7 +29,7 @@ use zip::write::SimpleFileOptions;
 use crate::{Face, GameData, Image, MaskImages, Result, Sound, TileSet, clut8, corrupt, level};
 
 /// The first line of `pack.txt`.
-pub const FORMAT: &str = "Harry the Handsome Executive data pack 1";
+pub const FORMAT: &str = "Harry the Handsome Executive data pack 2";
 
 fn encode_png(width: usize, height: usize, color: png::ColorType, data: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
@@ -129,6 +130,9 @@ pub fn write(data: &GameData) -> Result<Vec<u8>> {
     for (id, p) in &data.pictures {
         put(&format!("pictures/{id}.png"), &image_png(p))?;
     }
+    for (id, p) in &data.icons {
+        put(&format!("icons/{id}.png"), &image_png(p))?;
+    }
     for (id, m) in &data.masks.cicns {
         put(&format!("masks/cicn_{id}.png"), &mask_png(m))?;
     }
@@ -206,6 +210,10 @@ pub fn read(bytes: &[u8]) -> Result<GameData> {
     for id in crate::PICTURES {
         pictures.insert(id, png_image(&get(&format!("pictures/{id}.png"))?, &colours)?);
     }
+    let mut icons = BTreeMap::new();
+    for id in crate::ICONS {
+        icons.insert(id, png_image(&get(&format!("icons/{id}.png"))?, &colours)?);
+    }
     let mut cicns = BTreeMap::new();
     for id in [290, 299, 571, 572, 573, 574, 598, 599, 1299] {
         cicns.insert(id, png_mask(&get(&format!("masks/cicn_{id}.png"))?)?);
@@ -266,7 +274,7 @@ pub fn read(bytes: &[u8]) -> Result<GameData> {
     };
     let sounds = sound_set("sounds")?;
     let world_sounds = sound_set("world_sounds")?;
-    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, levels, texts, words, sounds, world_sounds })
+    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, icons, levels, texts, words, sounds, world_sounds })
 }
 
 fn word_lists(w: &harry_core::words::Words) -> Vec<(i16, &Vec<Vec<u8>>)> {

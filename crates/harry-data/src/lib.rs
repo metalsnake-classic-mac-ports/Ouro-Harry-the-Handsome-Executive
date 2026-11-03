@@ -66,6 +66,9 @@ pub struct GameData {
     /// 480), 150 the meters (147 × 44: empty, comfort, surface
     /// resistance, corporate favor, 11 px each).
     pub pictures: BTreeMap<i16, Image>,
+    /// Colour icons by `cicn` id (`Harry Graphics`), transparent outside
+    /// their mask: 10135–10137 the meters' rounded ends (9 × 9).
+    pub icons: BTreeMap<i16, Image>,
     /// Episode 1, levels 1–15.
     pub levels: Vec<Level>,
     /// The world's texts (`Hwld` 0 + 0x3c9 + n · 256) by number, Mac
@@ -89,6 +92,9 @@ pub struct Sound {
 
 /// The pictures the pack holds.
 pub const PICTURES: [i16; 2] = [129, 150];
+
+/// The colour icons the pack holds.
+pub const ICONS: [i16; 3] = [10135, 10136, 10137];
 
 /// The default tile sets (level fields 0): foreground 181, background 180.
 pub const DEFAULT_FG: i16 = 181;

@@ -13,8 +13,10 @@
 //! draw pass (`Game::blits`, `harry_core::tint`): tinted, translucent,
 //! reddened or heated through the tables `BuildTintTable` makes.
 //!
-//! Not drawn yet: the panel's texts (level name, score), the meters'
-//! rounded ends, the fans' grilles and the dart enemies' loaded darts.
+//! Second faces of draw procs (a fan's grille, a dart enemy's loaded dart)
+//! are drawn over the sprite whole; the original clips them to the part
+//! of the sprite being drawn, which differs only at the ring buffer's
+//! wrap.
 
 use harry_core::game::Game;
 use harry_core::ripple;
@@ -104,6 +106,17 @@ impl Canvas {
         }
     }
 
+    /// Draw an image with transparency at screen (x, y), clipped.
+    fn draw_icon(&mut self, img: &Image, x: i32, y: i32) {
+        for yy in 0..img.height {
+            for xx in 0..img.width {
+                if let Some(c) = img.get(xx, yy) {
+                    self.set(x + xx as i32, y + yy as i32, c);
+                }
+            }
+        }
+    }
+
     /// Set a screen pixel (outside the screen: nothing).
     pub fn set(&mut self, x: i32, y: i32, c: u8) {
         if x >= 0 && y >= 0 && (x as usize) < self.width && (y as usize) < self.height {
@@ -173,8 +186,21 @@ fn shade_of(blit: Option<&Blit>) -> Shade {
     }
 }
 
-fn draw_sprite(c: &mut Canvas, data: &GameData, view: (i16, i16), s: &Sprite, blit: Option<&Blit>) {
+fn draw_sprite(c: &mut Canvas, data: &GameData, level: &harry_core::Level, view: (i16, i16), s: &Sprite, blit: Option<&Blit>) {
     let Some(face) = data.faces.get(&s.face) else { return };
+    // a fan's grille, a dart enemy's loaded dart
+    if let Some(second) = tint::second_face(s, level)
+        && let Some(f) = data.faces.get(&second.blit.face)
+    {
+        draw_face(c, view, face, s, blit);
+        let at = (i32::from(s.at.1) + i32::from(second.offset.1), i32::from(s.at.0) + i32::from(second.offset.0));
+        c.blit(view, &f.image, (0, 0, f.image.width, f.image.height), at, shade_of(Some(&second.blit)));
+        return;
+    }
+    draw_face(c, view, face, s, blit);
+}
+
+fn draw_face(c: &mut Canvas, view: (i16, i16), face: &harry_data::Face, s: &Sprite, blit: Option<&Blit>) {
     let img = &face.image;
     let shade = shade_of(blit);
     if s.scale[0] == 0x100 && s.scale[1] == 0x100 {
@@ -196,17 +222,19 @@ pub fn draw(data: &GameData, game: &Game) -> Canvas {
     c.fill(AREA as usize, AREA as usize, AREA_SIZE as usize, AREA_SIZE as usize, BLACK);
     let Some(ring) = draw_area(data, game) else { return c };
     copy_area(&mut c, &ring, game);
-    // the meters (`UpdateMeters`): the empty strip of PICT 150, then the
-    // value's strip up to the shown value (3 px shorter above 8, where a
-    // rounded end - cicn 10135-10137, not drawn yet - closes it).
-    // Surface resistance is drawn inverted.
+    // the meters as `UpdateMeters` last drew them (`Game::meters`): the
+    // empty strip of PICT 150, the value's strip and the rounded end
     if let Some(m) = data.pictures.get(&150) {
-        let g = &game.g;
-        for (row, y, v) in [(1, 386, g.comfort_shown), (2, 416, 144 - g.surface_shown), (3, 446, g.favor_shown)] {
+        for (k, (y, d)) in [386, 416, 446].into_iter().zip(game.meters).enumerate() {
             c.draw_image(m, (0, 0, 147, 11), 473, y);
-            let v = v.clamp(0, 144) as usize;
-            let len = if v > 8 { v - 3 } else { v };
-            c.draw_image(m, (0, row * 11, len, 11), 473, y);
+            if d.len > 0 {
+                c.draw_image(m, (0, (k + 1) * 11, d.len as usize, 11), 473, y);
+            }
+            if d.end
+                && let Some(end) = data.icons.get(&(10135 + k as i16))
+            {
+                c.draw_icon(end, 473 + i32::from(d.len), y as i32 + 1);
+            }
         }
     }
     c
@@ -249,7 +277,7 @@ fn draw_area(data: &GameData, game: &Game) -> Option<Canvas> {
         .map(|&i| (w.rec(i), game.blits.iter().find(|b| b.0 == Some(i)).map(|b| &b.1)))
         .collect();
     for (s, b) in sprites.iter().filter(|s| s.0.b8b) {
-        draw_sprite(&mut c, data, view, s, *b);
+        draw_sprite(&mut c, data, level, view, s, *b);
     }
     for p in &w.fg_props.slots {
         prop(&mut c, p);
@@ -264,7 +292,7 @@ fn draw_area(data: &GameData, game: &Game) -> Option<Canvas> {
         }
     }
     for (s, b) in sprites.iter().filter(|s| !s.0.b8b) {
-        draw_sprite(&mut c, data, view, s, *b);
+        draw_sprite(&mut c, data, level, view, s, *b);
     }
     Some(c)
 }

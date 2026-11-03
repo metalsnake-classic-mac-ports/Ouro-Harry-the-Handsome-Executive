@@ -188,6 +188,18 @@ pub struct Game {
     /// The draw procs' blits of the last frame: (record, or none for a
     /// prop; blit), in order.
     pub blits: Vec<(Option<usize>, Blit)>,
+    /// What `UpdateMeters` last drew of comfort, surface resistance and
+    /// corporate favor (the screen keeps it until the meter changes).
+    pub meters: [MeterDraw; 3],
+}
+
+/// One meter as last drawn: the value's strip `len` px long (from x 473;
+/// 0 or less: none) and, if `end`, the rounded end (cicn 10135 + meter) at
+/// x 473 + `len`, 1 px below the strip's top.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MeterDraw {
+    pub len: i16,
+    pub end: bool,
 }
 
 /// What lasts the whole session: the saved-game record and the world.
@@ -388,8 +400,9 @@ pub fn setup_held_weapon(sp: &mut Sprite, holder: &Holder, g: &PlayerGlobals) {
     sp.layer = 11;
     sp.hot_rect = [-4, -4, 16, 16];
     sp.face = crate::shots::face::WEAPON + g.player_dir;
+    // FindHeldWeaponPos sets pos; at keeps what the record held until
+    // the first HandleHeldWeaponSprite
     sp.pos = crate::shots::held_weapon_pos(holder, g.player_dir);
-    sp.at = sp.pos;
 }
 
 impl Game {
@@ -416,6 +429,7 @@ impl Game {
         let holder = self.holder(p, assets);
         let w = self.world.sprites.new_sprite(0, h, v);
         setup_held_weapon(&mut self.world.sprites.recs[w], &holder, &self.g);
+        self.update_meters(true);
         find_upper_left_corner(&mut self.view, self.g.player_pos, self.prefs.scroll, self.prefs.even_v, self.prefs.blit);
         self.seen_level = self.counter.current;
         missing
@@ -842,7 +856,7 @@ impl Game {
         self.world.erase_sprites(&mut self.level);
         self.draw_pass(assets);
         self.session.ripple_phase = self.session.ripple_phase.wrapping_add(i32::from(self.level.info[ripple::SPEED]));
-        self.update_meters();
+        self.update_meters(false);
         // CheckGameEvents (UpLevel, the caller's, then updates the track map)
         if self.seen_level != self.counter.current {
             self.seen_level = self.counter.current;
@@ -852,27 +866,40 @@ impl Game {
         if died { FrameEnd::Died } else { FrameEnd::Running }
     }
 
-    /// `UpdateMeters(1)`'s state part: the three meters clamped to 0–144
-    /// when one differs from its shown value, the shown values one step
-    /// closer.
-    fn update_meters(&mut self) {
+    /// `UpdateMeters(all)`: with `all` (the level start) or when a meter's
+    /// shown value differs from its value, the values are clamped to
+    /// 0–144 and each meter that differs (or all) is drawn with its shown
+    /// value - surface resistance inverted (144 − x) - then the shown
+    /// value moves 1 toward the value. Drawn: the empty strip, the value's
+    /// strip and, once a meter's shown value was above 8, 3 px shorter
+    /// with a rounded end. That shortening is one variable for the whole
+    /// call: a later meter at 8 or below drawn in the same call is cut
+    /// too (BUGS.md). `meters` keeps what was drawn last.
+    fn update_meters(&mut self, all: bool) {
         let g = &mut self.g;
-        if g.comfort == g.comfort_shown && g.surface == g.surface_shown && g.favor == g.favor_shown {
+        if !all && g.comfort == g.comfort_shown && g.surface == g.surface_shown && g.favor == g.favor_shown {
             return;
         }
         for x in [&mut g.comfort, &mut g.surface, &mut g.favor] {
             *x = (*x).clamp(0, 144);
         }
-        let step = |v: i16, s: &mut i16| {
+        let mut cut = 0;
+        let meters = [(g.comfort, &mut g.comfort_shown, false), (g.surface, &mut g.surface_shown, true), (g.favor, &mut g.favor_shown, false)];
+        for (k, (v, s, inverted)) in meters.into_iter().enumerate() {
+            if v == *s && !all {
+                continue;
+            }
+            let drawn = if inverted { 144 - *s } else { *s };
+            if drawn > 8 {
+                cut = -3;
+            }
+            self.meters[k] = MeterDraw { len: drawn + cut, end: cut != 0 };
             if v < *s {
                 *s -= 1;
             } else if *s < v {
                 *s += 1;
             }
-        };
-        step(g.comfort, &mut g.comfort_shown);
-        step(g.surface, &mut g.surface_shown);
-        step(g.favor, &mut g.favor_shown);
+        }
     }
 
     /// Run sprite `i`'s task. Returns whether Harry's death is over.

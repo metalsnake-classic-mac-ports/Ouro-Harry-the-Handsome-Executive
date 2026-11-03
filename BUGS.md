@@ -177,6 +177,15 @@ option) and why.
   comes depends on the levels played before and on how many magnets
   reach Harry. Port: keep.
 
+- **A meter's rounded end carries over to the next meter.** `UpdateMeters`
+  sets its "3 px shorter, rounded end" offset (−3) once a meter's shown
+  value is above 8 and never resets it within the call. A later meter
+  drawn in the same call (comfort → surface resistance → corporate favor)
+  is then cut and capped too, even at 8 or below: its strip ends 3 px
+  short, and at a value under 3 the strip is gone and the end is drawn
+  left of the meter, over its frame. The picture stays until that meter
+  changes again. Port: kept (`Game::meters` records it as drawn).
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

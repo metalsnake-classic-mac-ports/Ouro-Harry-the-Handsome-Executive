@@ -211,6 +211,19 @@ value. Death (`HandlePlayerSprite`: task becomes
 after the real value hit 0. Surface resistance is only a display of the
 floor friction: 5 · f − 1150 (min 8), f = 245 → 75.
 
+Drawing (`UpdateMeters(all)`: 0 = all, once at `GameLoop`'s start; 1 every
+pass, only meters whose shown value differs): each meter is drawn with
+its shown value **before** the step toward the value. From PICT 150 (147
+× 44): the empty strip (row 0) up to shown + 3 (all: 147), then the
+value's strip (row 11 / 22 / 33) from x 473, `shown` px long - 3 px
+shorter once shown > 8, where the rounded end, cicn 10135 / 10136 /
+10137 (9 × 9, mask 3 px wide), is plotted at (473 + length, y + 1)
+(`FUN_10062a0c`). The shortening is one variable for the whole call
+(BUGS.md). The screen keeps the picture until the meter is drawn again;
+the port keeps what was drawn last (`Game::meters`) and the frontend
+draws from it. The whole-frame recorder logs the strips (`CopyBits` from
+rows 11 / 22 / 33) and the ends: all runs match.
+
 ### Player movement (CODE 3 / PPC `HandlePlayerSprite` and helpers)
 
 Harry sits in a swivel chair. Units: position as 24.8 fixed point
@@ -1301,7 +1314,9 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   and target = start − 240, the intro picture, `SetupLevelSprites` (it
   loads tile sets, tile kinds, physics and sounds), Harry at start − 32
   with the start direction, his weapon at the start (it moves onto him
-  in its first frame), the music. Unlike `GameLoop`'s start there is no
+  in its first frame; `SetupHeldWeaponSprite` sets only its `pos`, so
+  until that frame its `at` is whatever the reused record held - a run
+  that ends right after a level change showed it), the music. Unlike `GameLoop`'s start there is no
   `FindUpperLeftCorner` and the generated sprites see the new position.
   `InitGameGlobals` (a new game) sets the level start to 72 / 72 / 72
   and nothing else.
@@ -1640,8 +1655,16 @@ foreground and background set ("Level Info" in the editor).
     (0.16 · (50 − state mod 50), 2 … 8) − 1; in phase 3 a random tint
     (`SATRand(15)`); in phase 2 by its animation 0 → 7, 1 / 7 → 6, 3 / 5
     → 8, 4 → 9.
-  - The fans (`ACDrawProc`) and dart enemies also draw a second face (the
-    grille, the loaded dart); the port does not draw those yet.
+  - The fans (`ACDrawProc`) and dart enemies also draw a second face
+    (`tint::second_face`): fans 2301 / 2302 / 2303 / 2304 an 8 px grille
+    band (faces 1931–1934, cicn 2305–2308) over their top / bottom (row
+    24) / left / right (column 24), plain; a dart enemy whose +0x66 is not
+    0 and whose entry has info #0 = 1 its loaded dart, face 3041 (the
+    first enemy dart face), at `GetDartEnemyProjOffset` (by kind 1011 /
+    1021 / 1031 / 1041 and +0x66 = 1–6) in the level's tint. The original
+    clips both to the part of the sprite being drawn (the dart's width
+    computed wrongly at the right edge); the port draws them whole. Not
+    in the whole-frame comparison (the recorder leaves second faces out).
 - The whole-frame recorder logs every blit of the draw procs (face, mode,
   arg) and compares them with the port's (`Game::blits`); all 1500 runs
   match. Planted bugs: 5 of 8 caught; not reached by the runs: a fire hold
@@ -1745,7 +1768,8 @@ QuickTime Musical Instruments.
   their header rects, the 9 tile sets of Episode 1 (foreground with its
   mask as transparency), the collision masks (`cicn` 290, 299, 571–574,
   598, 599, 1299; the wall sheet PICT 160), `Harry Titles` PICT 129 (the
-  game screen) and 150 (the meters), and the 15 levels as text (all
+  game screen) and 150 (the meters), the meters' rounded ends (cicn
+  10135–10137, `icons/`; pack format 2), and the 15 levels as text (all
   decoded fields; the undecoded bytes, empty in Episode 1, are left out).
   Colours are `clut` 8 (`harry_data::clut8`); the tile set PICT 145's own
   table maps exactly. `tests/pack.rs` checks the pack against the
@@ -1758,7 +1782,7 @@ QuickTime Musical Instruments.
   foreground props, foreground tiles, the other sprites; the meters from
   PICT 150 (`UpdateMeters`: the empty strip, then the value's strip up to
   the shown value, 3 px shorter above 8 where a round end is drawn - cicn
-  10135–10137, not yet). A new game starts as `InitGameGlobals` (meters
+  10135–10137; see "Meters"). A new game starts as `InitGameGlobals` (meters
   72). Level 1 looks as in the emulator.
 - **Texts in the frontend**: the system's Geneva and Helvetica (or
   substitutes) at 9 pt = an em of 9 screen pixels, drawn at the window's

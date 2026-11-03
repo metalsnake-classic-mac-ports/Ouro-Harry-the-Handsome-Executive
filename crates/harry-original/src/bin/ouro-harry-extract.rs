@@ -78,6 +78,21 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
     for id in harry_data::PICTURES {
         pictures.insert(id, indexed(&picture(&[&titles], id)?, &clut, None)?);
     }
+    // the icons through the screen's inverse table, as QuickDraw draws them
+    let itable = harry_core::tint::inverse_table(&clut8());
+    let mut icons = BTreeMap::new();
+    for id in harry_data::ICONS {
+        let c = harry_original::cicn::decode(gfx.get(b"cicn", id).map_err(|e| format!("cicn {id}: {e}"))?);
+        let pixels = c
+            .rgb
+            .iter()
+            .zip(&c.mask)
+            .map(|(rgb, &m)| {
+                m.then(|| clut.get(rgb).copied().unwrap_or_else(|| harry_core::tint::color2index(&itable, rgb.map(|v| u16::from(v) * 0x101))))
+            })
+            .collect();
+        icons.insert(id, Image { width: c.width, height: c.height, pixels });
+    }
     let world = ep.get(b"Hwld", 0).map_err(|e| format!("Hwld 0: {e}"))?;
     let mut texts = BTreeMap::new();
     for n in 0..(world.len().saturating_sub(0x3c9) / 256) {
@@ -102,7 +117,7 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
     };
     let (sounds, world_sounds) = (sound_set(&sound_file), sound_set(&ep));
     let data =
-        GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, levels, texts, words, sounds, world_sounds };
+        GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, icons, levels, texts, words, sounds, world_sounds };
     let bytes = harry_data::pack::write(&data).map_err(|e| e.to_string())?;
     std::fs::write(out, &bytes).map_err(|e| format!("{}: {e}", out.display()))?;
     println!(
