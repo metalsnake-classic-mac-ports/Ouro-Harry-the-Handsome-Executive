@@ -58,6 +58,8 @@ pub struct Mixer {
     stream: Option<AudioStreamWithCallback<Voices>>,
     sounds: Table,
     world: Table,
+    /// The sound volume setting (0 – 1).
+    volume: f32,
 }
 
 fn table(set: &std::collections::BTreeMap<i16, Sound>) -> Table {
@@ -75,7 +77,13 @@ impl Mixer {
             .and_then(|a| a.open_playback_stream(&spec, Voices(Vec::new())).map_err(|e| e.to_string()))
             .and_then(|s| s.resume().map(|_| s).map_err(|e| e.to_string()));
         let stream = stream.map_err(|e| eprintln!("no sound: {e}")).ok();
-        Mixer { stream, sounds: table(&data.sounds), world: table(&data.world_sounds) }
+        Mixer { stream, sounds: table(&data.sounds), world: table(&data.world_sounds), volume: 1.0 }
+    }
+
+    /// The volume setting, 0 (off) – 9 (full), for the sounds started from
+    /// now on.
+    pub fn set_volume(&mut self, v: u8) {
+        self.volume = f32::from(v.min(9)) / 9.0;
     }
 
     fn find(&self, id: i16, own: bool) -> Option<(Arc<Vec<u8>>, u32)> {
@@ -95,6 +103,7 @@ impl Mixer {
                 _ => None,
             })
             .collect();
+        let volume = self.volume;
         let Some(stream) = &mut self.stream else { return };
         let Some(mut voices) = stream.lock() else { return };
         let voices = &mut voices.0;
@@ -119,8 +128,8 @@ impl Mixer {
                         samples,
                         pos: 0.0,
                         step,
-                        left: f32::from(left) / 256.0,
-                        right: f32::from(right) / 256.0,
+                        left: f32::from(left) / 256.0 * volume,
+                        right: f32::from(right) / 256.0 * volume,
                         channel,
                     });
                 }

@@ -19,6 +19,7 @@
 mod audio;
 mod balloon;
 mod menu;
+mod options;
 mod render;
 mod scenes;
 mod text;
@@ -42,7 +43,7 @@ use sdl3::keyboard::{KeyboardState, Keycode, Scancode};
 use sdl3::sys::keycode::SDL_KMOD_NONE;
 use sdl3::pixels::PixelFormat;
 use sdl3::render::ScaleMode;
-use sdl3::sys::render::SDL_LOGICAL_PRESENTATION_INTEGER_SCALE;
+use sdl3::sys::render::{SDL_LOGICAL_PRESENTATION_INTEGER_SCALE, SDL_LOGICAL_PRESENTATION_LETTERBOX};
 
 /// The original's frame: 2 ticks of 1/60 s.
 const FRAME: Duration = Duration::from_micros(33_333);
@@ -87,6 +88,39 @@ const LETTERS: [i16; 26] = [
     0x00, 0x0B, 0x08, 0x02, 0x0E, 0x03, 0x05, 0x04, 0x22, 0x26, 0x28, 0x25, 0x2E, 0x2D, 0x1F, 0x23, 0x0C, 0x0F, 0x01,
     0x11, 0x20, 0x09, 0x0D, 0x07, 0x10, 0x06,
 ];
+
+/// The Mac key code a key gives (positions; letters by the layout), if
+/// the game knows one.
+fn mac_code(sc: Scancode) -> Option<i16> {
+    KEYS.iter().find(|k| k.0 == sc).map(|k| k.1).or_else(|| {
+        let key = Keycode::from_scancode(sc, SDL_KMOD_NONE, false).map_or(0, |k| k as u32);
+        char::from_u32(key).filter(char::is_ascii_lowercase).map(|c| LETTERS[usize::from(c as u8 - b'a')])
+    })
+}
+
+/// A Mac key code's name for the options screen.
+fn key_name(code: i16) -> String {
+    let named = match code {
+        0x7B => "Left Arrow",
+        0x7C => "Right Arrow",
+        0x7D => "Down Arrow",
+        0x7E => "Up Arrow",
+        0x31 => "Space",
+        0x3B => "Control",
+        0x3A => "Option / Alt",
+        0x38 => "Shift",
+        0x30 => "Tab",
+        0x24 => "Return",
+        _ => "",
+    };
+    if !named.is_empty() {
+        return named.to_string();
+    }
+    if let Some(i) = LETTERS.iter().position(|&c| c == code) {
+        return char::from(b'A' + i as u8).to_string();
+    }
+    KEYS.iter().find(|k| k.1 == code).map_or(format!("Key {code}"), |k| k.0.name().to_string())
+}
 
 fn keymap(state: &KeyboardState) -> KeyMap {
     let mut k = KeyMap::default();
@@ -209,6 +243,9 @@ fn main() -> Result<()> {
     let bytes = std::fs::read(&path).with_context(|| path.display().to_string())?;
     let data = harry_data::pack::read(&bytes).with_context(|| path.display().to_string())?;
     let loaded = Loaded::new(&data)?;
+    // the settings (the options screen), in SDL's preference folder
+    let settings_path = sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok().map(|d| d.join("settings.txt"));
+    let mut settings = settings_path.as_deref().map(options::Settings::load).unwrap_or_default();
     let face_bounds = |f: i16| data.faces.get(&f).map_or([0; 4], |x| x.bounds);
     let assets = Assets {
         player: &loaded.player,
@@ -307,11 +344,17 @@ fn main() -> Result<()> {
     let mut texture =
         creator.create_texture_streaming(PixelFormat::RGB24, render::SCREEN_WIDTH as u32, render::SCREEN_HEIGHT as u32)?;
     texture.set_scale_mode(ScaleMode::Nearest);
-    canvas.set_logical_size(render::SCREEN_WIDTH as u32, render::SCREEN_HEIGHT as u32, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE)?;
+    // whole multiples of the picture, or as large as the window allows
+    let apply_display = |canvas: &mut sdl3::render::WindowCanvas, s: &options::Settings| {
+        let mode = if s.integer_scaling { SDL_LOGICAL_PRESENTATION_INTEGER_SCALE } else { SDL_LOGICAL_PRESENTATION_LETTERBOX };
+        let _ = canvas.set_logical_size(render::SCREEN_WIDTH as u32, render::SCREEN_HEIGHT as u32, mode);
+        let _ = canvas.window_mut().set_fullscreen(s.fullscreen);
+    };
+    apply_display(&mut canvas, &settings);
+    mixer.set_volume(settings.volume);
     let palette = clut8();
     let mut rgb = vec![0u8; render::SCREEN_WIDTH * render::SCREEN_HEIGHT * 3];
     let mut next = Instant::now();
-    let mut fullscreen = false;
     // a balloon being shown and since when (the game waits meanwhile)
     let mut shown: Option<(balloon::Shown, Instant)> = None;
     // a sequence between frames (fades, pictures; the game waits), the next
@@ -325,6 +368,8 @@ fn main() -> Result<()> {
     // the main menu (when it shows, the game waits); the question before a
     // game is given up
     let mut in_menu: Option<menu::Menu> = None;
+    // the options screen over the menu
+    let mut opts: Option<options::Screen> = None;
     let mut confirm = false;
     let mut scene = if direct {
         Some(scenes::Scenes::new(start_screen(&game), true, scenes::game_start(&game.level, true)))
@@ -357,6 +402,7 @@ fn main() -> Result<()> {
         // one held since before cannot)
         let mut pressed = false;
         let mut action: Option<menu::Action> = None;
+        let mut opt_event: Option<options::Event> = None;
         let mut give_up = false;
         for mut e in events.poll_iter() {
             e.convert_coords(&canvas);
@@ -365,7 +411,9 @@ fn main() -> Result<()> {
                 Event::Quit { .. } => break 'run,
                 Event::MouseButtonDown { x, y, .. } => {
                     pressed = true;
-                    if menu_live && let Some(m) = in_menu.as_mut() {
+                    if menu_live && let Some(o) = opts.as_mut() {
+                        opt_event = opt_event.or(o.click(x as i32, y as i32));
+                    } else if menu_live && let Some(m) = in_menu.as_mut() {
                         m.mouse_down(x as i32, y as i32);
                     }
                 }
@@ -390,6 +438,11 @@ fn main() -> Result<()> {
                     }
                     _ => {}
                 },
+                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if menu_live && opts.is_some() && sc != Scancode::F11 => {
+                    if let Some(o) = opts.as_mut() {
+                        opt_event = opt_event.or(o.key(sc, mac_code(sc)));
+                    }
+                }
                 Event::KeyDown { scancode: Some(sc), repeat: false, .. } if menu_live && sc != Scancode::F11 => {
                     let Some(m) = in_menu.as_mut() else { continue };
                     if sc == Scancode::Escape {
@@ -420,8 +473,11 @@ fn main() -> Result<()> {
                         // CheckGameLoopKeys: Escape asks before the game is given up
                         Scancode::Escape => confirm = true,
                         Scancode::F11 => {
-                            fullscreen = !fullscreen;
-                            let _ = canvas.window_mut().set_fullscreen(fullscreen);
+                            settings.fullscreen = !settings.fullscreen;
+                            apply_display(&mut canvas, &settings);
+                            if let Some(p) = &settings_path {
+                                let _ = settings.save(p);
+                            }
                         }
                         Scancode::F8 => jump = Some((level + 1) % data.levels.len()),
                         Scancode::F7 => jump = Some((level + data.levels.len() - 1) % data.levels.len()),
@@ -459,7 +515,23 @@ fn main() -> Result<()> {
             }
             mixer.events(&std::mem::take(&mut m.sounds), false);
         }
+        if let Some(e) = opt_event
+            && let Some(o) = &opts
+        {
+            settings = o.settings.clone();
+            apply_display(&mut canvas, &settings);
+            mixer.set_volume(settings.volume);
+            if e == options::Event::Done {
+                if let Some(p) = &settings_path
+                    && let Err(err) = settings.save(p)
+                {
+                    eprintln!("{}: {err}", p.display());
+                }
+                opts = None;
+            }
+        }
         match action {
+            Some(menu::Action::Options) => opts = Some(options::Screen::new(settings.clone())),
             Some(menu::Action::NewGame) => {
                 level = 0;
                 game = start(level, PlayerGlobals::new_game(), game.rng.seed);
@@ -492,6 +564,10 @@ fn main() -> Result<()> {
             scene = Some(sc);
             tick = now;
         }
+        // the settings the game reads
+        game.prefs.scroll = settings.camera;
+        game.prefs.autosave = settings.autosave;
+        game.prefs.bindings = settings.bindings;
         while scene.is_none() && in_menu.is_none() && !confirm && shown.is_none() && next <= now {
             next += FRAME;
             let keys = keymap(&events.keyboard_state());
@@ -564,7 +640,13 @@ fn main() -> Result<()> {
             }
         }
         let (mut image, mut lines) = match &in_menu {
-            Some(m) if scene.is_none() => m.draw(&data, &fonts),
+            Some(m) if scene.is_none() => {
+                let (mut c, mut l) = m.draw(&data, &fonts);
+                if let Some(o) = &opts {
+                    l = o.draw(&mut c, &key_name);
+                }
+                (c, l)
+            }
             _ => picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b)),
         };
         if confirm {
@@ -597,7 +679,8 @@ fn main() -> Result<()> {
         })?;
         // the texts at the window's resolution (made again only when they change)
         let (ow, oh) = canvas.output_size()?;
-        let k = (ow as f32 / w as f32).min(oh as f32 / render::SCREEN_HEIGHT as f32).floor().max(1.0);
+        let k = (ow as f32 / w as f32).min(oh as f32 / render::SCREEN_HEIGHT as f32);
+        let k = if settings.integer_scaling { k.floor().max(1.0) } else { k };
         let size = ((w as f32 * k) as u32, (render::SCREEN_HEIGHT as f32 * k) as u32);
         if text_texture.as_ref().is_none_or(|(_, l, s)| *l != lines || *s != size) {
             let rgba = fonts.draw(&lines, size.0 as usize, size.1 as usize);

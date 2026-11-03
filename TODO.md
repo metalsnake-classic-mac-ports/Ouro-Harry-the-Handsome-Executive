@@ -73,7 +73,8 @@
 - [ ] `IntroLevel`'s text card for levels without a title picture (fan worlds)
 - [x] Main menu: buttons by mouse and key, instructions, credits, the X message; back to it after `Win`, a death and Escape (with a question)
 - [x] The inventory on the panel: slots, selection, item faces, counts, ammunition bars; `UpdateAmmo`'s clamp in the core
-- [ ] Options as a screen of the port's own (instead of the preferences dialog); pause (caps lock), the map (`ShowMap`), the warp dialog
+- [x] Options as a screen of the port's own: camera, saving between levels, sound volume, scaling (integer or free), full screen, keys
+- [ ] Pause (caps lock), the map (`ShowMap`) and its key, the warp dialog; the options during a game (Command-I)
 - [x] The ripple: phase, cheat, `BuildSineTable` (7865 cases), row shifts in the renderer
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
@@ -107,7 +108,7 @@
 - [x] Sprite tints: the draw procs' blits (whole frames), the colour tables (13 812 colours), drawn in the frontend
 - [x] Meters as `UpdateMeters` draws them, with the rounded ends (cicn 10135–10137 in the pack); the fans' grilles and the dart enemies' darts
 - [ ] `MakeITable`'s inverse table exactly (the port takes the nearest colour); second faces clipped like the original at the ring buffer's wrap
-- [ ] Frontend: music (`Tune`), menus, preferences; free scaling as an option next to integer scaling
+- [ ] Frontend: music (`Tune`), with its volume in the options
 - [ ] Sound feedback into the game: "is a voice / the fan / the bump playing" (the original asks its channels; the port answers no)
 - [x] Frontend: letters by the keyboard layout (an improvement, NOTES "Port improvements"); F1–F4, F12, F13, N and P mapped
 - [x] `KeyEvent::Balloon`: the P-A-R-G-H-Z and B-E-N balloons (texts from the PowerPC data section)

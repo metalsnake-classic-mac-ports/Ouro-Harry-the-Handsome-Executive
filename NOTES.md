@@ -211,7 +211,7 @@ tests against Basilisk II.
 - The port (`crates/harry/src/menu.rs`): the menu, buttons by mouse and
   key, the instructions, the credits, the X message (in a box of the
   port's), Escape in the game with a question box (Return / Y yes,
-  Escape / N no). Not yet: Options (a screen of the port's own, later),
+  Escape / N no), the options screen ("Port improvements"). Not yet:
   Continue from a list of saves (later; for now the game saved in this
   session), music, the warp dialog, pause, the map.
 
@@ -2169,5 +2169,15 @@ Where the port deliberately differs from the original (the game logic in
   key is drawn released again; Escape in the menu quits; no registration
   line under the menu. Level jumps for testing are F7 / F8 (N and P are
   needed by the key sequences).
+- **Options.** A screen of the port's own over the menu instead of the
+  preferences dialog (`crates/harry/src/options.rs`): camera mode (the
+  dialog's four), save between levels, sound volume (off, 1–9), scaling
+  (whole multiples or filling the window), full screen, the seven keys
+  (Return, then the key; a key already used swaps), default settings.
+  Left out: reduce frame rate, line skipping, interlace, more compatible
+  drawing, allow system tasks (speed options of 1997); the map key and
+  music come with the map and the music. Saved in `settings.txt` in SDL's
+  preference folder. The port's default camera is Constant, Catch-up
+  (the original's is Step-Scroll, Smoother).
 - **Registration.** The port plays as registered; the shareware limit
   after level 5 (`LevelLimit`) is left out.

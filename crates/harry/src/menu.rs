@@ -41,6 +41,7 @@ const X_MESSAGE: &str =
 pub enum Action {
     NewGame,
     Continue,
+    Options,
     Quit,
 }
 
@@ -190,8 +191,8 @@ impl Menu {
                 self.instructions = true;
                 None
             }
-            // the options dialog is not ported (a screen of its own later)
-            3 => None,
+            // the port's options screen (the original: its preferences dialog)
+            3 => Some(Action::Options),
             4 => {
                 self.credits = Some(Credits { step: 0, wait: 0 });
                 None
