@@ -7,7 +7,8 @@
 //! Mac (the default bindings): ← → turn, ↓ scoot, ↑ inch, space kick,
 //! control select item, option / alt use item, 1–4 pick a weapon or the
 //! swivel. Escape asks before the game is given up (then the main menu;
-//! in the menu it quits), F11 toggles full screen; F8 / F7 jump to the
+//! in the menu it quits), F11 (or the key set in the options) toggles
+//! full screen; F8 / F7 jump to the
 //! next / previous level (for testing).
 //!
 //! `ouro-harry --screenshot out.bmp [level] [frames]` runs the frames
@@ -438,12 +439,12 @@ fn main() -> Result<()> {
                     }
                     _ => {}
                 },
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if menu_live && opts.is_some() && sc != Scancode::F11 => {
+                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if menu_live && opts.is_some() => {
                     if let Some(o) = opts.as_mut() {
                         opt_event = opt_event.or(o.key(sc, mac_code(sc)));
                     }
                 }
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if menu_live && sc != Scancode::F11 => {
+                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if menu_live && sc != settings.fullscreen_key => {
                     let Some(m) = in_menu.as_mut() else { continue };
                     if sc == Scancode::Escape {
                         if m.message.is_none() && !m.credits_open() {
@@ -469,10 +470,10 @@ fn main() -> Result<()> {
                         continue;
                     }
                     match sc {
-                        _ if scene.is_some() && sc != Scancode::F11 => pressed = true,
+                        _ if scene.is_some() && sc != settings.fullscreen_key => pressed = true,
                         // CheckGameLoopKeys: Escape asks before the game is given up
                         Scancode::Escape => confirm = true,
-                        Scancode::F11 => {
+                        _ if sc == settings.fullscreen_key => {
                             settings.fullscreen = !settings.fullscreen;
                             apply_display(&mut canvas, &settings);
                             if let Some(p) = &settings_path {

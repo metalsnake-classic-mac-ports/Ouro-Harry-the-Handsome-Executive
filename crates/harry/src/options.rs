@@ -28,6 +28,9 @@ pub struct Settings {
     /// Integer scaling of the picture, else as large as the window allows.
     pub integer_scaling: bool,
     pub fullscreen: bool,
+    /// The key that switches full screen (the port's; stored by its SDL
+    /// name).
+    pub fullscreen_key: Scancode,
     pub bindings: Bindings,
 }
 
@@ -39,6 +42,7 @@ impl Default for Settings {
             volume: 9,
             integer_scaling: true,
             fullscreen: false,
+            fullscreen_key: Scancode::F11,
             bindings: Bindings { left: 0x7B, right: 0x7C, scoot: 0x7D, inch: 0x7E, kick: 0x31, select_item: 0x3B, use_item: 0x3A },
         }
     }
@@ -77,6 +81,11 @@ impl Settings {
                 "volume" if (0..=9).contains(&n) => s.volume = n as u8,
                 "integer_scaling" => s.integer_scaling = n != 0,
                 "fullscreen" => s.fullscreen = n == 1,
+                "fullscreen_key" => {
+                    if let Some(sc) = Scancode::from_name(v.trim()) {
+                        s.fullscreen_key = sc;
+                    }
+                }
                 _ => {
                     if let Some(a) = k.strip_prefix("key ").or_else(|| k.strip_prefix("key_"))
                         && let Ok(a) = a.parse::<usize>()
@@ -100,6 +109,7 @@ impl Settings {
             u8::from(self.integer_scaling),
             u8::from(self.fullscreen)
         );
+        out.push_str(&format!("fullscreen_key {}\n", self.fullscreen_key.name()));
         let mut b = self.bindings;
         for (k, name) in ACTIONS.iter().enumerate() {
             out.push_str(&format!("key_{k} {}  # {name}\n", binding(&mut b, k)));
@@ -116,17 +126,19 @@ enum Row {
     Volume,
     Scaling,
     Fullscreen,
+    FullscreenKey,
     Key(usize),
     Defaults,
     Done,
 }
 
-const ROWS: [Row; 14] = [
+const ROWS: [Row; 15] = [
     Row::Camera,
     Row::Autosave,
     Row::Volume,
     Row::Scaling,
     Row::Fullscreen,
+    Row::FullscreenKey,
     Row::Key(0),
     Row::Key(1),
     Row::Key(2),
@@ -138,10 +150,13 @@ const ROWS: [Row; 14] = [
     Row::Done,
 ];
 
+/// The first row of the keys.
+const FIRST_KEY: usize = 6;
+
 /// Where the rows are: y of each row's top; 22 px high, from x 32 to 448.
 fn row_top(i: usize) -> i32 {
     // a gap before the keys and before the buttons
-    let gap = if i >= 5 { 26 } else { 0 } + if i >= 12 { 18 } else { 0 };
+    let gap = if i >= FIRST_KEY { 26 } else { 0 } + if i >= FIRST_KEY + ACTIONS.len() { 18 } else { 0 };
     72 + i as i32 * 22 + gap
 }
 
@@ -149,8 +164,8 @@ fn row_top(i: usize) -> i32 {
 pub struct Screen {
     pub settings: Settings,
     selected: usize,
-    /// Waiting for the key of this action.
-    capture: Option<usize>,
+    /// Waiting for the key of this row.
+    capture: Option<Row>,
 }
 
 /// What happened on the screen.
@@ -169,10 +184,20 @@ impl Screen {
 
     /// A key pressed (`code`: its Mac key code, if it has one).
     pub fn key(&mut self, sc: Scancode, code: Option<i16>) -> Option<Event> {
-        if let Some(a) = self.capture.take() {
+        if let Some(row) = self.capture.take() {
             if sc == Scancode::Escape {
                 return None;
             }
+            let Row::Key(a) = row else {
+                // the full screen key: any key the game does not use
+                let b = self.settings.bindings;
+                let used = [b.left, b.right, b.scoot, b.inch, b.kick, b.select_item, b.use_item];
+                if code.is_some_and(|c| used.contains(&c)) {
+                    return None;
+                }
+                self.settings.fullscreen_key = sc;
+                return Some(Event::Changed);
+            };
             let code = code?;
             // a key bound elsewhere swaps with this one
             let b = &mut self.settings.bindings;
@@ -209,8 +234,8 @@ impl Screen {
 
     fn activate(&mut self) -> Option<Event> {
         match ROWS[self.selected] {
-            Row::Key(a) => {
-                self.capture = Some(a);
+            row @ (Row::Key(_) | Row::FullscreenKey) => {
+                self.capture = Some(row);
                 None
             }
             Row::Defaults => {
@@ -257,7 +282,7 @@ impl Screen {
         };
         let mut lines = vec![
             Line { x: 40.0, baseline: 50.0, size: 18.0, face: Face::HelveticaBold, color: white, text: "Preferences".into() },
-            label(40.0, row_top(5) - 24, "Keys", Face::HelveticaBold, white),
+            label(40.0, row_top(FIRST_KEY) - 24, "Keys", Face::HelveticaBold, white),
         ];
         let s = &self.settings;
         let mut b = s.bindings;
@@ -270,16 +295,20 @@ impl Screen {
                 Row::Volume => ("Sound Volume", if s.volume == 0 { "Off".into() } else { s.volume.to_string() }),
                 Row::Scaling => ("Scaling", if s.integer_scaling { "Whole multiples (sharp)".into() } else { "Fill the window".into() }),
                 Row::Fullscreen => ("Full Screen", on_off(s.fullscreen)),
+                Row::FullscreenKey => (
+                    "Full Screen Key",
+                    if self.capture == Some(*row) { "Press a key… (Escape: keep)".into() } else { s.fullscreen_key.name().to_string() },
+                ),
                 Row::Key(a) => (
                     ACTIONS[a],
-                    if self.capture == Some(a) { "Press a key… (Escape: keep)".into() } else { key_name(*binding(&mut b, a)) },
+                    if self.capture == Some(*row) { "Press a key… (Escape: keep)".into() } else { key_name(*binding(&mut b, a)) },
                 ),
                 Row::Defaults => ("Default Settings", String::new()),
                 Row::Done => ("Done", String::new()),
             };
             lines.push(label(48.0, y, name, Face::HelveticaBold, colour));
             if !value.is_empty() {
-                let shown = if i == self.selected && !matches!(row, Row::Key(_)) { format!("<  {value}  >") } else { value };
+                let shown = if i == self.selected && !matches!(row, Row::Key(_) | Row::FullscreenKey) { format!("<  {value}  >") } else { value };
                 lines.push(label(230.0, y, &shown, Face::Helvetica, colour));
             }
         }
@@ -308,7 +337,15 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("ouro-harry-settings-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("settings.txt");
-        let mut s = Settings { camera: 3, autosave: false, volume: 4, integer_scaling: false, fullscreen: true, ..Default::default() };
+        let mut s = Settings {
+            camera: 3,
+            autosave: false,
+            volume: 4,
+            integer_scaling: false,
+            fullscreen: true,
+            fullscreen_key: Scancode::F10,
+            ..Default::default()
+        };
         s.bindings.kick = 0x24;
         s.save(&path).unwrap();
         assert_eq!(Settings::load(&path), s);
@@ -320,7 +357,7 @@ mod tests {
     fn a_key_bound_twice_swaps() {
         let mut sc = Screen::new(Settings::default());
         // the kick row: Return, then the Up arrow (the inch key)
-        sc.selected = 5 + 4;
+        sc.selected = FIRST_KEY + 4;
         assert_eq!(sc.key(Scancode::Return, None), None);
         assert_eq!(sc.key(Scancode::Up, Some(0x7E)), Some(Event::Changed));
         assert_eq!((sc.settings.bindings.kick, sc.settings.bindings.inch), (0x7E, 0x31));
@@ -342,7 +379,20 @@ mod tests {
         sc.key(Scancode::Down, None);
         sc.key(Scancode::Left, None);
         assert_eq!(sc.settings.volume, 8);
-        assert_eq!(sc.click(100, row_top(13) + 5), Some(Event::Done));
+        assert_eq!(sc.click(100, row_top(ROWS.len() - 1) + 5), Some(Event::Done));
+    }
+
+    #[test]
+    fn the_full_screen_key_takes_any_key_the_game_does_not_use() {
+        let mut sc = Screen::new(Settings::default());
+        sc.selected = FIRST_KEY - 1;
+        sc.key(Scancode::Return, None);
+        // Space kicks: refused
+        assert_eq!(sc.key(Scancode::Space, Some(0x31)), None);
+        assert_eq!(sc.settings.fullscreen_key, Scancode::F11);
+        sc.key(Scancode::Return, None);
+        assert_eq!(sc.key(Scancode::F, Some(0x03)), Some(Event::Changed));
+        assert_eq!(sc.settings.fullscreen_key, Scancode::F);
     }
 }
 

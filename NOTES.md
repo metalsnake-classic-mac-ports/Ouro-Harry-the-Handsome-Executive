@@ -2172,7 +2172,8 @@ Where the port deliberately differs from the original (the game logic in
 - **Options.** A screen of the port's own over the menu instead of the
   preferences dialog (`crates/harry/src/options.rs`): camera mode (the
   dialog's four), save between levels, sound volume (off, 1–9), scaling
-  (whole multiples or filling the window), full screen, the seven keys
+  (whole multiples or filling the window), full screen and its key (F11;
+  any key the game does not use), the seven keys
   (Return, then the key; a key already used swaps), default settings.
   Left out: reduce frame rate, line skipping, interlace, more compatible
   drawing, allow system tasks (speed options of 1997); the map key and
