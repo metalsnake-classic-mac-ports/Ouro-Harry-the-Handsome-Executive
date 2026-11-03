@@ -66,6 +66,11 @@ pub struct GameData {
     /// 480), 150 the meters (147 × 44: empty, comfort, surface
     /// resistance, corporate favor, 11 px each).
     pub pictures: BTreeMap<i16, Image>,
+    /// The world's pictures by `PICT` id (`Episode 1`): the levels' story
+    /// pictures (scrolled) and title cards, the win pictures.
+    pub world_pictures: BTreeMap<i16, Image>,
+    /// The world's fields for its end (`Hwld` 0).
+    pub world: WorldInfo,
     /// Colour icons by `cicn` id (`Harry Graphics`), transparent outside
     /// their mask: 10135–10137 the meters' rounded ends (9 × 9).
     pub icons: BTreeMap<i16, Image>,
@@ -81,6 +86,35 @@ pub struct GameData {
     /// The world's own sounds, used instead in levels that bring their own
     /// (`Level::own_sounds`).
     pub world_sounds: BTreeMap<i16, Sound>,
+}
+
+/// What the world file (`Hwld` 0) says beyond its levels; 0 = none.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WorldInfo {
+    /// +0x144: the music of the scrolled pictures.
+    pub scroll_music: i16,
+    /// +0x146 / +0x148: the picture scrolled after the last level, the
+    /// one shown then (at its own frame on the whole screen).
+    pub win_scroll: i16,
+    pub win_show: i16,
+    /// +0x14a: how long the win picture stays.
+    pub win_seconds: i16,
+    /// +0x14c: the music after the last level.
+    pub win_music: i16,
+}
+
+impl WorldInfo {
+    /// The fields from the `Hwld` 0 resource.
+    pub fn from_hwld(d: &[u8]) -> WorldInfo {
+        let f = |o: usize| d.get(o..o + 2).map_or(0, |b| i16::from_be_bytes([b[0], b[1]]));
+        WorldInfo { scroll_music: f(0x144), win_scroll: f(0x146), win_show: f(0x148), win_seconds: f(0x14a), win_music: f(0x14c) }
+    }
+
+    /// The pictures a world uses: the levels' info #5–#8 (scroll after /
+    /// before, show after / before) and the win pictures.
+    pub fn picture_ids(&self, levels: &[Level]) -> std::collections::BTreeSet<i16> {
+        levels.iter().flat_map(|l| l.info[5..9].to_vec()).chain([self.win_scroll, self.win_show]).filter(|&p| p != 0).collect()
+    }
 }
 
 /// A sound: 8-bit unsigned mono samples (0x80 silence) at a rate.

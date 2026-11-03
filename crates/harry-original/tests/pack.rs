@@ -56,6 +56,16 @@ fn pack_holds_the_original_data() {
         assert!(data.tile_set(l).is_some());
     }
     let world = ep.get(b"Hwld", 0).unwrap();
+    assert_eq!(data.world, harry_data::WorldInfo::from_hwld(world));
+    assert_eq!(data.world_pictures.len(), 26);
+    for (id, p) in &data.world_pictures {
+        let o = harry_original::pict::decode(ep.get(b"PICT", *id).unwrap()).unwrap();
+        let pal = o.palette.unwrap();
+        let want: Vec<[u8; 3]> = o.pixels.iter().map(|&i| pal[usize::from(i)]).collect();
+        let got: Vec<[u8; 3]> = p.pixels.iter().map(|c| harry_data::clut8()[usize::from(c.unwrap())]).collect();
+        assert_eq!((p.width, p.height), (o.width, o.height), "PICT {id}");
+        assert!(got == want, "PICT {id}");
+    }
     for n in 0..272 {
         let o = 0x3c9 + n * 256;
         let t = &world[o + 1..o + 1 + world[o] as usize];

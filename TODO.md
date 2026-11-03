@@ -67,9 +67,10 @@
 - [x] Whole frames with weapons and items: player shots as records, `HitPlayerShotSprite`, effects (explosions), 900 runs
 - [x] Harry's death (`HandlePlayerSpriteDeath`) to the end of the game loop (3000 runs + whole frames)
 - [x] Saved games: the record, `DoSaveGame` (autosave), `DoCopierSaveGame`, `ContinueGame` (whole frames)
-- [ ] Dialogs: `CopierSave`, `AskToContinue`; `EndLevelEffect`; the file format of the original's save files (resource fork)
+- [ ] Dialogs: `CopierSave`, `AskToContinue`; the file format of the original's save files (resource fork)
 - [x] `UpLevel`: next level in the same loop, score, level-start state (whole frames, 37 level changes)
-- [ ] `Win`, `EndLevelEffect`, `ScrollPlot` pictures, `IntroLevel` (frontend)
+- [x] `Win`, `EndLevelEffect`, `ScrollPlot` pictures, `IntroLevel`, gamma fades (frontend sequences, timing tested)
+- [ ] `IntroLevel`'s text card for levels without a title picture (fan worlds); the main menu after `Win` and after a death
 - [x] The ripple: phase, cheat, `BuildSineTable` (7865 cases), row shifts in the renderer
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock

@@ -174,6 +174,58 @@ tests against Basilisk II.
 - Ends when the "level done" flag is set; then `EndLevelEffect` if comfort
   or corporate favor dropped below 1.
 
+### Between the frames: fades and pictures
+
+The game loop stops for these; they run in ticks (1/60 s) and draw on the
+window. The port plays them in the frontend (`crates/harry/src/scenes.rs`,
+tested for their timing).
+
+- **Gamma fades** (`GammaFadeOut(n)` / `GammaFadeIn(n)`, through the
+  gamma tables): to black in levels 0, s, 2s … ≤ 256 with s = (256 / n) /
+  2, one a tick, then 256 at once; back with s = 256 / n. Neither does
+  anything when the screen is already there (`_DAT_100658f4`). n = 8: 17
+  ticks out, 9 in; n = 75 (`Win`): 257 out, 86 in.
+- **`EndLevelEffect`**: the game area in 14 × 14 cells of 32 px; each has
+  a counter, the top half (rows 0–6) starting at −(row · 14 + column), the
+  bottom half from the bottom right (row 13, column 13 = 0, then −1 to
+  the left and up). Every tick all counters below 17 grow by 1 and a black
+  `FrameRect` of half size c is drawn around each cell's centre while 0 <
+  c < 17 - growing black squares from the top left and the bottom right,
+  114 ticks. After `UpLevel`'s jingle; at the end of `GameLoop` when
+  comfort or corporate favor (the values) is below 1.
+- **`ScrollPlot(pict, music)`**: the world's PICT drawn into a GWorld 400
+  wide, then rows top … top + 448 copied to (40, 16) – (440, 464), top from
+  −447 to the picture's height (h + 449 steps of 4 ticks: 15 rows a
+  second; PICT 200, the story, 96 s). Rows outside the picture are not
+  copied: the window keeps what it had there. Any key or the mouse
+  button ends it once 8 steps are shown. Then the game area is painted
+  black. With `music` the world's scroll music (Hwld +0x144) plays.
+- **`IntroLevel`**: fade out (8), the game area black, the level's title
+  card - PICT level info #8 (Hlvl 0x12084), drawn centred across the game
+  area but 16 px too high ((448 − w) / 2 + 16, (448 − h) / 2) - or, without
+  one, the level's name (Hlvl +0x114c0) in Helvetica 27 bold over two
+  lines and "L E V E L" with the number (+0x12032) in 11 pt (the port draws
+  no text card yet; Episode 1 has a picture for every level), then
+  `BuildSineTable`, fade in (8), `Delay(60)`.
+- **`GameLoop`'s start** (`intro` = 1 for a new game and a game continued
+  at a level's start, 0 from a copier save): the screen PICT 129; with
+  `intro` and a story before the level (info #6): fade in (8),
+  `ScrollPlot(info #6, music)`, fade out (8); then `IntroLevel`.
+- **`UpLevel`**: jingle 4800, `EndLevelEffect`, then past the world's last
+  level `Win`; else the story after the old level (info #5) scrolled, the
+  game area black, the new level, `IntroLevel`, and only then its story
+  before (info #6, after painting the area black) - the other order than
+  at `GameLoop`'s start.
+- **`Win`**: the world's win music (Hwld +0x14c), `ScrollPlot(Hwld +0x146)`
+  without music, fade out (75); if Hwld +0x148: the whole screen black,
+  that PICT at its own frame (`FUN_1005dacc` mode 0), fade in (75), Hwld
+  +0x14a seconds (music idling), the music fades, fade out (75). Episode
+  1: 616, 209, 400, 12 s. Then the main menu.
+- The pictures are the world's (Episode 1: stories 200–209, 400 wide and
+  424–1309 high; title cards 301–315, about 49 high; PICT 400, 640 × 480),
+  all in clut 8; the data pack keeps them in `world/` with the world's
+  fields in `world.txt` (pack format 3).
+
 ### The view (`FindUpperLeftCorner`)
 
 - The view is the top-left corner (v, h) of the 448 × 448 game area
@@ -1769,7 +1821,8 @@ QuickTime Musical Instruments.
   mask as transparency), the collision masks (`cicn` 290, 299, 571–574,
   598, 599, 1299; the wall sheet PICT 160), `Harry Titles` PICT 129 (the
   game screen) and 150 (the meters), the meters' rounded ends (cicn
-  10135–10137, `icons/`; pack format 2), and the 15 levels as text (all
+  10135–10137, `icons/`), the world's pictures and end fields (`world/`,
+  `world.txt`; pack format 3), and the 15 levels as text (all
   decoded fields; the undecoded bytes, empty in Episode 1, are left out).
   Colours are `clut` 8 (`harry_data::clut8`); the tile set PICT 145's own
   table maps exactly. `tests/pack.rs` checks the pack against the

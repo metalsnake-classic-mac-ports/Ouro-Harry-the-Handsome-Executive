@@ -11,6 +11,8 @@
 //!   `tiles/bg_ID.png` (256 × 384)
 //! - `pictures/ID.png`: pictures (RGBA, opaque)
 //! - `icons/ID.png`: colour icons (RGBA, transparent outside the mask)
+//! - `world/ID.png`: the world's pictures (RGBA, opaque);
+//!   `world.txt`: the world's fields (`WorldInfo`), `name value` per line
 //! - `masks/cicn_ID.png`, `masks/walls.png`: collision masks (grey, white
 //!   = set)
 //! - `levels/NN.txt`: the levels of Episode 1 (`level`)
@@ -26,10 +28,10 @@ use std::io::{Cursor, Read, Write};
 use harry_core::mask::Mask;
 use zip::write::SimpleFileOptions;
 
-use crate::{Face, GameData, Image, MaskImages, Result, Sound, TileSet, clut8, corrupt, level};
+use crate::{Face, GameData, Image, MaskImages, Result, Sound, TileSet, WorldInfo, clut8, corrupt, level};
 
 /// The first line of `pack.txt`.
-pub const FORMAT: &str = "Harry the Handsome Executive data pack 2";
+pub const FORMAT: &str = "Harry the Handsome Executive data pack 3";
 
 fn encode_png(width: usize, height: usize, color: png::ColorType, data: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
@@ -130,6 +132,15 @@ pub fn write(data: &GameData) -> Result<Vec<u8>> {
     for (id, p) in &data.pictures {
         put(&format!("pictures/{id}.png"), &image_png(p))?;
     }
+    for (id, p) in &data.world_pictures {
+        put(&format!("world/{id}.png"), &image_png(p))?;
+    }
+    let w = &data.world;
+    let world = format!(
+        "scroll_music {}\nwin_scroll {}\nwin_show {}\nwin_seconds {}\nwin_music {}\n",
+        w.scroll_music, w.win_scroll, w.win_show, w.win_seconds, w.win_music
+    );
+    put("world.txt", world.as_bytes())?;
     for (id, p) in &data.icons {
         put(&format!("icons/{id}.png"), &image_png(p))?;
     }
@@ -210,6 +221,19 @@ pub fn read(bytes: &[u8]) -> Result<GameData> {
     for id in crate::PICTURES {
         pictures.insert(id, png_image(&get(&format!("pictures/{id}.png"))?, &colours)?);
     }
+    let mut world = WorldInfo::default();
+    for line in text(get("world.txt")?).lines() {
+        let (k, v) = line.split_once(' ').ok_or_else(|| corrupt("world.txt"))?;
+        let v: i16 = v.trim().parse().map_err(|_| corrupt("world.txt"))?;
+        match k {
+            "scroll_music" => world.scroll_music = v,
+            "win_scroll" => world.win_scroll = v,
+            "win_show" => world.win_show = v,
+            "win_seconds" => world.win_seconds = v,
+            "win_music" => world.win_music = v,
+            _ => {}
+        }
+    }
     let mut icons = BTreeMap::new();
     for id in crate::ICONS {
         icons.insert(id, png_image(&get(&format!("icons/{id}.png"))?, &colours)?);
@@ -228,6 +252,10 @@ pub fn read(bytes: &[u8]) -> Result<GameData> {
     let mut levels = Vec::new();
     for i in 1..=15 {
         levels.push(level::parse(&text(get(&format!("levels/{i:02}.txt"))?))?);
+    }
+    let mut world_pictures = BTreeMap::new();
+    for id in world.picture_ids(&levels) {
+        world_pictures.insert(id, png_image(&get(&format!("world/{id}.png"))?, &colours)?);
     }
     let mut texts = BTreeMap::new();
     for line in text(get("texts.txt")?).lines() {
@@ -274,7 +302,7 @@ pub fn read(bytes: &[u8]) -> Result<GameData> {
     };
     let sounds = sound_set("sounds")?;
     let world_sounds = sound_set("world_sounds")?;
-    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, icons, levels, texts, words, sounds, world_sounds })
+    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, world_pictures, world, icons, levels, texts, words, sounds, world_sounds })
 }
 
 fn word_lists(w: &harry_core::words::Words) -> Vec<(i16, &Vec<Vec<u8>>)> {

@@ -37,6 +37,7 @@ const RING: i32 = 480;
 const BLACK: u8 = 255;
 
 /// An image of palette indices.
+#[derive(Clone)]
 pub struct Canvas {
     pub width: usize,
     pub height: usize,
@@ -92,7 +93,7 @@ impl Canvas {
     }
 
     /// Draw part of an image (`src` = (x, y, w, h)) at screen (x, y).
-    fn draw_image(&mut self, img: &Image, src: (usize, usize, usize, usize), x: usize, y: usize) {
+    pub fn draw_image(&mut self, img: &Image, src: (usize, usize, usize, usize), x: usize, y: usize) {
         let (sx, sy, w, h) = src;
         for yy in 0..h.min(img.height.saturating_sub(sy)) {
             for xx in 0..w.min(img.width.saturating_sub(sx)) {
@@ -124,7 +125,7 @@ impl Canvas {
         }
     }
 
-    fn fill(&mut self, x: usize, y: usize, w: usize, h: usize, c: u8) {
+    pub fn fill(&mut self, x: usize, y: usize, w: usize, h: usize, c: u8) {
         for yy in y..(y + h).min(self.height) {
             for xx in x..(x + w).min(self.width) {
                 self.pixels[yy * self.width + xx] = c;

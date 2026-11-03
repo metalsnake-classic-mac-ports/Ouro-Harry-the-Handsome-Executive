@@ -94,6 +94,11 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
         icons.insert(id, Image { width: c.width, height: c.height, pixels });
     }
     let world = ep.get(b"Hwld", 0).map_err(|e| format!("Hwld 0: {e}"))?;
+    let world_info = harry_data::WorldInfo::from_hwld(world);
+    let mut world_pictures = BTreeMap::new();
+    for id in world_info.picture_ids(&levels) {
+        world_pictures.insert(id, indexed(&picture(&[&ep], id)?, &clut, None).map_err(|e| format!("PICT {id}: {e}"))?);
+    }
     let mut texts = BTreeMap::new();
     for n in 0..(world.len().saturating_sub(0x3c9) / 256) {
         let o = 0x3c9 + n * 256;
@@ -117,7 +122,7 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
     };
     let (sounds, world_sounds) = (sound_set(&sound_file), sound_set(&ep));
     let data =
-        GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, icons, levels, texts, words, sounds, world_sounds };
+        GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, world_pictures, world: world_info, icons, levels, texts, words, sounds, world_sounds };
     let bytes = harry_data::pack::write(&data).map_err(|e| e.to_string())?;
     std::fs::write(out, &bytes).map_err(|e| format!("{}: {e}", out.display()))?;
     println!(

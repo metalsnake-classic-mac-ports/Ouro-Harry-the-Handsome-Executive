@@ -17,6 +17,7 @@
 mod audio;
 mod balloon;
 mod render;
+mod scenes;
 mod text;
 
 use std::path::{Path, PathBuf};
@@ -42,6 +43,8 @@ use sdl3::sys::render::SDL_LOGICAL_PRESENTATION_INTEGER_SCALE;
 
 /// The original's frame: 2 ticks of 1/60 s.
 const FRAME: Duration = Duration::from_micros(33_333);
+/// A tick of the Mac's clock (the sequences between frames run in them).
+const TICK: Duration = Duration::from_micros(16_667);
 
 /// SDL keys → Mac virtual key codes (the ones the game reads), by
 /// position on the keyboard; the letters go by `LETTERS`.
@@ -295,6 +298,16 @@ fn main() -> Result<()> {
     let mut fullscreen = false;
     // a balloon being shown and since when (the game waits meanwhile)
     let mut shown: Option<(balloon::Shown, Instant)> = None;
+    // a sequence between frames (fades, pictures; the game waits), the next
+    // tick, and whether the screen is faded to black when none runs
+    let start_screen = |game: &Game| {
+        let mut c = render::draw(&data, game);
+        c.fill(16, 16, 448, 448, 255);
+        c
+    };
+    let mut scene = Some(scenes::Scenes::new(start_screen(&game), true, scenes::game_start(&game.level, true)));
+    let mut tick = Instant::now();
+    let mut faded = true;
     let mut text_texture: Option<(sdl3::render::Texture, Vec<text::Line>, (u32, u32))> = None;
     // HARRY_STATS: loop timing once a second
     let stats = std::env::var_os("HARRY_STATS").is_some();
@@ -316,6 +329,7 @@ fn main() -> Result<()> {
                     }
                     match sc {
                         Scancode::Escape => break 'run,
+                        _ if scene.is_some() && sc != Scancode::F11 => {}
                         Scancode::F11 => {
                             fullscreen = !fullscreen;
                             let _ = canvas.window_mut().set_fullscreen(fullscreen);
@@ -331,9 +345,25 @@ fn main() -> Result<()> {
         if let Some(n) = jump {
             level = n;
             game = start(level, PlayerGlobals::new_game(), game.rng.seed);
+            scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, false)));
+            tick = Instant::now();
         }
         let now = Instant::now();
-        while shown.is_none() && next <= now {
+        if let Some(sc) = scene.as_mut() {
+            // ScrollPlot ends on any key or the mouse button
+            let skip = events.keyboard_state().pressed_scancodes().next().is_some()
+                || events.mouse_state().is_mouse_button_pressed(sdl3::mouse::MouseButton::Left);
+            while tick <= now && !sc.done() {
+                sc.tick(&data, skip);
+                tick += TICK;
+            }
+            if sc.done() {
+                faded = sc.dark >= 256;
+                scene = None;
+                next = Instant::now();
+            }
+        }
+        while scene.is_none() && shown.is_none() && next <= now {
             next += FRAME;
             let keys = keymap(&events.keyboard_state());
             let mut asked = None;
@@ -352,28 +382,53 @@ fn main() -> Result<()> {
             }
             match end {
                 FrameEnd::Running => {}
-                FrameEnd::LevelDone => match game.up_level(&data.levels, &assets) {
-                    (UpLevel::Next, missing) => {
-                        level = (game.counter.current as usize).saturating_sub(1);
-                        if !missing.is_empty() {
-                            eprintln!("level {}: not ported yet: {missing:?}", level + 1);
+                FrameEnd::LevelDone => {
+                    // the screen as the level ended, under the sequence
+                    let (screen, old) = (render::draw(&data, &game), game.level.clone());
+                    let heard = game.sounds.len();
+                    let up = game.up_level(&data.levels, &assets);
+                    // UpLevel's jingle (4800)
+                    mixer.events(&game.sounds[heard..], old.own_sounds);
+                    match up {
+                        (UpLevel::Next, missing) => {
+                            level = (game.counter.current as usize).saturating_sub(1);
+                            if !missing.is_empty() {
+                                eprintln!("level {}: not ported yet: {missing:?}", level + 1);
+                            }
+                            scene = Some(scenes::Scenes::new(screen, faded, scenes::up_level(&old, &game.level)));
+                        }
+                        // after Win the main menu (not ported): a new game
+                        (UpLevel::Won, _) => {
+                            let mut steps = scenes::win(&data.world);
+                            level = 0;
+                            game = start(level, PlayerGlobals::new_game(), game.rng.seed);
+                            steps.push(scenes::Step::BlackScreen);
+                            let mut sc = scenes::Scenes::new(screen, faded, steps);
+                            sc.then = Some((start_screen(&game), scenes::game_start(&game.level, true)));
+                            scene = Some(sc);
                         }
                     }
-                    // Win is not ported yet: a new game
-                    (UpLevel::Won, _) => {
-                        level = 0;
-                        game = start(level, PlayerGlobals::new_game(), game.rng.seed);
-                    }
-                },
+                    tick = Instant::now();
+                }
                 FrameEnd::Died => {
+                    // GameLoop's end: EndLevelEffect when comfort or favor
+                    // is gone
+                    let screen = render::draw(&data, &game);
+                    let mut steps = Vec::new();
+                    if game.g.comfort < 1 || game.g.favor < 1 {
+                        steps.push(scenes::Step::EndLevel);
+                    }
                     // AskToContinue's dialog is not ported: with a game saved
                     // in this session it goes on from there, else a new game
-                    // starts at this level
+                    // starts at this level; both start with GameLoop's
+                    // sequence (a copier save without the story)
                     let saved = save_path.as_ref().filter(|_| have_save).and_then(|p| std::fs::read(p).ok());
+                    let mut intro = true;
                     match saved.map(|b| SaveGame::from_bytes(&b)) {
                         Some(sg) => {
                             if let Some(missing) = game.continue_game(&sg, &data.levels, &assets) {
                                 level = (sg.level as usize).saturating_sub(1);
+                                intro = !sg.copier;
                                 if !missing.is_empty() {
                                     eprintln!("level {}: not ported yet: {missing:?}", level + 1);
                                 }
@@ -385,6 +440,10 @@ fn main() -> Result<()> {
                             game.session = session;
                         }
                     }
+                    let mut sc = scenes::Scenes::new(screen, faded, steps);
+                    sc.then = Some((start_screen(&game), scenes::game_start(&game.level, intro)));
+                    scene = Some(sc);
+                    tick = Instant::now();
                 }
             }
             if std::mem::take(&mut game.session.save_pending) {
@@ -398,8 +457,22 @@ fn main() -> Result<()> {
                 }
             }
         }
-        let (image, lines) = picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b));
+        let (mut image, mut lines) = picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b));
+        let mut dark = if faded { 256 } else { 0 };
+        if let Some(sc) = &scene {
+            image = sc.image.clone();
+            dark = sc.dark;
+            if !sc.texts {
+                lines.clear();
+            }
+        }
         image.to_rgb24(&palette, &mut rgb);
+        // the gamma fades: toward black
+        if dark > 0 {
+            for c in &mut rgb {
+                *c = (u32::from(*c) * (256 - dark.clamp(0, 256)) as u32 / 256) as u8;
+            }
+        }
         let w = render::SCREEN_WIDTH;
         texture.with_lock(None, |buf: &mut [u8], pitch: usize| {
             for (row, line) in rgb.chunks_exact(w * 3).enumerate() {
@@ -424,7 +497,9 @@ fn main() -> Result<()> {
         }
         canvas.clear();
         canvas.copy(&texture, None, None)?;
-        if let Some((t, _, _)) = &text_texture {
+        if let Some((t, _, _)) = &mut text_texture {
+            let b = (255 * (256 - dark.clamp(0, 256)) / 256) as u8;
+            t.set_color_mod(b, b, b);
             canvas.copy(t, None, None)?;
         }
         canvas.present();
@@ -436,7 +511,8 @@ fn main() -> Result<()> {
                 (loops, frames_run, busy, stat_start) = (0, 0, Duration::ZERO, Instant::now());
             }
         }
-        std::thread::sleep(next.saturating_duration_since(Instant::now()).min(FRAME));
+        let wake = if scene.is_some() { tick } else { next };
+        std::thread::sleep(wake.saturating_duration_since(Instant::now()).min(FRAME));
     }
     Ok(())
 }
