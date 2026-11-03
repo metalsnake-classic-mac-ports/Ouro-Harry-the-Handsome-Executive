@@ -67,7 +67,7 @@
 - [x] Whole frames with weapons and items: player shots as records, `HitPlayerShotSprite`, effects (explosions), 900 runs
 - [x] Harry's death (`HandlePlayerSpriteDeath`) to the end of the game loop (3000 runs + whole frames)
 - [x] Saved games: the record, `DoSaveGame` (autosave), `DoCopierSaveGame`, `ContinueGame` (whole frames)
-- [ ] Dialogs: `CopierSave`, `AskToContinue`; the file format of the original's save files (resource fork)
+- [ ] Saving and loading as a list of saves (later, decided 2026-11-03): no file dialogs; a save at a copier or between levels makes a new entry with level, date and time, a screenshot; continuing picks from the list. Replaces `CopierSave` / `AskToContinue` and the original's save files
 - [x] `UpLevel`: next level in the same loop, score, level-start state (whole frames, 37 level changes)
 - [x] `Win`, `EndLevelEffect`, `ScrollPlot` pictures, `IntroLevel`, gamma fades (frontend sequences, timing tested)
 - [ ] `IntroLevel`'s text card for levels without a title picture (fan worlds); the main menu after `Win` and after a death
