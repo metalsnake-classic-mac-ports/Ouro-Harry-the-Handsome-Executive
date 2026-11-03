@@ -249,6 +249,17 @@ fn main() -> Result<()> {
     let fonts = text::Fonts::load();
     let mut score = ScoreShown::default();
     if let Some((out, frames)) = screenshot {
+        // HARRY_INV=id:count,… fills the inventory (for testing), the
+        // first item selected, half the ammunition
+        if let Ok(inv) = std::env::var("HARRY_INV") {
+            for (slot, item) in inv.split(',').enumerate().take(game.g.inventory.len()) {
+                if let Some((id, n)) = item.split_once(':').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))) {
+                    game.g.inventory[slot] = (id, n);
+                }
+            }
+            game.g.cur_slot = 0;
+            game.g.ammo = harry_core::keys::Ammo { staple: 50, badass: 100, shrapnel: 2 };
+        }
         let mut shown = None;
         for _ in 0..frames {
             if shown.is_some() {
@@ -673,6 +684,14 @@ fn picture(data: &GameData, game: &Game, score: &ScoreShown, shown: Option<&ball
             text: score.value.to_string(),
         },
     ];
+    lines.extend(render::inventory_counts(game).into_iter().map(|(x, baseline, text)| text::Line {
+        x,
+        baseline,
+        size: 9.0,
+        face: text::Face::HelveticaBold,
+        color: [255; 3],
+        text,
+    }));
     if let Some(s) = shown {
         lines.extend(balloon::draw(&mut image, s));
     }

@@ -857,6 +857,10 @@ impl Game {
         self.draw_pass(assets);
         self.session.ripple_phase = self.session.ripple_phase.wrapping_add(i32::from(self.level.info[ripple::SPEED]));
         self.update_meters(false);
+        // UpdateAmmo(1): the ammunition kept within 0–100 (and drawn)
+        for a in [&mut self.g.ammo.staple, &mut self.g.ammo.badass, &mut self.g.ammo.shrapnel] {
+            *a = (*a).clamp(0, 100);
+        }
         // CheckGameEvents (UpLevel, the caller's, then updates the track map)
         if self.seen_level != self.counter.current {
             self.seen_level = self.counter.current;

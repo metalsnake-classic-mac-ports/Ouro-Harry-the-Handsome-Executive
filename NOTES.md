@@ -494,6 +494,34 @@ mystery vial (random of 6: comfort 100, ..., all ammo/comfort 100, all −25
 soda can, 11999 power of the swivel (charged; fires a player shot costing
 2 comfort, needs comfort ≥ 10).
 
+### The inventory on the panel (`UpdateInventory`, `UpdateAmmo`)
+
+- 12 slots, 3 columns × 4 rows, 44 × 44 at (476 + 49 · col, 167 + 49 ·
+  row) (`FindCol` / `FindRow`, the same as `FindInvCol` / `FindInvRow`).
+  `UpdateInventory` draws each slot that holds an item: the selected one
+  (`gCurInvSlot`) on the highlight HrSp 1002 (cicn 11000) at + 4, the
+  others on black; the frame HrSp 1001 (cicn 10200); the item's face at
+  + 4 (`FindInvItemFace`: 11398 → HrSp 1031, 11397 → 1032, else 1010 +
+  (id − 11199) / 100, from cicn 11100 + 100 k); with more than one "x"
+  and the count in white, bold 9, at (+ 6, + 38) and (+ 13, + 38)
+  (`DrawNumItems`). `RemoveInvItem` puts HrSp 1040 (cicn 10300, the
+  empty slot) over the last slot and the removed one, moves the rest up
+  and draws again. `SwitchInvItem` / `GetInvItem` redraw the slots
+  concerned. Each calls `UpdateAmmo(0)` after.
+- `UpdateAmmo(redraw)` (also every pass of the game loop with 1): the
+  ammunition of the staple gun, the B.A.D.A.S.S. and the shrapnel gun
+  clamped to 0–100 - a game state change; then for each gun in the
+  inventory (the last slot holding it) a bar under it at (slot + 5,
+  slot + 34), 34 × 5: the first ammo / 3 px light (0xAAAA grey, top edge
+  white, bottom 0x7777), the rest dark (0x5555, top 0x1111, bottom
+  0x9999); the ends and the boundary as vertical lines. With 1 only when
+  the value changed (`_DAT_10065a98` / `…94` / `…90`).
+- The port draws the inventory every frame from the state
+  (`render::draw_inventory`; the screen of the original keeps what was
+  drawn, which is the same); the core clamps the ammunition after
+  `UpdateMeters` as `UpdateAmmo(1)` does, and the whole-frame recorder
+  runs `UpdateAmmo` (with ammunition outside 0–100 in some runs).
+
 ### Cheats / Easter eggs found in `HandleKeys`
 
 - With the debug flag (`gDebug`, cleared at start, never set in the

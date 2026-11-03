@@ -223,6 +223,7 @@ pub fn draw(data: &GameData, game: &Game) -> Canvas {
     c.fill(AREA as usize, AREA as usize, AREA_SIZE as usize, AREA_SIZE as usize, BLACK);
     let Some(ring) = draw_area(data, game) else { return c };
     copy_area(&mut c, &ring, game);
+    draw_inventory(&mut c, data, game);
     // the meters as `UpdateMeters` last drew them (`Game::meters`): the
     // empty strip of PICT 150, the value's strip and the rounded end
     if let Some(m) = data.pictures.get(&150) {
@@ -239,6 +240,104 @@ pub fn draw(data: &GameData, game: &Game) -> Canvas {
         }
     }
     c
+}
+
+/// An inventory slot's top left (`FindCol` / `FindRow`): 3 columns, 4
+/// rows, 49 px apart from (476, 167).
+pub fn slot_at(slot: usize) -> (i32, i32) {
+    (476 + (slot % 3) as i32 * 49, 167 + (slot / 3) as i32 * 49)
+}
+
+/// The face of an inventory item (`FindInvItemFace`): the debug items
+/// 11398 → HrSp 1031, 11397 → 1032, else 1010 + (id − 11199) / 100.
+fn item_face(id: i16) -> i16 {
+    match id {
+        11398 => 1031,
+        11397 => 1032,
+        _ => 1010 + (id - 11199) / 100,
+    }
+}
+
+/// The palette index of a grey (clut 8 has them all as exact colours).
+fn grey(v: u8) -> u8 {
+    harry_data::clut8().iter().position(|c| *c == [v, v, v]).unwrap_or(BLACK as usize) as u8
+}
+
+/// The inventory as `UpdateInventory` draws it: per item its slot (the
+/// selected one on the highlight, HrSp 1002 at + 4, the others on black)
+/// with the frame (HrSp 1001) and the item's face (at + 4); an empty
+/// slot is HrSp 1040. Under a gun its ammunition (`UpdateAmmo`): a bar
+/// 33 px long at (+ 5, + 34), the part up to ammo / 3 light, the rest
+/// dark, lit from the top left.
+fn draw_inventory(c: &mut Canvas, data: &GameData, game: &Game) {
+    let g = &game.g;
+    let face = |c: &mut Canvas, id: i16, x: i32, y: i32| {
+        if let Some(f) = data.faces.get(&id) {
+            for yy in 0..f.image.height {
+                for xx in 0..f.image.width {
+                    if let Some(p) = f.image.get(xx, yy) {
+                        c.set(x + xx as i32, y + yy as i32, p);
+                    }
+                }
+            }
+        }
+    };
+    for (slot, &(id, _)) in g.inventory.iter().enumerate() {
+        let (x, y) = slot_at(slot);
+        if id == -1 {
+            face(c, 1040, x, y);
+            continue;
+        }
+        if g.cur_slot == slot as i16 {
+            face(c, 1002, x + 4, y + 4);
+        } else {
+            c.fill(x as usize, y as usize, 44, 44, BLACK);
+        }
+        face(c, 1001, x, y);
+        face(c, item_face(id), x + 4, y + 4);
+    }
+    // the ammunition of the staple gun, B.A.D.A.S.S. and shrapnel gun
+    let (fill_l, fill_r, top_l, bottom_l, top_r, bottom_r) = (grey(0xaa), grey(0x55), grey(0xff), grey(0x77), grey(0x11), grey(0x99));
+    for (gun, ammo) in [(11299, g.ammo.staple), (11599, g.ammo.badass), (11799, g.ammo.shrapnel)] {
+        let Some(slot) = g.inventory.iter().rposition(|e| e.0 == gun) else { continue };
+        let (x, y) = slot_at(slot);
+        let (x, y) = (x + 5, y + 34);
+        let a = ammo.clamp(0, 100);
+        let w = i32::from(a / 3);
+        let line = |c: &mut Canvas, x0: i32, x1: i32, y: i32, col: u8| (x0..=x1).for_each(|xx| c.set(xx, y, col));
+        line(c, x, x + w, y, top_l);
+        line(c, x + w, x + 33, y, top_r);
+        for yy in y + 1..y + 4 {
+            line(c, x, x + w - 1, yy, fill_l);
+            line(c, x + w, x + 32, yy, fill_r);
+        }
+        line(c, x, x + w, y + 4, bottom_l);
+        line(c, x + w, x + 33, y + 4, bottom_r);
+        let column = |c: &mut Canvas, xx: i32, col: u8| (y..=y + 4).for_each(|yy| c.set(xx, yy, col));
+        column(c, x, if a < 1 { top_r } else { top_l });
+        if a < 100 {
+            column(c, x + 33, bottom_r);
+        }
+        if a > 0 {
+            column(c, x + w, bottom_l);
+        }
+    }
+}
+
+/// The count of an inventory item over its face (`DrawNumItems`): "x" and
+/// the number in white, bold 9 pt, when there is more than one.
+pub fn inventory_counts(game: &Game) -> Vec<(f32, f32, String)> {
+    game.g
+        .inventory
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| e.0 != -1 && e.1 > 1)
+        .flat_map(|(slot, e)| {
+            let (x, y) = slot_at(slot);
+            let (h, v) = (x + 4, y + 4);
+            [((h + 2) as f32, (v + 34) as f32, "x".to_string()), ((h + 9) as f32, (v + 34) as f32, e.1.to_string())]
+        })
+        .collect()
 }
 
 /// The game area as the ring buffer holds it: tiles, props and sprites,

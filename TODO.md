@@ -72,6 +72,7 @@
 - [x] `Win`, `EndLevelEffect`, `ScrollPlot` pictures, `IntroLevel`, gamma fades (frontend sequences, timing tested)
 - [ ] `IntroLevel`'s text card for levels without a title picture (fan worlds)
 - [x] Main menu: buttons by mouse and key, instructions, credits, the X message; back to it after `Win`, a death and Escape (with a question)
+- [x] The inventory on the panel: slots, selection, item faces, counts, ammunition bars; `UpdateAmmo`'s clamp in the core
 - [ ] Options as a screen of the port's own (instead of the preferences dialog); pause (caps lock), the map (`ShowMap`), the warp dialog
 - [x] The ripple: phase, cheat, `BuildSineTable` (7865 cases), row shifts in the renderer
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)

@@ -190,7 +190,7 @@ def main():
               "GammaFadeOut", "GammaFadeIn", 0x1002549C, "AddFGRedraw", "CheckWorldCorruption", "LoadLevelTilesets",
               "LoadLevelSounds", 0x1005F7EC, "IsPressed", "AddRectToUpdate",
               0x10024DE8, "RedrawGrid", "RedrawFGTiles", "GetScalePort", "CopyToScalePort", "CopyScalePortBack",
-              "FadeMusic", "DebugHook", "UpdateAmmo", "CopyStatRect",
+              "FadeMusic", "DebugHook", "CopyStatRect",
               "PlotEncFace", "DrawNumItems", "FindInvItemFace", "UpdateInventory", 0x1005F738, "DrawBlackLines"):
         m.stub_routine(f, 0)
     m.stub_routine(0x10056DE8, 0)                   # nothing is playing
@@ -400,7 +400,7 @@ def main():
             st["inv"] = ",".join(f"{i}:{rnd.randint(1, 3)}" for i in items)
             st["curslot"] = rnd.randint(0, len(items) - 1)
             for k in AMMO:
-                st[k] = rnd.choice([0, 3, 50, 100])
+                st[k] = rnd.choice([0, 3, 50, 100, 150, -3])
         # Harry at the level's start, next to an exit or next to one of its sprites
         exits = [e for e in entries if 9990 <= e[2] <= 9999]
         if exits and rnd.random() < 0.1:
@@ -527,6 +527,7 @@ def main():
             phase = struct.unpack(">i", m.read(ph, 4))[0] + s16(m.r16(lvl + 0x1208C))
             m.write(ph, struct.pack(">i", (phase + 2**31) % 2**32 - 2**31))
             m.call("UpdateMeters", 1)
+            m.call("UpdateAmmo", 1)                     # clamps the ammunition to 0-100
             ups = log.count("uplevel")
             m.call("CheckGameEvents")
             if log.count("uplevel") > ups and "won" not in log:
