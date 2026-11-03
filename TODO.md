@@ -100,7 +100,9 @@
 - [x] Frontend (SDL3): level 1 drawn and playable at 30 fps (`ouro-harry`)
 - [x] Frontend: panel texts (level name, score), balloons (world texts, buzzwords, phone)
 - [x] Frontend: sound (all `snd`s, 3-D volumes, rates, channels)
-- [ ] Frontend: meter ends (cicn 10135–10137), sprite tints (draw procs), music (`Tune`), menus, preferences
+- [x] Sprite tints: the draw procs' blits (whole frames), the colour tables (13 812 colours), drawn in the frontend
+- [ ] `MakeITable`'s inverse table exactly (the port takes the nearest colour); the fans' grilles and the dart enemies' darts (second faces of their draw procs)
+- [ ] Frontend: meter ends (cicn 10135–10137), music (`Tune`), menus, preferences
 - [ ] Sound feedback into the game: "is a voice / the fan / the bump playing" (the original asks its channels; the port answers no)
 - [ ] `KeyEvent::Balloon` (the random messages of the B-E-N sequence and other keys) in the frontend
 - [ ] `Hwld` 0: decode the fields before the texts (0–0x3c8)

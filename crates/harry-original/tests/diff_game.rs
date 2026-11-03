@@ -11,7 +11,7 @@ mod common;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use common::dump;
+use common::{crc32, dump};
 use harry_core::frame::PlayerGlobals;
 use harry_core::savegame::SaveGame;
 use harry_core::game::{Assets, FrameEnd, Game, LevelStart, Prefs, UpLevel};
@@ -184,6 +184,7 @@ fn episode_1_frames_match_the_original() {
             level_start: LevelStart::default(),
             track: Default::default(),
             keep_track: false,
+            blits: Vec::new(),
             session: Default::default(),
         };
         let missing = if w("cont") >= 0 {
@@ -200,6 +201,7 @@ fn episode_1_frames_match_the_original() {
         }
         let mut log = Vec::new();
         let mut harry = Vec::new();
+        let (mut nblits, mut blit_crc) = (0, 0);
         let mut answers: Vec<bool> = i["balloons"].chars().rev().map(|c| c == '1').collect();
         let mut copier: Vec<bool> = i["copier"].chars().rev().map(|c| c == '1').collect();
         game.prefs.autosave = w("autosave") != 0;
@@ -240,6 +242,13 @@ fn episode_1_frames_match_the_original() {
             };
             let end = game.frame(&km, &assets, &mut show, &mut save);
             log.extend(balloons.into_inner());
+            let mut b: String = game.blits.iter().map(|(_, b)| format!("{}:{}:{};", b.face, b.mode, b.arg)).collect();
+            if debug && std::env::var("BLITS").is_ok() {
+                eprintln!("  blits {b}");
+            }
+            nblits += game.blits.len();
+            b.push('|');
+            blit_crc = crc32(blit_crc, b.as_bytes());
             // CheckGameEvents calls UpLevel at the end of the frame
             let won = end == FrameEnd::LevelDone && {
                 log.push("uplevel");
@@ -274,7 +283,7 @@ fn episode_1_frames_match_the_original() {
             game.world.sprites.list.iter().map(|&r| format!("{r}/{}", dump(game.world.rec(r)).replace(' ', ":"))).collect();
         let free: Vec<String> = game.world.sprites.free.iter().rev().map(|r| r.to_string()).collect();
         let got = format!(
-            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} track={} save={} ripple={} harry={} list={} free={}",
+            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} track={} save={} ripple={} blits={}:{} harry={} list={} free={}",
             harry.len(),
             game.rng.seed,
             game.view.corner.0,
@@ -320,6 +329,8 @@ fn episode_1_frames_match_the_original() {
                 let sum: i64 = table.iter().enumerate().map(|(i, &x)| (i as i64 + 1) * i64::from(x)).sum();
                 format!("{}:{}:{}:{}:{sum}", game.session.ripple_phase, info[10], info[11], info[12])
             },
+            nblits,
+            blit_crc,
             harry.join(","),
             list.join(";"),
             if free.is_empty() { "-".to_string() } else { free.join(",") }

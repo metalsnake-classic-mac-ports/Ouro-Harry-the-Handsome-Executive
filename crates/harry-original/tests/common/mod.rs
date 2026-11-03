@@ -191,3 +191,15 @@ pub fn dump(s: &Sprite) -> String {
     out.join(" ")
 }
 
+
+/// CRC-32 (zlib's), continued from `crc`.
+pub fn crc32(crc: u32, data: &[u8]) -> u32 {
+    let mut c = !crc;
+    for &b in data {
+        c ^= u32::from(b);
+        for _ in 0..8 {
+            c = if c & 1 != 0 { (c >> 1) ^ 0xEDB8_8320 } else { c >> 1 };
+        }
+    }
+    !c
+}

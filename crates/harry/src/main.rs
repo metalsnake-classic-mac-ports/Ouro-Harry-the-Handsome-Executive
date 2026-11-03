@@ -182,6 +182,7 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
         level_start: LevelStart::default(),
         track: Default::default(),
         keep_track: false,
+            blits: Vec::new(),
         session: Default::default(),
     }
 }

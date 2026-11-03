@@ -16,16 +16,20 @@ Each line: "<name=value ...> -> <name=value ...>"
   keys    per frame the held move keys as letters l r s i k, "-" none, ","-joined
   list    per sprite in SAT order: "<record>/<dump with ':'>", ";"-joined
   harry   per frame Harry's at "v:h", ","-joined
+  blits   the draw procs' BlitEncFace calls "<face>:<mode>:<arg>;", each
+          frame ended by "|": their number and CRC-32
 Usage: python3 -I emu_game.py [re/work]
 Debugging: SEED=<seed> runs only that case (writing nothing) and prints
 Harry per frame; with KIND=<kind> also the sprites of that kind, ADDR=<hex>
-the record there, RAND=1 / TRACE=<routine,...> see trace_hooks.
+the record there, BLITS=1 the draw procs' blits, RAND=1 /
+TRACE=<routine,...> see trace_hooks.
 """
 import math
 import os
 import random
 import struct
 import sys
+import zlib
 
 from unicorn import UC_HOOK_CODE
 from unicorn.ppc_const import UC_PPC_REG_FPR1, UC_PPC_REG_LR
@@ -60,7 +64,7 @@ KEYS = {"l": 0x7B, "r": 0x7C, "s": 0x7D, "i": 0x7E, "k": 0x31, "e": 0x3B, "u": 0
         "4": 0x15, "W": 0x0D, "A": 0x00, "V": 0x09, "Y": 0x10, "G": 0x05, "R": 0x0F}
 PROP_FACES = {0x10065A60: 6034, 0x10065A5C: 6035, 0x10065A58: 6036, 0x10065A54: 6037,
               0x10065A40: 6051, 0x10065A3C: 6052, 0x10065A38: 6053, 0x10065A34: 6054,
-              0x10065A0C: 6041, 0x10065A04: 6042, 0x10065A00: 6043, 0x100659FC: 6044}     # the fire pipes
+              0x10065A0C: 6041, 0x10065A04: 6042, 0x10065A00: 6043, 0x100659FC: 6044}     # the props, the fire pipes
 CASES = 1500
 ITEMS = [11299, 11599, 11799, 11999, 11899, 11499, 11699]
 AMMO = {"staple": 0x10065AEC, "badass": 0x10065AE8, "shrapnel": 0x10065AE4}
@@ -153,14 +157,19 @@ def main():
     m.stub_routine(0x1005F340, mask_face)
     for f in INITS:
         m.call(f)
+    # InitFaces: the props' faces (with their HrSp header: the size the
+    # drawing goes by), drawn by UserTintableSpriteDrawProc
+    user_tintable = {v: k for k, v in tvectors(f"{work}/ppc").items()}["UserTintableSpriteDrawProc"]
     for slot, hrsp in PROP_FACES.items():
         rec = m.alloc(0x1C)
+        m.write(rec, open(f"{work}/res/Harry_Graphics/HrSp_{hrsp}.bin", "rb").read()[:16])
         faces.ids[rec] = hrsp
         m.w32(m.glob(slot), rec)
-    # the face loaders give every face a draw proc; the stubbed ones leave
-    # those the game does not set at 0: a draw proc that only blits
+        m.w32(rec + 0x18, user_tintable)
+    # the face loaders give every face a draw proc, BlitEncFaceProc unless
+    # the game sets another; the stubbed loaders leave it at 0
     plain = m.alloc(8)
-    m.w32(plain, m.addr("BlitEncFace"))
+    m.w32(plain, m.addr("BlitEncFaceProc"))
     m.w32(plain + 4, TOC)
     for rec in faces.ids:
         if m.r32(rec + 0x18) == 0:
@@ -179,10 +188,24 @@ def main():
               "GammaFadeOut", "GammaFadeIn", 0x1002549C, "AddFGRedraw", "CheckWorldCorruption", "LoadLevelTilesets",
               "LoadLevelSounds", 0x1005F7EC, "IsPressed", "AddRectToUpdate",
               0x10024DE8, "RedrawGrid", "RedrawFGTiles", "GetScalePort", "CopyToScalePort", "CopyScalePortBack",
-              "BlitEncFace", "FadeMusic", "DebugHook", "UpdateAmmo", "CopyStatRect",
+              "FadeMusic", "DebugHook", "UpdateAmmo", "CopyStatRect",
               "PlotEncFace", "DrawNumItems", "FindInvItemFace", "UpdateInventory", 0x1005F738, "DrawBlackLines"):
         m.stub_routine(f, 0)
     m.stub_routine(0x10056DE8, 0)                   # nothing is playing
+    # BlitEncFace(face, port, ..., mode, arg): the draw procs' tints, but not
+    # the fans' grilles and the dart enemies' darts (other faces than the
+    # one the draw proc was called with through __ptr_glue)
+    blits, proc_face = [], [0]
+
+    def glue(uc, _a, _s, _u):
+        proc_face[0] = m.get(3)
+    m.uc.hook_add(UC_HOOK_CODE, glue, None, 0x1006536C, 0x1006536C)
+
+    def blit(mm):
+        if mm.get(3) == proc_face[0]:
+            blits.append("%s:%d:%d;" % (faces.ids.get(mm.get(3), "?"), s16(mm.get(9) & 0xFFFF), s16(mm.get(10) & 0xFFFF)))
+        return 0
+    m.stub_routine("BlitEncFace", blit)
 
     def level_start():
         inv_copy = m.glob(START_INV)
@@ -444,6 +467,7 @@ def main():
         scroll()
         m.write(LOOP_DONE, b"\0")                    # GameLoop clears it before the loop
         harry = []
+        crc, nblits = 0, 0
         if debug_seed:
             print("start", dump(m, p, faces, tv), "rand", m.rand_seed)
         for f in range(st["frames"]):
@@ -458,7 +482,15 @@ def main():
             scroll()
             m.call("CheckTileCollisions")
             m.call("EraseSprites")
+            blits.clear()
+            if debug_seed and os.environ.get("PROPS"):
+                print("  props", [struct.unpack(">BxhhI", m.read(0x100723AC + 12 * k, 10)) for k in range(3)],
+                      "view", struct.unpack(">hh", m.read(view, 4)), "rect", struct.unpack(">4h", m.read(0x10067B6C, 8)))
             draw()
+            nblits += len(blits)
+            crc = zlib.crc32(("".join(blits) + "|").encode(), crc)
+            if debug_seed == st["seed"] and os.environ.get("BLITS"):
+                print("  blits", "".join(blits))
             # GameLoop: the ripple's phase grows by the level's speed
             lvl = m.r32(m.r32(m.glob(0x10065B64)))
             ph = m.glob(0x1006592C)
@@ -500,7 +532,7 @@ def main():
              "log": ",".join(log) or "-", "staledoor": int(stale[0]),
              "inv": ",".join("%d:%d" % (m.r16(inv + 4 * i), m.r16(inv + 4 * i + 2)) for i in range(12)),
              "curslot": m.r16(CUR_SLOT), "ammo": ":".join(str(m.r16(m.glob(a))) for a in AMMO.values()),
-             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "track": track(), "save": saved(), "ripple": ripple(), "harry": ",".join(harry),
+             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "track": track(), "save": saved(), "ripple": ripple(), "blits": "%d:%d" % (nblits, crc), "harry": ",".join(harry),
              "list": ";".join(f"{ids[a]}/{dump(m, a, faces, tv).replace(' ', ':')}" for a in lst),
              "free": ",".join(str(ids[a]) for a in free) or "-"}
         out.write(" ".join(f"{k}={v}" for k, v in st.items()) + " -> " + " ".join(f"{k}={v}" for k, v in o.items()) + "\n")

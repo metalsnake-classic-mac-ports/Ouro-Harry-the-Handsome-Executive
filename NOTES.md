@@ -1001,8 +1001,14 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   the boss (4902–4937) sets +0x8a while `f6e` < 0, else in phase 3
   (unless animation 2 or 6 in phase 2) draws `SATRand(15)`. The draw
   procs are called through `__ptr_glue` (0x1006536C, the TVector in r12)
-  with no null check: the recorder gives faces without one a plain
-  TVector to `BlitEncFace` (stubbed).
+  with no null check: the recorder gives faces without one
+  `BlitEncFaceProc`, as the face loaders do. `DrawSpritesBehindTiles`
+  first draws the background props (table 0x100723ac), then the sprites
+  with +0x8b, then the foreground props (0x100720ac), each prop through
+  its face's draw proc without a sprite (the props' faces have
+  `UserTintableSpriteDrawProc`: the level's tint). The port's draw pass
+  makes the same calls (`tint::draw_proc`, see "Sprite tints"); the gun's
+  proc also puts a B.A.D.A.S.S. fire hold over 66 back to 61.
 - **Mirrored masks.** `BuildMaskRegion` on an encoded face mirrors the
   bits within each byte, so the wall masks that robots and reversors
   (face 4251, cicn 598 encoded) and blobs (face 1451) test against are
@@ -1568,6 +1574,70 @@ foreground and background set ("Level Info" in the editor).
 - Host screenshots cannot verify colours exactly (macOS scales them and
   applies the display profile: > 20 000 colours in one screenshot).
 - Sprite faces (`HrSp`) and tiles are raw 8-bit indices → clut 8.
+
+### Sprite tints (draw procs, `BlitEncFace` modes)
+
+- Every face has a draw proc (face +0x18; `BlitEncFaceProc` unless
+  `InitFaces` or a sprite's init routine sets another). It calls
+  `BlitEncFace(face, port, …, mode, arg)`: mode 0 plain, 1 a tint table,
+  2 translucent, 3 reddening, 4 heating; mode 1 with arg −1 becomes 2.
+  `arg` is the table index; a scaled sprite adds its scale << 5 (from
+  0x20 on the face is drawn scaled, the index in the low 5 bits, and
+  untinted when that is 0). `NoScaleDrawProc` and some procs pass no
+  scale (drawn unscaled).
+- Tables (`BuildTintTable` at launch, from the screen device's colour
+  table, each RGB mapped back with `Color2Index`):
+  - `_DAT_10065d00` 16 tints, entries 0–254 (255 black stays; 13, 14 all
+    256): 0 identity, 1 red (grey + 10000), 2 yellow, 3 blue, 4 (0, grey,
+    FFFF), 5 light grey (+ 16000), 6 half, 7 quarter, 8 × 1.5, 9 × 2.5,
+    10 random (`SATRand(5000)` for blue, then red; green the grey), 11
+    grey, 12 (FFFF, grey, 0), 13 green and blue halfway to FFFF, 14 brown,
+    15 identity.
+  - `_DAT_10065d10` translucent: by s = 0–15 (the face pixel's grey >> 12,
+    `_DAT_10065d14`) the pixel below lightened by s << 11, then grey.
+  - `_DAT_10065d0c` redden, 8 steps: toward ((grey + FFFF) / 2, 0, 0) by
+    (s + 1) / 8; `_DAT_10065d08` heat, 16 steps toward (g, g, g / 2) with g
+    = (grey + FFFF) / 2 by (s + 1) / 16. Black stays.
+  - `re/tools/emu_tint.py` runs it with `Color2Index` logging: all 13 812
+    colours and the 57 tables match the port (`tint::Tables`).
+- `Color2Index` uses the device's 4-bit inverse table (`MakeITable`). The
+  port takes the nearest colour of clut 8 for each cell (`tint::
+  inverse_table`), an approximation: the ROM's construction is not
+  reproduced.
+- The procs (port: `tint::draw_proc`, by face range `tint::proc_of`):
+  - Harry (`TintDrawProc`): kind 10 translucent; on caffeine tint
+    `SATRand(10)` + 1; spraying the fire extinguisher heat fire hold / 2
+    (above 15 cycling 15, 14, 13, 12, 13, 14); comfort falling redden
+    (shown − comfort, at most 8) − 1; else the level's tint.
+  - The level's tint is level info #0 (Hlvl 0x12074); most procs use it
+    when it is not 0. `UserTintableSpriteDrawProc`: else the level
+    entry's info #0 (−1 … 15, else 0); buttons and the mail guy: info #3
+    (with a level tint, level info #3); messages: info #2.
+  - Hit (layer 10): robots, turrets, reversors tint 4 (and back to layer
+    7), blobs 8 (+0x8a, layer 7), grates 4 (layer 9), scientists and dart
+    enemies 1.
+  - By kind: robots (1801 plain, 1811 2, 1851–1852 4, 1861–1862 10, other
+    1812–1899 1, the rest not drawn), reversors (2011 1, 2021 4, else 0 -
+    they ignore the level's tint), turrets (< 1910 plain, < 1920 8, else
+    12), scientists (1200–1300 6), ghosts (5001 plain, else 1), fences 1,
+    blobs (1701 plain, 1711 10, 1712–1799 1, the rest not drawn), effects
+    (kind −1 translucent, 5 → 4, else their kind; plain for 0 or f7c >
+    4199), doors 903 / 913 / 923 / 933 (by entry info #0: 0 or no entry
+    4, 1 2, 2 10, else not drawn), copier (9200 plain, else 6), vending
+    machine (6 when empty and drawn before).
+  - The held gun (`WeaponTintDrawProc`, Harry's scale): staple gun plain,
+    shrapnel gun 4, B.A.D.A.S.S. 12 / 8 blinking by the fire hold from 7
+    on; above 66 the proc puts the fire hold back to 61.
+  - The boss: hurt (`f6e` < 0) reddened 7 at a phase change, else
+    (0.16 · (50 − state mod 50), 2 … 8) − 1; in phase 3 a random tint
+    (`SATRand(15)`); in phase 2 by its animation 0 → 7, 1 / 7 → 6, 3 / 5
+    → 8, 4 → 9.
+  - The fans (`ACDrawProc`) and dart enemies also draw a second face (the
+    grille, the loaded dart); the port does not draw those yet.
+- The whole-frame recorder logs every blit of the draw procs (face, mode,
+  arg) and compares them with the port's (`Game::blits`); all 1500 runs
+  match. Planted bugs: 5 of 8 caught; not reached by the runs: a fire hold
+  over 66 and the kind boundaries 1920 (turret) and 1200 (scientist).
 
 ### Sprites `HrSp` (Harry Graphics, ids 1001–6054, 929 faces)
 

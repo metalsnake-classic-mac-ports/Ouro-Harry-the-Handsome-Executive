@@ -42,6 +42,7 @@ use crate::effect::handle_effect;
 use crate::shots::{HeldWeapon, Holder, Shot, WeaponEvent, handle_held_weapon, handle_shot, hit_player_shot, hit_shot_tile, weapon_face};
 use crate::sprite::{Face, HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{sect, touched_tiles};
+use crate::tint::{Blit, DrawWorld, draw_proc, prop_blit};
 use crate::touch::{TouchEvent, TouchWorld, touch};
 use crate::track::TrackMap;
 use crate::view::{View, find_upper_left_corner};
@@ -184,6 +185,9 @@ pub struct Game {
     pub keep_track: bool,
     /// The saved game and the world.
     pub session: Session,
+    /// The draw procs' blits of the last frame: (record, or none for a
+    /// prop; blit), in order.
+    pub blits: Vec<(Option<usize>, Blit)>,
 }
 
 /// What lasts the whole session: the saved-game record and the world.
@@ -1260,18 +1264,23 @@ impl Game {
     /// or the shrapnel gun charges, and on caffeine draws a random number
     /// (`SATRand(10)`) - as does the boss in phase 3 (`SATRand(15)`).
     fn draw_pass(&mut self, assets: &Assets) {
+        self.blits.clear();
         let (vv, vh) = (i32::from(self.view.corner.0), i32::from(self.view.corner.1));
         let origin = scroll_origin(self.view.corner);
-        // behind the tiles (+0x8b set), then above them
+        let in_view = |at: (i16, i16)| {
+            let (v, h) = (i32::from(at.0), i32::from(at.1));
+            vv - 64 <= v && v < vv + 512 && vh - 64 <= h && h < vh + 512
+        };
+        // the background props, the sprites behind the tiles (+0x8b set)
+        // and the foreground props; then the sprites above the tiles
         for behind in [true, false] {
+            if behind {
+                self.draw_props(false, &in_view, origin, assets);
+            }
             for k in 0..self.world.sprites.list.len() {
                 let i = self.world.sprites.list[k];
                 let sp = &self.world.sprites.recs[i];
-                if sp.task.is_none() || sp.face == 0 || sp.b8b != behind {
-                    continue;
-                }
-                let (v, h) = (i32::from(sp.at.0), i32::from(sp.at.1));
-                if !(vv - 64 <= v && v < vv + 512 && vh - 64 <= h && h < vh + 512) {
+                if sp.task.is_none() || sp.face == 0 || sp.b8b != behind || !in_view(sp.at) {
                     continue;
                 }
                 let b = (assets.face_bounds)(sp.face);
@@ -1299,63 +1308,38 @@ impl Game {
                     self.drawn(i);
                 }
             }
+            if behind {
+                self.draw_props(true, &in_view, origin, assets);
+            }
         }
     }
 
-    /// One call of a sprite's draw proc.
+    /// The props of one table in the view, each through its face's draw
+    /// proc without a sprite.
+    fn draw_props(&mut self, fg: bool, in_view: &dyn Fn((i16, i16)) -> bool, origin: (i32, i32), assets: &Assets) {
+        let props = if fg { &self.world.fg_props } else { &self.world.bg_props };
+        for p in props.slots.iter().filter(|p| in_view(p.at)) {
+            let b = (assets.face_bounds)(p.face);
+            for _ in 0..wrap_draws(p.at, (b[3], b[2]), origin, true) {
+                self.blits.push((None, prop_blit(p.face, &self.level)));
+            }
+        }
+    }
+
+    /// One call of a sprite's draw proc (`tint::draw_proc`): its blit
+    /// goes to `blits`.
     fn drawn(&mut self, i: usize) {
-        let g = &self.g;
-        let boss = self.world.sprites.boss;
-        let sp = &mut self.world.sprites.recs[i];
-        match sp.face {
-            // TintDrawProc (Harry)
-            1101..=1244 => {
-                if sp.kind == 10 {
-                    sp.b8a = true;
-                } else if g.caffeine < 1 {
-                    let item = usize::try_from(g.cur_slot)
-                        .ok()
-                        .and_then(|s| g.inventory.get(s))
-                        .map_or(-1, |e| e.0);
-                    if g.fire_hold < 1 || item != 11999 {
-                        if g.comfort < g.comfort_shown {
-                            sp.b8a = true;
-                        }
-                    } else {
-                        sp.b8a = true;
-                    }
-                } else {
-                    self.rng.below(10);
-                }
-            }
-            // RobotTintDrawProc, MGTintDrawProc, TurretTintDrawProc
-            4201..=4236 | 4701..=4772 | 4601..=4632 => {
-                if sp.layer == 10 {
-                    sp.layer = 7;
-                }
-            }
-            1401..=1424 => crate::blob::drawn(sp),
-            3401..=3404 => crate::grate::drawn(sp),
-            // VendingDrawProc
-            1902 | 1903 => {
-                let empty = usize::try_from(sp.level_index)
-                    .ok()
-                    .and_then(|x| self.level.sprites.get(x))
-                    .is_some_and(|e| e.info[1] < 1);
-                if sp.f78 == 1 && empty {
-                    sp.b8a = true;
-                }
-                sp.f78 = 1;
-            }
-            // BossTintDrawProc
-            4902..=4937 => {
-                if sp.f6e < 0 {
-                    sp.b8a = true;
-                } else if (boss.anim == 2 || boss.anim == 6 || boss.phase != 2) && boss.phase == 3 {
-                    self.rng.below(15);
-                }
-            }
-            _ => {}
+        let harry_scale = self.harry.map_or(0x100, |p| self.world.sprites.recs[p].scale[0]);
+        let mut w = DrawWorld {
+            level: &self.level,
+            g: &mut self.g,
+            rng: &mut self.rng,
+            boss: &self.world.sprites.boss,
+            gun: self.gun,
+            harry_scale,
+        };
+        if let Some(b) = draw_proc(&mut self.world.sprites.recs[i], &mut w) {
+            self.blits.push((Some(i), b));
         }
     }
 

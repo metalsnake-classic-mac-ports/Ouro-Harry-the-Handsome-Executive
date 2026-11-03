@@ -312,13 +312,3 @@ pub fn shot_hit(blob: &mut Sprite, events: &mut Vec<SpriteEvent>) -> bool {
     }
     true
 }
-
-/// The blob's draw proc: a hit blob (layer 10) is drawn lit and goes back
-/// to layer 7.
-pub fn drawn(sp: &mut Sprite) {
-    if sp.layer == 10 {
-        sp.layer = 7;
-        sp.b8a = true;
-    }
-}
-

@@ -47,6 +47,7 @@ pub mod sprite;
 pub mod stairs;
 pub mod tiles;
 pub mod text;
+pub mod tint;
 pub mod touch;
 pub mod track;
 pub mod turret;

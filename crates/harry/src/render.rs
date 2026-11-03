@@ -9,15 +9,21 @@
 //! and copied to the screen row by row - shifted sideways where the level
 //! ripples (`DoubleBlitSine`).
 //!
-//! Not drawn yet: the sprites' tints (draw procs), the panel's texts
-//! (level name, score) and the meters' rounded ends.
+//! Each sprite is drawn in the colours its draw proc chose in the game's
+//! draw pass (`Game::blits`, `harry_core::tint`): tinted, translucent,
+//! reddened or heated through the tables `BuildTintTable` makes.
+//!
+//! Not drawn yet: the panel's texts (level name, score), the meters'
+//! rounded ends, the fans' grilles and the dart enemies' loaded darts.
 
 use harry_core::game::Game;
 use harry_core::ripple;
 use harry_core::level::{NO_TILE, SIZE};
 use harry_core::shots::scaled_pos;
+use harry_core::random::Random;
 use harry_core::sprite::Sprite;
-use harry_data::{GameData, Image};
+use harry_core::tint::{self, Blit, Tables};
+use harry_data::{GameData, Image, clut8};
 
 pub const SCREEN_WIDTH: usize = 640;
 pub const SCREEN_HEIGHT: usize = 480;
@@ -42,37 +48,42 @@ impl Canvas {
         Canvas { width, height, pixels: vec![fill; width * height], area: (AREA, AREA, AREA_SIZE, AREA_SIZE) }
     }
 
-    /// Set a pixel of the game area at level position (h, v).
-    fn plot(&mut self, view: (i16, i16), h: i32, v: i32, c: u8) {
+    /// Set a pixel of the game area at level position (h, v), in a
+    /// colour mode (`Shade`).
+    fn plot(&mut self, view: (i16, i16), h: i32, v: i32, c: u8, shade: Shade) {
         let x = h - i32::from(view.1);
         let y = v - i32::from(view.0);
         let (ax, ay, aw, ah) = self.area;
         if (0..aw).contains(&x) && (0..ah).contains(&y) {
-            self.pixels[(ay + y) as usize * self.width + (ax + x) as usize] = c;
+            let p = &mut self.pixels[(ay + y) as usize * self.width + (ax + x) as usize];
+            *p = match shade {
+                Some((mode, index)) => tables().shade(mode, index, c, *p),
+                None => c,
+            };
         }
     }
 
     /// Draw part of an image (`src` = (x, y, w, h)) at level position (h, v).
-    fn blit(&mut self, view: (i16, i16), img: &Image, src: (usize, usize, usize, usize), at: (i32, i32)) {
+    fn blit(&mut self, view: (i16, i16), img: &Image, src: (usize, usize, usize, usize), at: (i32, i32), shade: Shade) {
         let (sx, sy, w, h) = src;
         for y in 0..h {
             for x in 0..w {
                 if let Some(c) = img.get(sx + x, sy + y) {
-                    self.plot(view, at.0 + x as i32, at.1 + y as i32, c);
+                    self.plot(view, at.0 + x as i32, at.1 + y as i32, c, shade);
                 }
             }
         }
     }
 
     /// Draw an image scaled to `size` (w, h) at level position (h, v).
-    fn blit_scaled(&mut self, view: (i16, i16), img: &Image, size: (usize, usize), at: (i32, i32)) {
+    fn blit_scaled(&mut self, view: (i16, i16), img: &Image, size: (usize, usize), at: (i32, i32), shade: Shade) {
         if size.0 == 0 || size.1 == 0 {
             return;
         }
         for y in 0..size.1 {
             for x in 0..size.0 {
                 if let Some(c) = img.get(x * img.width / size.0, y * img.height / size.1) {
-                    self.plot(view, at.0 + x as i32, at.1 + y as i32, c);
+                    self.plot(view, at.0 + x as i32, at.1 + y as i32, c, shade);
                 }
             }
         }
@@ -133,16 +144,46 @@ fn copy_area(c: &mut Canvas, ring: &Canvas, game: &Game) {
     }
 }
 
-fn draw_sprite(c: &mut Canvas, data: &GameData, view: (i16, i16), s: &Sprite) {
+/// A blit's colour mode and table index (`None`: the face's own colours).
+type Shade = Option<(i16, i16)>;
+
+/// The colour tables, built once from the screen's colour table (tint 10's
+/// random colours from a fixed seed; the original's come from the clock).
+fn tables() -> &'static Tables {
+    static TABLES: std::sync::OnceLock<Tables> = std::sync::OnceLock::new();
+    TABLES.get_or_init(|| {
+        let clut = clut8();
+        let itable = tint::inverse_table(&clut);
+        let mut rng = Random::new(1);
+        Tables::build(&clut, &mut |rgb| tint::color2index(&itable, rgb), &mut || rng.below(5000) as u16)
+    })
+}
+
+/// How `BlitEncFace` draws in `mode` with `arg`: from 0x20 on, scaled
+/// (arg >> 5) with the table index in the low 5 bits, untinted when that
+/// is 0; mode 1 with −1 is translucent.
+fn shade_of(blit: Option<&Blit>) -> Shade {
+    let b = blit?;
+    let index = if b.arg >= 0x20 { b.arg & 0x1f } else { b.arg };
+    match b.mode {
+        0 => None,
+        _ if b.arg >= 0x20 && index == 0 => None,
+        1 if index == -1 => Some((2, 0)),
+        m => Some((m, index)),
+    }
+}
+
+fn draw_sprite(c: &mut Canvas, data: &GameData, view: (i16, i16), s: &Sprite, blit: Option<&Blit>) {
     let Some(face) = data.faces.get(&s.face) else { return };
     let img = &face.image;
+    let shade = shade_of(blit);
     if s.scale[0] == 0x100 && s.scale[1] == 0x100 {
-        c.blit(view, img, (0, 0, img.width, img.height), (i32::from(s.at.1), i32::from(s.at.0)));
+        c.blit(view, img, (0, 0, img.width, img.height), (i32::from(s.at.1), i32::from(s.at.0)), shade);
     } else {
         let (v, h) = scaled_pos(s.at, face.bounds, s.scale[0], s.scale[1]);
         let w = (i32::from(s.scale[0]) * img.width as i32) >> 8;
         let hh = (i32::from(s.scale[1]) * img.height as i32) >> 8;
-        c.blit_scaled(view, img, (w.max(0) as usize, hh.max(0) as usize), (i32::from(h), i32::from(v)));
+        c.blit_scaled(view, img, (w.max(0) as usize, hh.max(0) as usize), (i32::from(h), i32::from(v)), shade);
     }
 }
 
@@ -185,22 +226,30 @@ fn draw_area(data: &GameData, game: &Game) -> Option<Canvas> {
         for y in y0..=y1 {
             let b = level.bg_tile(x, y) as usize;
             if b < 96 {
-                c.blit(view, &tiles.background, (b % 8 * 32, b / 8 * 32, 32, 32), (x * 32, y * 32));
+                c.blit(view, &tiles.background, (b % 8 * 32, b / 8 * 32, 32, 32), (x * 32, y * 32), None);
             }
         }
     }
     let w = &game.world;
     let prop = |c: &mut Canvas, p: &harry_core::props::Prop| {
         if let Some(f) = data.faces.get(&p.face) {
-            c.blit(view, &f.image, (0, 0, f.image.width, f.image.height), (i32::from(p.at.1), i32::from(p.at.0)));
+            let b = tint::prop_blit(p.face, level);
+            c.blit(view, &f.image, (0, 0, f.image.width, f.image.height), (i32::from(p.at.1), i32::from(p.at.0)), shade_of(Some(&b)));
         }
     };
     for p in &w.bg_props.slots {
         prop(&mut c, p);
     }
-    let sprites: Vec<&Sprite> = w.sprites.list.iter().map(|&i| w.rec(i)).filter(|s| s.task.is_some()).collect();
-    for s in sprites.iter().filter(|s| s.b8b) {
-        draw_sprite(&mut c, data, view, s);
+    // each sprite in the colours of its draw proc's (first) blit
+    let sprites: Vec<(&Sprite, Option<&Blit>)> = w
+        .sprites
+        .list
+        .iter()
+        .filter(|&&i| w.rec(i).task.is_some())
+        .map(|&i| (w.rec(i), game.blits.iter().find(|b| b.0 == Some(i)).map(|b| &b.1)))
+        .collect();
+    for (s, b) in sprites.iter().filter(|s| s.0.b8b) {
+        draw_sprite(&mut c, data, view, s, *b);
     }
     for p in &w.fg_props.slots {
         prop(&mut c, p);
@@ -210,12 +259,12 @@ fn draw_area(data: &GameData, game: &Game) -> Option<Canvas> {
             let f = level.fg_tile(x, y);
             if f != NO_TILE && f < 64 {
                 let f = f as usize;
-                c.blit(view, &tiles.foreground, (f % 8 * 32, f / 8 * 32, 32, 32), (x * 32, y * 32));
+                c.blit(view, &tiles.foreground, (f % 8 * 32, f / 8 * 32, 32, 32), (x * 32, y * 32), None);
             }
         }
     }
-    for s in sprites.iter().filter(|s| !s.b8b) {
-        draw_sprite(&mut c, data, view, s);
+    for (s, b) in sprites.iter().filter(|s| !s.0.b8b) {
+        draw_sprite(&mut c, data, view, s, *b);
     }
     Some(c)
 }

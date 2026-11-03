@@ -122,14 +122,6 @@ pub fn hit_grate(sp: &mut Sprite, other: &Sprite, rng: &mut Random) {
     }
 }
 
-/// A grate's drawing (`GrateTintDrawProc`): a hit grate (layer 10, not a
-/// fence) is drawn lit and goes to layer 9.
-pub fn drawn(sp: &mut Sprite) {
-    if sp.layer == 10 && sp.kind < FENCE {
-        sp.layer = 9;
-    }
-}
-
 /// `VBounce` / `HBounce` (`GrateBounce`: across → V): an object with
 /// centre at + `half` and hot rect `hot` touching the grate is put back on
 /// its side (the grate's middle line decides), its speed across reversed
