@@ -949,7 +949,15 @@ impl Game {
                         KeyEvent::StopCharge => self.sounds.push(SoundEvent::StopCharge),
                         KeyEvent::VoiceSound(id) => self.play(id, 0x100, None, RATE, Channel::Voice),
                         KeyEvent::Sound3D { snd, pitch } => self.play(snd, 0x100, Some(at), u32::from(pitch), Channel::Effect),
-                        KeyEvent::Balloon(_) => {}
+                        // ShowBalloon(NULL, text, 2): over Harry, no sound; if it
+                        // does not fit (and the view pages), the view is nudged
+                        // by the null sprite's position - low memory, 0 here
+                        // (BUGS.md)
+                        KeyEvent::Balloon(n) => {
+                            let (view, player) = (self.view.corner, self.g.player_pos);
+                            let r = show(&Balloon { text: BalloonText::Message(n), mode: 2, at: (0, 0), view, player });
+                            self.balloons(vec![(r, 2, (0, 0))], (0, 0));
+                        }
                     }
                 }
                 self.player_sounds(sounds);

@@ -79,6 +79,10 @@ pub struct GameData {
     /// The world's texts (`Hwld` 0 + 0x3c9 + n · 256) by number, Mac
     /// Roman; empty ones are left out.
     pub texts: BTreeMap<i16, Vec<u8>>,
+    /// The application's balloon texts (Mac Roman): 0–51 the random ones
+    /// of the P-A-R-G-H-Z keys, −1 the B-E-N one (in the PowerPC data
+    /// section at 0x3818 + n · 256 and 0x3718).
+    pub messages: BTreeMap<i16, Vec<u8>>,
     /// The sentence generators' word lists (`STR#` 6900–6905, 6800–6801).
     pub words: harry_core::words::Words,
     /// Sounds by `snd` id (`Harry Sounds`).

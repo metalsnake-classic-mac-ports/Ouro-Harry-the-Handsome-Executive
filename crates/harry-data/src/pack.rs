@@ -19,6 +19,7 @@
 //! - `words/ID.txt`: the word lists of the memo and phone sentences
 //!   (`STR#` 6900–6905, 6800–6801), one string per line (UTF-8)
 //! - `sounds/ID.wav`, `world_sounds/ID.wav`: the sounds (8-bit mono WAV)
+//! - `messages.txt`: the application's balloon texts, as `texts.txt`
 //! - `texts.txt`: the world's texts, `n text` per line (UTF-8; a line
 //!   break inside a text is `\r`, a backslash `\\`)
 
@@ -31,7 +32,7 @@ use zip::write::SimpleFileOptions;
 use crate::{Face, GameData, Image, MaskImages, Result, Sound, TileSet, WorldInfo, clut8, corrupt, level};
 
 /// The first line of `pack.txt`.
-pub const FORMAT: &str = "Harry the Handsome Executive data pack 3";
+pub const FORMAT: &str = "Harry the Handsome Executive data pack 4";
 
 fn encode_png(width: usize, height: usize, color: png::ColorType, data: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
@@ -160,12 +161,8 @@ pub fn write(data: &GameData) -> Result<Vec<u8>> {
     for (i, l) in data.levels.iter().enumerate() {
         put(&format!("levels/{:02}.txt", i + 1), level::write(l).as_bytes())?;
     }
-    let mut texts = String::new();
-    for (n, t) in &data.texts {
-        let t = harry_core::text::mac_roman(t).replace('\\', "\\\\").replace('\r', "\\r");
-        texts.push_str(&format!("{n} {t}\n"));
-    }
-    put("texts.txt", texts.as_bytes())?;
+    put("texts.txt", texts_file(&data.texts).as_bytes())?;
+    put("messages.txt", texts_file(&data.messages).as_bytes())?;
     for (id, list) in word_lists(&data.words) {
         let lines: Vec<String> = list.iter().map(|w| harry_core::text::mac_roman(w)).collect();
         put(&format!("words/{id}.txt"), format!("{}\n", lines.join("\n")).as_bytes())?;
@@ -257,28 +254,8 @@ pub fn read(bytes: &[u8]) -> Result<GameData> {
     for id in world.picture_ids(&levels) {
         world_pictures.insert(id, png_image(&get(&format!("world/{id}.png"))?, &colours)?);
     }
-    let mut texts = BTreeMap::new();
-    for line in text(get("texts.txt")?).lines() {
-        let (n, t) = line.split_once(' ').ok_or_else(|| corrupt("texts.txt"))?;
-        let n: i16 = n.parse().map_err(|_| corrupt("texts.txt"))?;
-        let mut s = String::new();
-        let mut esc = false;
-        for c in t.chars() {
-            match (esc, c) {
-                (false, '\\') => esc = true,
-                (true, 'r') => {
-                    s.push('\r');
-                    esc = false;
-                }
-                (true, c) => {
-                    s.push(c);
-                    esc = false;
-                }
-                (false, c) => s.push(c),
-            }
-        }
-        texts.insert(n, harry_core::text::to_mac_roman(&s));
-    }
+    let texts = read_texts(&text(get("texts.txt")?), "texts.txt")?;
+    let messages = read_texts(&text(get("messages.txt")?), "messages.txt")?;
     let mut words = harry_core::words::Words::default();
     for (k, id) in (6900..6906).chain(6800..6802).enumerate() {
         let list: Vec<Vec<u8>> = text(get(&format!("words/{id}.txt"))?).lines().map(harry_core::text::to_mac_roman).collect();
@@ -302,7 +279,7 @@ pub fn read(bytes: &[u8]) -> Result<GameData> {
     };
     let sounds = sound_set("sounds")?;
     let world_sounds = sound_set("world_sounds")?;
-    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, world_pictures, world, icons, levels, texts, words, sounds, world_sounds })
+    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, world_pictures, world, icons, levels, texts, messages, words, sounds, world_sounds })
 }
 
 fn word_lists(w: &harry_core::words::Words) -> Vec<(i16, &Vec<Vec<u8>>)> {
@@ -355,4 +332,41 @@ fn unwav(d: &[u8]) -> Option<Sound> {
         p += 8 + size + (size & 1);
     }
     None
+}
+
+/// Texts by number, `n text` per line (UTF-8; a line break inside a text
+/// is `\r`, a backslash `\\`).
+fn texts_file(texts: &BTreeMap<i16, Vec<u8>>) -> String {
+    let mut out = String::new();
+    for (n, t) in texts {
+        let t = harry_core::text::mac_roman(t).replace('\\', "\\\\").replace('\r', "\\r");
+        out.push_str(&format!("{n} {t}\n"));
+    }
+    out
+}
+
+fn read_texts(file: &str, name: &str) -> Result<BTreeMap<i16, Vec<u8>>> {
+    let mut texts = BTreeMap::new();
+    for line in file.lines() {
+        let (n, t) = line.split_once(' ').ok_or_else(|| corrupt(name))?;
+        let n: i16 = n.parse().map_err(|_| corrupt(name))?;
+        let mut s = String::new();
+        let mut esc = false;
+        for c in t.chars() {
+            match (esc, c) {
+                (false, '\\') => esc = true,
+                (true, 'r') => {
+                    s.push('\r');
+                    esc = false;
+                }
+                (true, c) => {
+                    s.push(c);
+                    esc = false;
+                }
+                (false, c) => s.push(c),
+            }
+        }
+        texts.insert(n, harry_core::text::to_mac_roman(&s));
+    }
+    Ok(texts)
 }

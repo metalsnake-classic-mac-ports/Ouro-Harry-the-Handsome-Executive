@@ -227,6 +227,12 @@ fn episode_1_frames_match_the_original() {
                     'Y' => km.press(0x10),
                     'G' => km.press(0x05),
                     'R' => km.press(0x0F),
+                    'P' => km.press(0x23),
+                    'H' => km.press(0x04),
+                    'Z' => km.press(0x06),
+                    'B' => km.press(0x0B),
+                    'E' => km.press(0x0E),
+                    'N' => km.press(0x2D),
                     _ => {}
                 }
             }

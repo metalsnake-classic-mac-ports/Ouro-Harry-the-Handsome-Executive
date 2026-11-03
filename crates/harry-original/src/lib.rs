@@ -6,6 +6,7 @@ pub mod cicn;
 pub mod hlvl;
 pub mod hrsp;
 pub mod masks;
+pub mod pef;
 pub mod pict;
 pub mod resfork;
 pub mod snd;

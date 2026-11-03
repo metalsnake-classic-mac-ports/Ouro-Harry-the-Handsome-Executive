@@ -42,6 +42,7 @@ pub fn text_of(b: &Balloon, data: &GameData) -> Vec<u8> {
     match &b.text {
         BalloonText::World(n) => data.texts.get(n).cloned().unwrap_or_default(),
         BalloonText::Buzzwords(t) | BalloonText::Phonewords(t) => t.clone(),
+        BalloonText::Message(n) => data.messages.get(n).cloned().unwrap_or_default(),
     }
 }
 

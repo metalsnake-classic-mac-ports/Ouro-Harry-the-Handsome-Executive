@@ -107,6 +107,14 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
             texts.insert(n as i16, world[o + 1..o + 1 + len].to_vec());
         }
     }
+    // the balloon texts of the key cheats live only in the PowerPC data
+    let app_data = MacBinary::parse(&std::fs::read(dir.join("Harry 1.0.1.bin")).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?
+        .data;
+    let section = harry_original::pef::data_section(&app_data).ok_or("the PowerPC data section")?;
+    let mut messages: BTreeMap<i16, Vec<u8>> =
+        harry_original::pef::strings(&section, 0x3818, 52).into_iter().enumerate().map(|(n, t)| (n as i16, t)).collect();
+    messages.insert(-1, harry_original::pef::strings(&section, 0x3718, 1).remove(0));
     let words = harry_original::words::words(&app).map_err(|e| format!("word lists: {e}"))?;
     let sound_set = |r: &Resources| -> BTreeMap<i16, harry_data::Sound> {
         r.ids(b"snd ")
@@ -122,7 +130,7 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
     };
     let (sounds, world_sounds) = (sound_set(&sound_file), sound_set(&ep));
     let data =
-        GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, world_pictures, world: world_info, icons, levels, texts, words, sounds, world_sounds };
+        GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, world_pictures, world: world_info, icons, levels, texts, messages, words, sounds, world_sounds };
     let bytes = harry_data::pack::write(&data).map_err(|e| e.to_string())?;
     std::fs::write(out, &bytes).map_err(|e| format!("{}: {e}", out.display()))?;
     println!(

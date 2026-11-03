@@ -469,6 +469,14 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   these words), each step must come within a window of 200/200/250
   frames: **P-A-R-G-H-Z** → random balloon of 52 messages (data
   0x10068ba8, 256 bytes each), **B-E-N** → a fixed balloon (0x10068aa8),
+  both `ShowBalloon(NULL, text, 2)`: over Harry, no sound, nothing frozen.
+  The texts (insider jokes; Ben's says he wrote the game) exist only in
+  the PowerPC data section (offsets 0x3818 / 0x3718; the 68k build keeps
+  them in its compressed `DATA` 0): `harry_original::pef` unpacks PEF's
+  pattern-initialised data (checked against Ghidra's: the 3003 words that
+  differ are all the loader's relocations) and the pack keeps them in
+  `messages.txt`. The whole-frame recorder types both sequences in some
+  runs.
   **W-A-V-Y-G-R-A-V-Y** → toggles the ripple effect (level 0x12088 = 100,
   0x1208a = 16, 0x1208c = 0x300 and `BuildSineTable`).
 - Keys 1–4 (codes 0x12–0x15) select staple gun / B.A.D.A.S.S. / shrapnel

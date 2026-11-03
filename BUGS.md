@@ -186,6 +186,13 @@ option) and why.
   left of the meter, over its frame. The picture stays until that meter
   changes again. Port: kept (`Game::meters` records it as drawn).
 
+- **A cheat balloon that does not fit reads a null sprite.** The
+  P-A-R-G-H-Z and B-E-N balloons are `ShowBalloon(NULL, text, 2)`. When
+  the balloon does not fit and the view pages (scroll mode 3), it nudges
+  the view by the sprite's position - read through the null pointer, from
+  low memory (0x2 / 0x4). Port: kept with that position as 0 (the view
+  moves up and left), as the recorder's zeroed page 0 gives.
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

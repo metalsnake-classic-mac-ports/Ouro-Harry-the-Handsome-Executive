@@ -558,6 +558,9 @@ pub enum BalloonText {
     Buzzwords(Vec<u8>),
     /// A sentence of the phone word generator (`GeneratePhonewords`).
     Phonewords(Vec<u8>),
+    /// One of the application's own texts (the key cheats' balloons): 0–51
+    /// the random ones, −1 the B-E-N one.
+    Message(i16),
 }
 
 /// `ShowBalloon(sprite, text, mode)`: shows the balloon over the sprite

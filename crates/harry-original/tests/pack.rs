@@ -72,6 +72,13 @@ fn pack_holds_the_original_data() {
         assert_eq!(data.texts.get(&(n as i16)).map_or(&[][..], |v| v.as_slice()), t, "text {n}");
     }
     assert_eq!(data.words, harry_original::words::words(&app).unwrap());
+    let app_bin = std::fs::read(root().join("re/work/installed/Harry 1.0.1.bin")).unwrap();
+    let section = harry_original::pef::data_section(&MacBinary::parse(&app_bin).unwrap().data).unwrap();
+    assert_eq!(data.messages.len(), 53);
+    for (n, t) in harry_original::pef::strings(&section, 0x3818, 52).into_iter().enumerate() {
+        assert_eq!(data.messages[&(n as i16)], t, "message {n}");
+    }
+    assert!(data.messages[&-1].starts_with(b"Ben? You mean Ben Spees?"));
     let Some(sounds) = installed("Harry Sounds.bin") else { return };
     for id in sounds.ids(b"snd ") {
         let s = harry_original::snd::decode(sounds.get(b"snd ", id).unwrap()).unwrap();

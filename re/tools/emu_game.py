@@ -62,7 +62,8 @@ INITS = ("InitPlayerSprite", "InitHeldWeaponSprite", "InitBonusSprite", "InitIte
          "InitScientistSprite", "InitBlobSprite", "InitBossSprite")
 BINDINGS = [0x7B, 0x7C, 0x7D, 0x7E, 0x31, 0x3B, 0x3A]
 KEYS = {"l": 0x7B, "r": 0x7C, "s": 0x7D, "i": 0x7E, "k": 0x31, "e": 0x3B, "u": 0x3A, "1": 0x12, "2": 0x13, "3": 0x14,
-        "4": 0x15, "W": 0x0D, "A": 0x00, "V": 0x09, "Y": 0x10, "G": 0x05, "R": 0x0F}
+        "4": 0x15, "W": 0x0D, "A": 0x00, "V": 0x09, "Y": 0x10, "G": 0x05, "R": 0x0F, "P": 0x23, "H": 0x04, "Z": 0x06,
+        "B": 0x0B, "E": 0x0E, "N": 0x2D}
 PROP_FACES = {0x10065A60: 6034, 0x10065A5C: 6035, 0x10065A58: 6036, 0x10065A54: 6037,
               0x10065A40: 6051, 0x10065A3C: 6052, 0x10065A38: 6053, 0x10065A34: 6054,
               0x10065A0C: 6041, 0x10065A04: 6042, 0x10065A00: 6043, 0x100659FC: 6044}     # the props, the fire pipes
@@ -436,6 +437,13 @@ def main():
                         keys[f0] = c
                     f0 += 1
                 f0 += rnd.randint(0, 40)
+        # P-A-R-G-H-Z (a random message) or B-E-N (Ben's) typed: a balloon
+        if rnd.random() < 0.06:
+            f0 = rnd.randint(0, st["frames"])
+            for c in rnd.choice(["PARGHZ-", "BEN-"]):
+                if f0 < len(keys):
+                    keys[f0] = c
+                f0 += 1
         st["keys"] = ",".join(keys)
         if debug_seed and debug_seed != st["seed"]:
             continue

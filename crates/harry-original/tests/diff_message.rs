@@ -59,6 +59,7 @@ fn message_matches_the_original() {
                 BalloonText::World(n) => n.to_string(),
                 BalloonText::Buzzwords(t) => format!("buzz:{}", t.iter().map(|x| format!("{x:02x}")).collect::<String>()),
                 BalloonText::Phonewords(_) => "phone".into(),
+                BalloonText::Message(n) => format!("message:{n}"),
             };
             calls.push(format!("b:{name}:{mode}:{}", u8::from(ans)));
             ans

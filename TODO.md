@@ -107,7 +107,7 @@
 - [ ] Frontend: music (`Tune`), menus, preferences; free scaling as an option next to integer scaling
 - [ ] Sound feedback into the game: "is a voice / the fan / the bump playing" (the original asks its channels; the port answers no)
 - [x] Frontend: letters by the keyboard layout (an improvement, NOTES "Port improvements"); F1–F4, F12, F13, N and P mapped
-- [ ] `KeyEvent::Balloon` (the random messages of the B-E-N sequence and other keys) in the frontend
+- [x] `KeyEvent::Balloon`: the P-A-R-G-H-Z and B-E-N balloons (texts from the PowerPC data section)
 - [ ] `Hwld` 0: decode the fields before the texts (0–0x3c8)
 
 ## Phase 3: emulator
