@@ -1983,3 +1983,17 @@ QuickTime Musical Instruments.
 - The PPC code computes `speed ± k · p` with separate `fmul` and
   `fadd`/`fsub` (no fused multiply-add) in double, then `fctiwz`: Rust
   `f64` arithmetic and `as i32` give the same results.
+
+## Port improvements
+
+Where the port deliberately differs from the original (the game logic in
+`harry-core` stays faithful; these are around it):
+
+- **Keyboard layout.** The original reads key positions (`GetKeys`, US
+  layout): on a German keyboard the cheat W-A-V-Y-G-R-A-V-Y is typed
+  W-A-V-Z-G-R-A-V-Z. The port's frontend gives the letters by the current
+  layout (`Keycode::from_scancode`, `LETTERS` in `ouro-harry`), so the
+  letters printed on the keys work. The other keys (arrows, space,
+  modifiers, digits, F keys) stay by position.
+- **Registration.** The port plays as registered; the shareware limit
+  after level 5 (`LevelLimit`) is left out.

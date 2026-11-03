@@ -34,7 +34,8 @@ use harry_core::world::World;
 use harry_core::frame::PlayerGlobals;
 use harry_data::{GameData, clut8};
 use sdl3::event::Event;
-use sdl3::keyboard::{KeyboardState, Scancode};
+use sdl3::keyboard::{KeyboardState, Keycode, Scancode};
+use sdl3::sys::keycode::SDL_KMOD_NONE;
 use sdl3::pixels::PixelFormat;
 use sdl3::render::ScaleMode;
 use sdl3::sys::render::SDL_LOGICAL_PRESENTATION_INTEGER_SCALE;
@@ -42,7 +43,8 @@ use sdl3::sys::render::SDL_LOGICAL_PRESENTATION_INTEGER_SCALE;
 /// The original's frame: 2 ticks of 1/60 s.
 const FRAME: Duration = Duration::from_micros(33_333);
 
-/// SDL keys → Mac virtual key codes (the ones the game reads).
+/// SDL keys → Mac virtual key codes (the ones the game reads), by
+/// position on the keyboard; the letters go by `LETTERS`.
 const KEYS: &[(Scancode, i16)] = &[
     (Scancode::Left, 0x7B),
     (Scancode::Right, 0x7C),
@@ -63,30 +65,21 @@ const KEYS: &[(Scancode, i16)] = &[
     (Scancode::_4, 0x15),
     (Scancode::Equals, 0x18),
     (Scancode::PageUp, 0x74),
-    (Scancode::A, 0x00),
-    (Scancode::S, 0x01),
-    (Scancode::D, 0x02),
-    (Scancode::F, 0x03),
-    (Scancode::H, 0x04),
-    (Scancode::G, 0x05),
-    (Scancode::Z, 0x06),
-    (Scancode::X, 0x07),
-    (Scancode::C, 0x08),
-    (Scancode::V, 0x09),
-    (Scancode::B, 0x0B),
-    (Scancode::Q, 0x0C),
-    (Scancode::W, 0x0D),
-    (Scancode::E, 0x0E),
-    (Scancode::R, 0x0F),
-    (Scancode::Y, 0x10),
-    (Scancode::T, 0x11),
-    (Scancode::O, 0x1F),
-    (Scancode::U, 0x20),
-    (Scancode::I, 0x22),
-    (Scancode::L, 0x25),
-    (Scancode::J, 0x26),
-    (Scancode::K, 0x28),
-    (Scancode::M, 0x2E),
+    (Scancode::F1, 0x7A),
+    (Scancode::F2, 0x78),
+    (Scancode::F3, 0x63),
+    (Scancode::F4, 0x76),
+    (Scancode::F12, 0x6F),
+    (Scancode::F13, 0x69),
+];
+
+/// The Mac key codes of the letters a–z. The original reads key
+/// positions (US layout: on a German keyboard W-A-V-Y-G-R-A-V-Y is typed
+/// W-A-V-Z-G-R-A-V-Z); the port goes by the letter the key gives in the
+/// current layout.
+const LETTERS: [i16; 26] = [
+    0x00, 0x0B, 0x08, 0x02, 0x0E, 0x03, 0x05, 0x04, 0x22, 0x26, 0x28, 0x25, 0x2E, 0x2D, 0x1F, 0x23, 0x0C, 0x0F, 0x01,
+    0x11, 0x20, 0x09, 0x0D, 0x07, 0x10, 0x06,
 ];
 
 fn keymap(state: &KeyboardState) -> KeyMap {
@@ -94,6 +87,12 @@ fn keymap(state: &KeyboardState) -> KeyMap {
     for &(sc, code) in KEYS {
         if state.is_scancode_pressed(sc) {
             k.press(code);
+        }
+    }
+    for sc in state.pressed_scancodes() {
+        let key = Keycode::from_scancode(sc, SDL_KMOD_NONE, false).map_or(0, |k| k as u32);
+        if let Some(c) = char::from_u32(key).filter(char::is_ascii_lowercase) {
+            k.press(LETTERS[usize::from(c as u8 - b'a')]);
         }
     }
     k
