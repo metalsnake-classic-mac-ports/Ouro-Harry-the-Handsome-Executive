@@ -15,11 +15,11 @@
 - [ ] Compare with 1.0.0 (older installer format) - worth it?
 
 ## Phase 2: code (PPC is the reference)
-- [x] Ghidra: PEF import (PowerPC:BE:32), names from traceback tables, decompile all (`re/work/ppc/harry.c`)
+- [x] Ghidra: PEF import (PowerPC:BE:32), names from traceback tables, decompile all (`re/work/ppc/game.c`)
 - [x] Python venv with capstone + unicorn (`re/work/venv`, PPC32 works)
 - [ ] Name the SAT routines in the PPC build (SAT source, 68k CODE 7 names)
 - [ ] Name the tile scroll routines (68k CODE 6: WRAPCOPY, SCROLLTO, ...)
-- [x] Ghidra pipeline `re/ghidra/run.sh`: TOC fix, TOC/TVector names, globals list, Sprite struct
+- [x] Ghidra pipeline `re/ghidra/run.sh` (the skill's `run_ghidra.sh`): TOC fix, TOC/TVector names, globals list, Sprite struct
 - [ ] Keep naming globals (`re/ghidra/globals.txt`) and sprite fields (`re/ghidra/sprite.txt`)
 - [x] Unicorn harness for PPC routines (`re/tools/ppcmachine.py`: imports → Python stubs)
 - [x] Tile shape tables captured from `InitTileHotRects` (`re/tools/emu_tables.py`)

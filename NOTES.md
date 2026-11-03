@@ -98,7 +98,7 @@ Decision (2026-10-22): the **PPC build is read as the reference**; the 68k
 build serves for cross-checks and (later, with a loader) for differential
 tests against Basilisk II.
 
-- `Harry.pef` (data fork): 3 sections - code 414 604 bytes, data 35 168
+- The PEF (data fork, `re/work/ppc/game.pef`): 3 sections - code 414 604 bytes, data 35 168
   (packed 17 167), loader 5 504. Ghidra's PEF loader with **processor
   `PowerPC:BE:32:default`** (auto-detection picks a 64-bit VLE variant -
   wrong). Code loads at 0x10000000. Ghidra's `PefDebugAnalyzer` aborts
@@ -106,7 +106,7 @@ tests against Basilisk II.
   direct calls.
 - **Traceback tables** (AIX style, after every routine: zero word, fixed
   part, `tb_offset` = routine length, name) give exact starts and names:
-  `re/tools/pef_traceback.py` → 505 routines. `re/ghidra/ApplyNames.java`
+  the skill's `scripts/ppc/pef_traceback.py` → 505 routines. `ApplyNames.java`
   creates and names them (142 were missing, among them every routine only
   called through a pointer, e.g. `SetupPlayerSprite`,
   `HandlePlayerSprite`).
@@ -121,13 +121,19 @@ tests against Basilisk II.
   TOC entries (`_DAT_10065b64` = pointer to the level handle, ...); name
   them as they become clear.
 - **Reproduce: `re/ghidra/run.sh`** (import, all scripts below, decompile
-  → `re/work/ppc/harry.c`, 1043 functions). The scripts, in order:
+  → `re/work/ppc/game.c`, 1043 functions). It calls the classic-mac-port
+  skill's `scripts/ppc/run_ghidra.sh` (skill folder: `CLASSIC_MAC_PORT`,
+  default `~/.claude/skills/classic-mac-port`; it picks the newest
+  Homebrew JDK, Ghidra 12.2 needs 25) with Harry's lists: `names.txt`
+  (SAT routines without traceback), `globals.txt`, `sprite.txt` and the
+  name pattern of the sprite routines. The scripts, in order:
   - `ApplyNames.java`: functions and names from `traceback.txt`.
   - `NopTOCRestore.java`: CodeWarrior reloads r2 after every call
     through glue (`lwz r2,0x14(r1)`, 2522 times); Ghidra then loses the
     TOC and shows `unaff_r2 + -0x78cc`. The script replaces these loads by
     nops *in the Ghidra database only*.
-  - `SetTOC.java`: r2 = TOC = **0x1006d390** over the whole code block.
+  - `SetTOC.java`: r2 = TOC = **0x1006d390** over the whole code block
+    (also written to `toc.txt`).
   - `NameTOC.java`: TOC slots pointing to a TVector {code, TOC} become
     `TV_<function>` (154), so dispatch tables read `TV_SetupRobotSprite`.
   - `ApplyLabels.java` + `re/ghidra/globals.txt`: our names for globals
@@ -140,8 +146,10 @@ tests against Basilisk II.
 - Decompiler artefact: in `switch` cases that store through a pointer
   register set before the jump table (`DoScoot`, `DoKick`, `DoInch`),
   stores appear as `unique0x…` / `register0x…`. They all go to the same
-  global (there: `gImpulse`, r31 = r2 − 0x48fa); check with
-  `re/tools/ppcdis.py`.
+  global (there: `gImpulse`, r31 = r2 − 0x48fa); check with the skill's
+  `scripts/ppc/ppcdis.py` (switch tables: `ppc_switch.py`).
+- The Unicorn harness `re/tools/ppcmachine.py` is the skill's
+  (`scripts/ppc/ppcmachine.py`) plus Harry's addresses and `load_level`.
 - The hand-written blitters (`BlitEncFace…`, `DoubleBlit…`) use r2 as a
   normal register; their `unaff_r2` is genuine.
 

@@ -1,32 +1,25 @@
 #!/bin/sh
-# Rebuild the Ghidra project of the PowerPC build and decompile everything.
+# Rebuild the Ghidra project of the PowerPC build and decompile everything,
+# with the classic-mac-port skill's pipeline (scripts/ppc/run_ghidra.sh):
+# names from the traceback tables and names.txt, TOC, TVectors, our globals
+# (globals.txt) and the sprite record (sprite.txt) on the sprite routines.
 # Usage: re/ghidra/run.sh            (from the repository root)
 # Needs: re/work/app/pef.bin (data fork of "Harry 1.0.1"), Ghidra (brew),
-# re/work/venv with capstone. Output in re/work/ppc/:
-#   traceback.txt   routine starts and names (pef_traceback.py)
-#   functions.txt   all functions after naming
-#   toc_functions.txt TOC slots that lead to a function
-#   data.bin        the unpacked data section (4-byte start address first)
-#   harry.c         decompiled C of every function
+# re/work/venv with capstone, the skill (CLASSIC_MAC_PORT, default
+# ~/.claude/skills/classic-mac-port). Output in re/work/ppc/: game.pef,
+# traceback.txt, toc.txt, functions.txt, toc_functions.txt, imports.txt,
+# data.bin, game.c (see the skill's run_ghidra.sh).
 set -e
 R="$(cd "$(dirname "$0")/../.." && pwd)"
 W="$R/re/work"
-G=/opt/homebrew/opt/ghidra/libexec/support/analyzeHeadless
-mkdir -p "$W/ppc" "$W/ghidra-proj"
-cp "$W/app/pef.bin" "$W/ppc/Harry.pef"
-"$W/venv/bin/python" -I "$R/re/tools/pef_traceback.py" "$W/ppc/Harry.pef" > "$W/ppc/traceback.txt"
-"$G" "$W/ghidra-proj" harry-ppc -import "$W/ppc/Harry.pef" -overwrite \
-    -processor PowerPC:BE:32:default -cspec default \
-    -scriptPath "$R/re/ghidra" \
-    -postScript ApplyNames.java "$W/ppc/traceback.txt" \
-    -postScript ApplyNames.java "$R/re/ghidra/names.txt" \
-    -postScript NopTOCRestore.java \
-    -postScript SetTOC.java \
-    -postScript NameTOC.java "$W/ppc/toc_functions.txt" \
-    -postScript ApplyLabels.java "$R/re/ghidra/globals.txt" \
-    -postScript ApplyStruct.java "$R/re/ghidra/sprite.txt" 0xa2 \
-    -postScript ExportFunctions.java "$W/ppc/functions.txt" \
-    -postScript DumpData.java "$W/ppc/data.bin" \
-    -postScript ExportImports.java "$W/ppc/imports.txt" \
-    -postScript DecompileAll.java "$W/ppc/harry.c" > "$W/ppc/ghidra.log" 2>&1
-grep -E "ApplyNames|NopTOC|SetTOC|NameTOC|ApplyLabels|ApplyStruct|DumpData|ExportImports|ERROR" "$W/ppc/ghidra.log"
+SKILL="${CLASSIC_MAC_PORT:-$HOME/.claude/skills/classic-mac-port}"
+mkdir -p "$W/ppc"
+cp "$R/re/ghidra/names.txt" "$W/ppc/names.txt"
+PATTERN='(Setup|Handle|Hit|Init)\w*Sprite\w*|DoScoot|DoKick|DoInch|MoveChair|HandleKeys|'\
+'HandlePlayerGlide|HandleGlide|HandleHalfPipe|ApplyModedImpulse|EnforceMaxSpeed|'\
+'JumpScale|SpriteCenter|RectBounce\w*|WallBounce\w*|BGTileBounce\w*|HBounce|VBounce|'\
+'GrateBounce|HandleRampCollision|HandleStairsCollision|ApproachMode|DoorSeparate|'\
+'Find\w*Direction\w*|Accelerate\w*|Assign\w*ShotSpeed|Random\w*Shot|ThrowDart|'\
+'MakeNewShot|FindHeldWeaponPos|HandleRepulsions|RobotTooFar|ShowBalloon'
+PATH="$W/venv/bin:$PATH" sh "$SKILL/scripts/ppc/run_ghidra.sh" "$W/app/pef.bin" "$W/ppc" \
+    "$R/re/ghidra/globals.txt" "$R/re/ghidra/sprite.txt" 0xa2 Sprite "$PATTERN"
