@@ -65,8 +65,8 @@ pub struct GameData {
     /// Pictures by `PICT` id (`Harry Titles`, `PICTURES`): 129 the game
     /// screen (640 × 480), 130 the main menu, 132 the instructions, 150 the
     /// meters (147 × 44: empty, comfort, surface resistance, corporate
-    /// favor, 11 px each), 4803 / 4804 the credits, 4901–4916 the menu's
-    /// buttons.
+    /// favor, 11 px each), 170 the map's tiles (32 of 4 × 4, 8 a row),
+    /// 4803 / 4804 the credits, 4901–4916 the menu's buttons.
     pub pictures: BTreeMap<i16, Image>,
     /// The world's pictures by `PICT` id (`Episode 1`): the levels' story
     /// pictures (scrolled) and title cards, the win pictures.
@@ -74,7 +74,8 @@ pub struct GameData {
     /// The world's fields for its end (`Hwld` 0).
     pub world: WorldInfo,
     /// Colour icons by `cicn` id (`Harry Graphics`), transparent outside
-    /// their mask: 10135–10137 the meters' rounded ends (9 × 9).
+    /// their mask: 200 Harry on the map (32 × 32), 10135–10137 the meters'
+    /// rounded ends (9 × 9).
     pub icons: BTreeMap<i16, Image>,
     /// Episode 1, levels 1–15.
     pub levels: Vec<Level>,
@@ -130,14 +131,15 @@ pub struct Sound {
     pub samples: Vec<u8>,
 }
 
-/// The pictures the pack holds (`Harry Titles`): the game screen, the main
-/// menu, the instructions, the meters, the credits (text, window) and the
-/// main menu's buttons pressed (4901–4906) and released (4911–4916).
-pub const PICTURES: [i16; 18] =
-    [129, 130, 132, 150, 4803, 4804, 4901, 4902, 4903, 4904, 4905, 4906, 4911, 4912, 4913, 4914, 4915, 4916];
+/// The pictures the pack holds (`Harry Titles`, 170 from `Harry
+/// Graphics`): the game screen, the main menu, the instructions, the
+/// meters, the map's tiles, the credits (text, window) and the main
+/// menu's buttons pressed (4901–4906) and released (4911–4916).
+pub const PICTURES: [i16; 19] =
+    [129, 130, 132, 150, 170, 4803, 4804, 4901, 4902, 4903, 4904, 4905, 4906, 4911, 4912, 4913, 4914, 4915, 4916];
 
-/// The colour icons the pack holds.
-pub const ICONS: [i16; 3] = [10135, 10136, 10137];
+/// The colour icons the pack holds: the meters' ends, Harry on the map.
+pub const ICONS: [i16; 4] = [200, 10135, 10136, 10137];
 
 /// The default tile sets (level fields 0): foreground 181, background 180.
 pub const DEFAULT_FG: i16 = 181;

@@ -32,6 +32,8 @@ pub struct Settings {
     /// name).
     pub fullscreen_key: Scancode,
     pub bindings: Bindings,
+    /// prefs +0x1e: the key that shows the map (Tab).
+    pub map_key: i16,
 }
 
 impl Default for Settings {
@@ -44,6 +46,7 @@ impl Default for Settings {
             fullscreen: false,
             fullscreen_key: Scancode::F11,
             bindings: Bindings { left: 0x7B, right: 0x7C, scoot: 0x7D, inch: 0x7E, kick: 0x31, select_item: 0x3B, use_item: 0x3A },
+            map_key: 0x30,
         }
     }
 }
@@ -53,9 +56,10 @@ const CAMERAS: [(i16, &str); 4] =
     [(1, "Constant, Catch-up"), (2, "Constant, Anticipate"), (3, "Step-Scroll, Smoother"), (4, "Step-Scroll, Faster")];
 
 /// The actions to bind, as the original's dialog names them.
-const ACTIONS: [&str; 7] = ["Rotate Left", "Rotate Right", "Scoot", "Inch", "Power Kick", "Select Item", "Use Item"];
+const ACTIONS: [&str; 8] = ["Rotate Left", "Rotate Right", "Scoot", "Inch", "Power Kick", "Select Item", "Use Item", "Toggle Map"];
 
-fn binding(b: &mut Bindings, k: usize) -> &mut i16 {
+fn binding(s: &mut Settings, k: usize) -> &mut i16 {
+    let b = &mut s.bindings;
     match k {
         0 => &mut b.left,
         1 => &mut b.right,
@@ -63,7 +67,8 @@ fn binding(b: &mut Bindings, k: usize) -> &mut i16 {
         3 => &mut b.inch,
         4 => &mut b.kick,
         5 => &mut b.select_item,
-        _ => &mut b.use_item,
+        6 => &mut b.use_item,
+        _ => &mut s.map_key,
     }
 }
 
@@ -92,7 +97,7 @@ impl Settings {
                         && a < ACTIONS.len()
                         && (0..128).contains(&n)
                     {
-                        *binding(&mut s.bindings, a) = n as i16;
+                        *binding(&mut s, a) = n as i16;
                     }
                 }
             }
@@ -110,7 +115,7 @@ impl Settings {
             u8::from(self.fullscreen)
         );
         out.push_str(&format!("fullscreen_key {}\n", self.fullscreen_key.name()));
-        let mut b = self.bindings;
+        let mut b = self.clone();
         for (k, name) in ACTIONS.iter().enumerate() {
             out.push_str(&format!("key_{k} {}  # {name}\n", binding(&mut b, k)));
         }
@@ -132,7 +137,7 @@ enum Row {
     Done,
 }
 
-const ROWS: [Row; 15] = [
+const ROWS: [Row; 16] = [
     Row::Camera,
     Row::Autosave,
     Row::Volume,
@@ -146,6 +151,7 @@ const ROWS: [Row; 15] = [
     Row::Key(4),
     Row::Key(5),
     Row::Key(6),
+    Row::Key(7),
     Row::Defaults,
     Row::Done,
 ];
@@ -153,11 +159,14 @@ const ROWS: [Row; 15] = [
 /// The first row of the keys.
 const FIRST_KEY: usize = 6;
 
-/// Where the rows are: y of each row's top; 22 px high, from x 32 to 448.
+/// A row's height.
+const ROW: i32 = 20;
+
+/// Where the rows are: y of each row's top; `ROW` high, from x 32 to 448.
 fn row_top(i: usize) -> i32 {
     // a gap before the keys and before the buttons
     let gap = if i >= FIRST_KEY { 26 } else { 0 } + if i >= FIRST_KEY + ACTIONS.len() { 18 } else { 0 };
-    72 + i as i32 * 22 + gap
+    72 + i as i32 * ROW + gap
 }
 
 /// The options screen over the main menu's left part.
@@ -191,7 +200,7 @@ impl Screen {
             let Row::Key(a) = row else {
                 // the full screen key: any key the game does not use
                 let b = self.settings.bindings;
-                let used = [b.left, b.right, b.scoot, b.inch, b.kick, b.select_item, b.use_item];
+                let used = [b.left, b.right, b.scoot, b.inch, b.kick, b.select_item, b.use_item, self.settings.map_key];
                 if code.is_some_and(|c| used.contains(&c)) {
                     return None;
                 }
@@ -200,14 +209,14 @@ impl Screen {
             };
             let code = code?;
             // a key bound elsewhere swaps with this one
-            let b = &mut self.settings.bindings;
-            let old = *binding(b, a);
+            let s = &mut self.settings;
+            let old = *binding(s, a);
             for k in 0..ACTIONS.len() {
-                if k != a && *binding(b, k) == code {
-                    *binding(b, k) = old;
+                if k != a && *binding(s, k) == code {
+                    *binding(s, k) = old;
                 }
             }
-            *binding(b, a) = code;
+            *binding(s, a) = code;
             return Some(Event::Changed);
         }
         match sc {
@@ -227,7 +236,7 @@ impl Screen {
         if self.capture.is_some() || !(32..448).contains(&x) {
             return None;
         }
-        let i = (0..ROWS.len()).find(|&i| (row_top(i)..row_top(i) + 22).contains(&y))?;
+        let i = (0..ROWS.len()).find(|&i| (row_top(i)..row_top(i) + ROW).contains(&y))?;
         self.selected = i;
         self.activate()
     }
@@ -269,12 +278,12 @@ impl Screen {
         // the selected row on dark red, as the inventory marks its slot
         let red = harry_data::clut8().iter().position(|p| *p == [0x88, 0, 0]).unwrap_or(255) as u8;
         let t = row_top(self.selected);
-        c.fill(32, t as usize, 416, 22, red);
+        c.fill(32, t as usize, 416, ROW as usize, red);
         let white = [255; 3];
         let grey = [0xbb; 3];
         let label = |x: f32, y: i32, text: &str, face: Face, color: [u8; 3]| Line {
             x,
-            baseline: (y + 15) as f32,
+            baseline: (y + 14) as f32,
             size: 12.0,
             face,
             color,
@@ -285,7 +294,7 @@ impl Screen {
             label(40.0, row_top(FIRST_KEY) - 24, "Keys", Face::HelveticaBold, white),
         ];
         let s = &self.settings;
-        let mut b = s.bindings;
+        let mut b = s.clone();
         for (i, row) in ROWS.iter().enumerate() {
             let y = row_top(i);
             let colour = if i == self.selected { white } else { grey };

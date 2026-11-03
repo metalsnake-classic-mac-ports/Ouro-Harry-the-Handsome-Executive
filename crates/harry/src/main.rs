@@ -317,7 +317,14 @@ fn main() -> Result<()> {
             }
             eprintln!("view {:?}", game.view.corner);
         }
-        let (image, lines) = picture(&data, &game, &score, shown.as_ref());
+        let (mut image, lines) = picture(&data, &game, &score, shown.as_ref());
+        // HARRY_MAP=1 shows the map, =all with every tile seen (for testing)
+        if let Ok(m) = std::env::var("HARRY_MAP") {
+            if m == "all" {
+                game.track.cells.fill(1);
+            }
+            render::draw_map(&mut image, &data, &game);
+        }
         let mut rgb = vec![0u8; image.width * image.height * 3];
         image.to_rgb24(&clut8(), &mut rgb);
         // the text at 1:1 on the picture
@@ -372,6 +379,9 @@ fn main() -> Result<()> {
     // the options screen over the menu
     let mut opts: Option<options::Screen> = None;
     let mut confirm = false;
+    // ShowMap: open since when; frames before the key opens it again
+    let mut map: Option<Instant> = None;
+    let mut map_cooldown = 0u32;
     let mut scene = if direct {
         Some(scenes::Scenes::new(start_screen(&game), true, scenes::game_start(&game.level, true)))
     } else {
@@ -565,11 +575,19 @@ fn main() -> Result<()> {
             scene = Some(sc);
             tick = now;
         }
+        // the map closes with its key once 12 ticks have passed
+        if let Some(since) = map
+            && since.elapsed() >= TICK * 12
+            && keymap(&events.keyboard_state()).down(settings.map_key)
+        {
+            map = None;
+            next = Instant::now();
+        }
         // the settings the game reads
         game.prefs.scroll = settings.camera;
         game.prefs.autosave = settings.autosave;
         game.prefs.bindings = settings.bindings;
-        while scene.is_none() && in_menu.is_none() && !confirm && shown.is_none() && next <= now {
+        while scene.is_none() && in_menu.is_none() && !confirm && map.is_none() && shown.is_none() && next <= now {
             next += FRAME;
             let keys = keymap(&events.keyboard_state());
             let mut asked = None;
@@ -581,6 +599,12 @@ fn main() -> Result<()> {
             let mut save = || true;
             let end = game.frame(&keys, &assets, &mut show, &mut save);
             frames_run += 1;
+            // CheckGameLoopKeys: the map key (not again for 6 passes)
+            map_cooldown = map_cooldown.saturating_sub(1);
+            if keys.down(settings.map_key) && map_cooldown == 0 {
+                map = Some(Instant::now());
+                map_cooldown = 6;
+            }
             mixer.events(&game.sounds, game.level.own_sounds);
             score.step(game.g.score);
             if let Some(b) = asked {
@@ -650,6 +674,9 @@ fn main() -> Result<()> {
             }
             _ => picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b)),
         };
+        if map.is_some() && scene.is_none() && in_menu.is_none() {
+            render::draw_map(&mut image, &data, &game);
+        }
         if confirm {
             lines.extend(menu::message_box(
                 &mut image,

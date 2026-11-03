@@ -108,7 +108,7 @@ impl Canvas {
     }
 
     /// Draw an image with transparency at screen (x, y), clipped.
-    fn draw_icon(&mut self, img: &Image, x: i32, y: i32) {
+    pub fn draw_icon(&mut self, img: &Image, x: i32, y: i32) {
         for yy in 0..img.height {
             for xx in 0..img.width {
                 if let Some(c) = img.get(xx, yy) {
@@ -338,6 +338,48 @@ pub fn inventory_counts(game: &Game) -> Vec<(f32, f32, String)> {
             [((h + 2) as f32, (v + 34) as f32, "x".to_string()), ((h + 9) as f32, (v + 34) as f32, e.1.to_string())]
         })
         .collect()
+}
+
+/// The map (`ShowMap`) over the game area: 112 × 112 tiles of 4 × 4 px.
+/// Which part: the middle (from tile 8, 8) while Harry (`gPlayerH/V`)
+/// is within 0x500 … 0xb40 on both axes, else the quarter he is in
+/// (from 0 or 16 on each axis). The area grey (0x451e); a tile Harry has
+/// not come near (the track map) black; a seen one with a foreground tile
+/// below 32 its map tile (PICT 170), from 56 on black, else nothing. Harry:
+/// cicn 200 at ((H + 32) / 8 − 4 · from, …), its middle on his tile.
+pub fn draw_map(c: &mut Canvas, data: &GameData, game: &Game) {
+    let grey = harry_data::clut8().iter().position(|p| *p == [0x44, 0x44, 0x44]).unwrap_or(BLACK as usize) as u8;
+    c.fill(AREA as usize, AREA as usize, AREA_SIZE as usize, AREA_SIZE as usize, grey);
+    let (ph, pv) = (i32::from(game.g.player_pos.0), i32::from(game.g.player_pos.1));
+    let middle = (0x500..0xb40).contains(&ph) && (0x500..0xb40).contains(&pv);
+    let (oh, ov) = if middle { (8, 8) } else { (if ph < 0x800 { 0 } else { 16 }, if pv < 0x800 { 0 } else { 16 }) };
+    let tiles = data.pictures.get(&170);
+    for h in oh..oh + 112 {
+        for v in ov..ov + 112 {
+            let (x, y) = ((h - oh) * 4 + AREA, (v - ov) * 4 + AREA);
+            let seen = game.track.cells[(h * 128 + v) as usize] != 0;
+            let fg = game.level.fg_tile(h, v) as i16;
+            if !seen || fg >= 56 {
+                c.fill(x as usize, y as usize, 4, 4, BLACK);
+            } else if (0..32).contains(&fg)
+                && let Some(t) = tiles
+            {
+                let (sx, sy) = ((fg % 8) as usize * 4, (fg / 8) as usize * 4);
+                for yy in 0..4 {
+                    for xx in 0..4 {
+                        // white is transparent in an encoded face
+                        if let Some(p) = t.get(sx + xx, sy + yy).filter(|&p| p != 0) {
+                            c.set(x + xx as i32, y + yy as i32, p);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if let Some(me) = data.icons.get(&200) {
+        let (x, y) = ((ph + 32) / 8 - 4 * oh, (pv + 32) / 8 - 4 * ov);
+        c.draw_icon(me, x, y);
+    }
 }
 
 /// The game area as the ring buffer holds it: tiles, props and sprites,

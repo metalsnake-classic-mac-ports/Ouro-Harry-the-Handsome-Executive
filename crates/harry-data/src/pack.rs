@@ -32,7 +32,7 @@ use zip::write::SimpleFileOptions;
 use crate::{Face, GameData, Image, MaskImages, Result, Sound, TileSet, WorldInfo, clut8, corrupt, level};
 
 /// The first line of `pack.txt`.
-pub const FORMAT: &str = "Harry the Handsome Executive data pack 5";
+pub const FORMAT: &str = "Harry the Handsome Executive data pack 6";
 
 fn encode_png(width: usize, height: usize, color: png::ColorType, data: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();

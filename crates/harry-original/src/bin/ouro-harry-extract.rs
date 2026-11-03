@@ -76,7 +76,7 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
     let walls: Vec<Mask> = masks::walls(&app).map_err(|e| e.to_string())?;
     let mut pictures = BTreeMap::new();
     for id in harry_data::PICTURES {
-        pictures.insert(id, indexed(&picture(&[&titles], id)?, &clut, None)?);
+        pictures.insert(id, indexed(&picture(&[&titles, &gfx], id)?, &clut, None)?);
     }
     // the icons through the screen's inverse table, as QuickDraw draws them
     let itable = harry_core::tint::inverse_table(&clut8());
