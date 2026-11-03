@@ -206,14 +206,31 @@ tests against Basilisk II.
 - In the game (`CheckGameLoopKeys`): Escape asks "Are you sure you want
   to abort this game?" (`ConfirmAbortGameDialog`), yes ends the loop;
   Command-Q asks to quit, Command-W the same as Escape, Command-S
-  `DoSaveGame`, Command-I the options; caps lock pauses, the map key
-  `ShowMap`.
+  `DoSaveGame`, Command-I the options; caps lock pauses; the map key (prefs +0x1e,
+  Tab) shows the map (`ShowMap`, below), then not again for 6 passes.
 - The port (`crates/harry/src/menu.rs`): the menu, buttons by mouse and
   key, the instructions, the credits, the X message (in a box of the
   port's), Escape in the game with a question box (Return / Y yes,
   Escape / N no), the options screen ("Port improvements"). Not yet:
   Continue from a list of saves (later; for now the game saved in this
   session), music, the warp dialog, pause, the map.
+
+### The map (`ShowMap`)
+
+- Drawn on the back buffer over the game area, the game waits: the area
+  grey (RGB 0x451e), then 112 × 112 tiles of 4 × 4 px - the middle part
+  (from tile (8, 8)) while Harry (`gPlayerH/V`) is within 0x500 … 0xb40 on
+  both axes, else the quarter he is in (from 0 or 16 on each axis). A
+  tile not on the track map is black; a seen one with a foreground tile
+  below 32 gets its map tile (PICT 170 in `Harry Graphics`: 32 faces of 4
+  × 4, `LoadEncFaceSetFromPICT(170, 32, 4, 4, 8, …)`), from 56 on black,
+  else (none, 32–55) the grey. Harry: cicn 200 (32 × 32, a red cross) at
+  ((H + 32) / 8 − 4 · from_h, (V + 32) / 8 − 4 · from_v) - its middle on
+  his tile. Every 2 ticks the map key is read; after 6 reads it closes the
+  map, the game area is drawn again.
+- The port: `render::draw_map`, opened from the game loop as
+  `CheckGameLoopKeys` does (`HARRY_MAP=1` / `all` in the screenshot mode
+  shows it).
 
 ### Between the frames: fades and pictures
 
@@ -2176,9 +2193,10 @@ Where the port deliberately differs from the original (the game logic in
   any key the game does not use), the seven keys
   (Return, then the key; a key already used swaps), default settings.
   Left out: reduce frame rate, line skipping, interlace, more compatible
-  drawing, allow system tasks (speed options of 1997); the map key and
-  music come with the map and the music. Saved in `settings.txt` in SDL's
-  preference folder. The port's default camera is Constant, Catch-up
-  (the original's is Step-Scroll, Smoother).
+  drawing, allow system tasks (speed options of 1997); the music volume
+  comes with the music. Saved in `settings.txt` in SDL's preference
+  folder. The defaults are the original's (`InitPrefs`: camera 1 =
+  Constant, Catch-up; sound 9, music 7; keys ← → ↓ ↑, space, control,
+  option, Tab for the map).
 - **Registration.** The port plays as registered; the shareware limit
   after level 5 (`LevelLimit`) is left out.

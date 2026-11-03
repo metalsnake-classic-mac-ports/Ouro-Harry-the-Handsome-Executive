@@ -74,7 +74,8 @@
 - [x] Main menu: buttons by mouse and key, instructions, credits, the X message; back to it after `Win`, a death and Escape (with a question)
 - [x] The inventory on the panel: slots, selection, item faces, counts, ammunition bars; `UpdateAmmo`'s clamp in the core
 - [x] Options as a screen of the port's own: camera, saving between levels, sound volume, scaling (integer or free), full screen, keys
-- [ ] Pause (caps lock), the map (`ShowMap`) and its key, the warp dialog; the options during a game (Command-I)
+- [x] The map (`ShowMap`) with its key in the options; the full screen key in the options
+- [ ] Pause (caps lock), the warp dialog; the options during a game (Command-I)
 - [x] The ripple: phase, cheat, `BuildSineTable` (7865 cases), row shifts in the renderer
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
