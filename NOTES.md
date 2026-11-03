@@ -198,7 +198,8 @@ tested for their timing).
   −447 to the picture's height (h + 449 steps of 4 ticks: 15 rows a
   second; PICT 200, the story, 96 s). Rows outside the picture are not
   copied: the window keeps what it had there. Any key or the mouse
-  button ends it once 8 steps are shown. Then the game area is painted
+  button down ends it once 8 steps are shown (the port: only a press
+  made during it; "Port improvements"). Then the game area is painted
   black. With `music` the world's scroll music (Hwld +0x144) plays.
 - **`IntroLevel`**: fade out (8), the game area black, the level's title
   card - PICT level info #8 (Hlvl 0x12084), drawn centred across the game
@@ -2080,5 +2081,11 @@ Where the port deliberately differs from the original (the game logic in
   layout (`Keycode::from_scancode`, `LETTERS` in `ouro-harry`), so the
   letters printed on the keys work. The other keys (arrows, space,
   modifiers, digits, F keys) stay by position.
+- **Skipping a scrolled picture.** The original ends `ScrollPlot` on any
+  key or mouse button that is *down* once 8 rows are shown - a key still
+  held from playing (an arrow at the level's end) skips the story by
+  accident. The port needs a press made during the picture (a new key
+  or mouse button event, key repeat ignored); a press in the first 8
+  rows ends it with the 8th.
 - **Registration.** The port plays as registered; the shareware limit
   after level 5 (`LevelLimit`) is left out.

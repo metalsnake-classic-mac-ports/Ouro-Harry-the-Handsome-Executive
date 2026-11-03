@@ -315,9 +315,13 @@ fn main() -> Result<()> {
     'run: loop {
         let loop_start = Instant::now();
         let mut jump: Option<usize> = None;
+        // a key or mouse button pressed now (it can end a scrolled picture;
+        // one held since before cannot)
+        let mut pressed = false;
         for e in events.poll_iter() {
             match e {
                 Event::Quit { .. } => break 'run,
+                Event::MouseButtonDown { .. } => pressed = true,
                 Event::KeyDown { scancode: Some(sc), repeat: false, .. } => {
                     if let Some((_, since)) = &shown {
                         // Return / Enter at once, any key after a second
@@ -329,7 +333,7 @@ fn main() -> Result<()> {
                     }
                     match sc {
                         Scancode::Escape => break 'run,
-                        _ if scene.is_some() && sc != Scancode::F11 => {}
+                        _ if scene.is_some() && sc != Scancode::F11 => pressed = true,
                         Scancode::F11 => {
                             fullscreen = !fullscreen;
                             let _ = canvas.window_mut().set_fullscreen(fullscreen);
@@ -350,11 +354,8 @@ fn main() -> Result<()> {
         }
         let now = Instant::now();
         if let Some(sc) = scene.as_mut() {
-            // ScrollPlot ends on any key or the mouse button
-            let skip = events.keyboard_state().pressed_scancodes().next().is_some()
-                || events.mouse_state().is_mouse_button_pressed(sdl3::mouse::MouseButton::Left);
             while tick <= now && !sc.done() {
-                sc.tick(&data, skip);
+                sc.tick(&data, std::mem::take(&mut pressed));
                 tick += TICK;
             }
             if sc.done() {

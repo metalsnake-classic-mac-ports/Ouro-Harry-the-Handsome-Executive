@@ -45,7 +45,7 @@ pub enum Step {
 enum Running {
     Fade { out: bool, level: i32, step: i32 },
     EndLevel(Box<[[i16; 14]; 14]>),
-    Scroll { pict: i16, top: i32, n: i32, cooldown: i16, wait: u32 },
+    Scroll { pict: i16, top: i32, n: i32, cooldown: i16, wait: u32, asked: bool },
     Wait(u32),
 }
 
@@ -73,9 +73,11 @@ impl Scenes {
         self.running.is_none() && self.steps.is_empty() && self.then.is_none()
     }
 
-    /// One tick (1/60 s). `skip`: a key or the mouse button is down (it
-    /// ends a scrolled picture once 8 of its steps are shown).
-    pub fn tick(&mut self, data: &GameData, skip: bool) {
+    /// One tick (1/60 s). `pressed`: a key or the mouse button was pressed
+    /// since the last tick. A press during a scrolled picture ends it once
+    /// 8 of its steps are shown (the original ends it on any key held down
+    /// then, also one held since before; NOTES.md, "Port improvements").
+    pub fn tick(&mut self, data: &GameData, pressed: bool) {
         loop {
             if self.running.is_none() {
                 if self.steps.is_empty()
@@ -117,7 +119,8 @@ impl Scenes {
                 }
                 cells.iter().flatten().all(|&c| c == 17)
             }
-            Some(Running::Scroll { pict, top, n, cooldown, wait }) => {
+            Some(Running::Scroll { pict, top, n, cooldown, wait, asked }) => {
+                *asked |= pressed;
                 if *wait > 0 {
                     *wait -= 1;
                     false
@@ -130,7 +133,7 @@ impl Scenes {
                     }
                     *n += 1;
                     *wait = 3;
-                    let end = *n > p.height as i32 + 448 || (skip && *cooldown == 0);
+                    let end = *n > p.height as i32 + 448 || (*asked && *cooldown == 0);
                     if end {
                         self.image.fill(AREA.0, AREA.1, AREA.2, AREA.3, BLACK);
                     }
@@ -182,7 +185,7 @@ impl Scenes {
                 if !data.world_pictures.contains_key(&pict) {
                     return false;
                 }
-                Some(Running::Scroll { pict, top: -448, n: 0, cooldown: 8, wait: 0 })
+                Some(Running::Scroll { pict, top: -448, n: 0, cooldown: 8, wait: 0, asked: false })
             }
             Step::Black => {
                 self.image.fill(AREA.0, AREA.1, AREA.2, AREA.3, BLACK);
@@ -328,11 +331,12 @@ mod tests {
 
     /// Run to the end; the ticks it took. With HARRY_SCENE_DUMP=<dir> a
     /// picture every `every` ticks.
-    fn run(data: &GameData, sc: &mut Scenes, skip_after: Option<u32>, name: &str, every: u32) -> u32 {
+    /// `press_at`: a key pressed at that tick.
+    fn run(data: &GameData, sc: &mut Scenes, press_at: Option<u32>, name: &str, every: u32) -> u32 {
         let dump = std::env::var("HARRY_SCENE_DUMP").ok();
         let mut t = 0;
         while !sc.done() {
-            sc.tick(data, skip_after.is_some_and(|s| t >= s));
+            sc.tick(data, press_at == Some(t));
             t += 1;
             if let Some(d) = &dump
                 && t % every == 0
@@ -372,10 +376,16 @@ mod tests {
         assert_eq!(steps[..3], [Step::FadeIn(8), Step::Scroll(200), Step::FadeOut(8)]);
         let mut sc = Scenes::new(screen(), true, vec![Step::Scroll(200)]);
         assert_eq!(run(&data, &mut sc, None, "scroll", 400), (993 + 449) * 4 - 3);
-        // a key down from the start: it ends with the 8th row
+        // a key pressed at once: it ends with the 8th row
         let mut sc = Scenes::new(screen(), true, vec![Step::Scroll(200)]);
         assert_eq!(run(&data, &mut sc, Some(0), "scroll_skip", 1000), 7 * 4 + 1);
         assert_eq!(sc.image.pixels[100 * 640 + 100], BLACK);
+        // later: with the next row
+        let mut sc = Scenes::new(screen(), true, vec![Step::Scroll(200)]);
+        assert_eq!(run(&data, &mut sc, Some(101), "scroll_skip", 1000), 26 * 4 + 1);
+        // a press before the picture (during the squares) does not count
+        let mut sc = Scenes::new(screen(), true, vec![Step::EndLevel, Step::Scroll(200)]);
+        assert_eq!(run(&data, &mut sc, Some(50), "scroll_skip", 1000), 114 + (993 + 449) * 4 - 3);
     }
 
     #[test]
