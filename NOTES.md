@@ -1873,33 +1873,44 @@ Options, Credits, Quit) over the wire-frame chair; New Game scrolls the
 story (PICT 200) in the play area, a click skips it. A memo balloon dims
 the play area.
 
+The emulators, ROMs and system disks are shared by the Ouro ports in
+`ouro-tools/` next to the repositories (see its README); the game's
+disks and the emulators' settings stay in `re/work/emu` and
+`re/work/emu-ppc`. Start from the repository root:
+
+    # 68k build, System 7.5 (Basilisk II)
+    ../ouro-tools/basilisk/BasiliskII/src/Unix/BasiliskII --config re/work/emu/basilisk.prefs
+    # PowerPC build, Mac OS 9.0.4 (SheepShaver)
+    ../ouro-tools/sheepshaver/SheepShaver/src/Unix/SheepShaver --config "$PWD/re/work/emu-ppc/sheepshaver.prefs"
+
 ### SheepShaver (PPC)
 
-`re/work/emu-ppc`: SheepShaver built from kanjitalk755/macemu (`src/`,
-`--disable-jit`, SDL2), ROM `newworld86.rom` (user), Mac OS 9.0.4 CD
-(user, `691-2684-A`, linked as `macos904.iso`) installed onto
-`macos9.dsk` (2 GB, Mac OS Extended; "Update Apple Hard Disk Drivers"
-switched off; clean copy `macos9-clean.dsk`), Harry installed by running
-the installer again under OS 9 (puts Harry Instruments into its System
-Folder), `harry.dsk` = copy of the Basilisk disk. `sheepshaver.prefs`:
-256 MB, 640 × 480, `bootdrive 0` (−62 for the CD). Start from the
-repository root: `cd re/work/emu-ppc && src/SheepShaver/src/Unix/SheepShaver
---config "$PWD/sheepshaver.prefs"`. It runs at full speed for the user;
-the slow input during my installation was the installer / first boot
-(or my automation), not the emulator in general. Once (2026-10-23) it
-quit silently during play (no crash report, no log message) - right
-after test key events (Shift + = + Page Up via Quartz); cause unknown.
+`ouro-tools/sheepshaver`: SheepShaver built from kanjitalk755/macemu
+(`--disable-jit`, SDL2), ROM `ouro-tools/roms/newworld86.rom` (user), Mac
+OS 9.0.4 CD (user, `691-2684-A`, linked as `ouro-tools/systems/
+macos904.iso`) installed onto `ouro-tools/systems/macos9-harry.dsk` (2 GB,
+Mac OS Extended; "Update Apple Hard Disk Drivers" switched off; clean
+copy `macos9-clean.dsk`), Harry installed by running the installer again
+under OS 9 (puts Harry Instruments into its System Folder),
+`re/work/emu-ppc/harry.dsk` = copy of the Basilisk disk.
+`re/work/emu-ppc/sheepshaver.prefs`: 256 MB, 640 × 480, `bootdrive 0`
+(−62 for the CD). It runs at full speed for the user; the slow input
+during my installation was the installer / first boot (or my
+automation), not the emulator in general. Once (2026-10-23) it quit
+silently during play (no crash report, no log message) - right after
+test key events (Shift + = + Page Up via Quartz); cause unknown.
 
 ### Basilisk II (68k)
 
-`re/work/emu`: Basilisk II from the S.C.Out work folder (binary used in
-place), Performa ROM, a copy of the System 7.5 + Sound Manager 3.1 boot
-disk (now with `Harry Instruments` in Extensions), `harry.dsk` (100 MB
-HFS) with the installer, `harry-installed.dsk` = after installation.
-64 MB RAM, 640 × 480 × 8. Clicks must be press - pause - release
-(cliclick `dd`/`du` with 100–150 ms), instant clicks are ignored.
-The boot disk has no QuickTime yet: music needs QuickTime 2.5+ with
-QuickTime Musical Instruments.
+`ouro-tools/basilisk` (built by S.C.Out's `re/tools/emulator/build.sh`),
+Performa ROM `ouro-tools/roms/PERFORMA.ROM`, the System 7.5 + Sound
+Manager 3.1 boot disk with `Harry Instruments` in Extensions
+(`ouro-tools/systems/system75-sound-harry.dsk`); in `re/work/emu`:
+`harry.dsk` (100 MB HFS) with the installer, `harry-installed.dsk` =
+after installation, `basilisk.prefs`. 64 MB RAM, 640 × 480 × 8. Clicks
+must be press - pause - release (cliclick `dd`/`du` with 100–150 ms),
+instant clicks are ignored. The boot disk has no QuickTime yet: music
+needs QuickTime 2.5+ with QuickTime Musical Instruments.
 
 ## Port and differential tests
 
