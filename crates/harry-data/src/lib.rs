@@ -62,9 +62,11 @@ pub struct GameData {
     /// stored with it): see `tile_set`.
     pub tile_sets: BTreeMap<(i16, i16), TileSet>,
     pub masks: MaskImages,
-    /// Pictures by `PICT` id (`Harry Titles`): 129 the game screen (640 ×
-    /// 480), 150 the meters (147 × 44: empty, comfort, surface
-    /// resistance, corporate favor, 11 px each).
+    /// Pictures by `PICT` id (`Harry Titles`, `PICTURES`): 129 the game
+    /// screen (640 × 480), 130 the main menu, 132 the instructions, 150 the
+    /// meters (147 × 44: empty, comfort, surface resistance, corporate
+    /// favor, 11 px each), 4803 / 4804 the credits, 4901–4916 the menu's
+    /// buttons.
     pub pictures: BTreeMap<i16, Image>,
     /// The world's pictures by `PICT` id (`Episode 1`): the levels' story
     /// pictures (scrolled) and title cards, the win pictures.
@@ -128,8 +130,11 @@ pub struct Sound {
     pub samples: Vec<u8>,
 }
 
-/// The pictures the pack holds.
-pub const PICTURES: [i16; 2] = [129, 150];
+/// The pictures the pack holds (`Harry Titles`): the game screen, the main
+/// menu, the instructions, the meters, the credits (text, window) and the
+/// main menu's buttons pressed (4901–4906) and released (4911–4916).
+pub const PICTURES: [i16; 18] =
+    [129, 130, 132, 150, 4803, 4804, 4901, 4902, 4903, 4904, 4905, 4906, 4911, 4912, 4913, 4914, 4915, 4916];
 
 /// The colour icons the pack holds.
 pub const ICONS: [i16; 3] = [10135, 10136, 10137];

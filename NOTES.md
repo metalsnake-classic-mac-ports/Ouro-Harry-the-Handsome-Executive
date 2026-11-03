@@ -174,6 +174,47 @@ tests against Basilisk II.
 - Ends when the "level done" flag is set; then `EndLevelEffect` if comfort
   or corporate favor dropped below 1.
 
+### Main menu (`MainMenu`, `DrawMainMenu`)
+
+- Fade out (8), PICT 130 (Titles) on the whole screen, fade in (8),
+  music 600. Under it a line in Helvetica 9 bold (black, grey, white,
+  offset by a pixel each) centred over the game area at y 468: "This copy
+  of Harry is unregistered. Please support shareware by registering." or
+  "This copy of Harry is licensed to: <name> (<n> copies)"; in debug mode
+  "CHEAT MODE ENABLED" at (64, 64). The port shows no line (it plays as
+  registered and has no name).
+- Six buttons at x 492–602: New Game (y 44), Continue Game (75),
+  Instructions (106), Options (137), Credits (168), Quit (200), each 26
+  high. A click is hit 1 px inside (`PointInRect`), then
+  `TrackClickOnCommandButton(n, 1)`: pressed PICT 4900 + n and `snd`
+  4803 (volume 0x55) while the mouse is on the button, released PICT
+  4910 + n and 4804 when it leaves; after more than 9 presses in one drag
+  `snd` 199; the action when released on it. Keys (`IsPressed`, every
+  pass): N, O or R, I, P, C, Q - the pressed picture, 4803, `Delay(10)`,
+  the action (the button stays drawn pressed). X: `snd` 206 and a message
+  ("But Mr. Horrible says, …"), not again for 30 passes.
+- New Game: `NewGame` (Episode 1 at level 1, with Option and debug mode
+  the warp dialog) → `GameLoop(…, intro 1)`. Continue: a file dialog
+  (`ContinueGame`). Instructions: the game area black, PICT 132 (403 ×
+  396) at (38, 41) - on the window and the back buffer; it stays until
+  something draws over it, the buttons go on. Options: the preferences
+  dialog (DITL 6900–6903). Credits (`FUN_10055f90(600, 4803)`): DLOG 600
+  (200 × 285, centred), PICT 4804 in it, PICT 4803 (136 × 988) moving up
+  a row every `Delay(3)` through (34, 120) – (170, 270) of the window,
+  from below, over and over, until a click in the window (a click beside
+  it beeps). Quit: `Quit`.
+- In the game (`CheckGameLoopKeys`): Escape asks "Are you sure you want
+  to abort this game?" (`ConfirmAbortGameDialog`), yes ends the loop;
+  Command-Q asks to quit, Command-W the same as Escape, Command-S
+  `DoSaveGame`, Command-I the options; caps lock pauses, the map key
+  `ShowMap`.
+- The port (`crates/harry/src/menu.rs`): the menu, buttons by mouse and
+  key, the instructions, the credits, the X message (in a box of the
+  port's), Escape in the game with a question box (Return / Y yes,
+  Escape / N no). Not yet: Options (a screen of the port's own, later),
+  Continue from a list of saves (later; for now the game saved in this
+  session), music, the warp dialog, pause, the map.
+
 ### Between the frames: fades and pictures
 
 The game loop stops for these; they run in ticks (1/60 s) and draw on the
@@ -2095,5 +2136,10 @@ Where the port deliberately differs from the original (the game logic in
   accident. The port needs a press made during the picture (a new key
   or mouse button event, key repeat ignored); a press in the first 8
   rows ends it with the 8th.
+- **Menu.** Letters by the layout as in the game; the credits close
+  with a key too (the original: only a click in them); a button taken by
+  key is drawn released again; Escape in the menu quits; no registration
+  line under the menu. Level jumps for testing are F7 / F8 (N and P are
+  needed by the key sequences).
 - **Registration.** The port plays as registered; the shareware limit
   after level 5 (`LevelLimit`) is left out.

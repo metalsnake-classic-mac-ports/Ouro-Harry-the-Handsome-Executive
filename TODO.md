@@ -70,7 +70,9 @@
 - [ ] Saving and loading as a list of saves (later, decided 2026-11-03): no file dialogs; a save at a copier or between levels makes a new entry with level, date and time, a screenshot; continuing picks from the list. Replaces `CopierSave` / `AskToContinue` and the original's save files
 - [x] `UpLevel`: next level in the same loop, score, level-start state (whole frames, 37 level changes)
 - [x] `Win`, `EndLevelEffect`, `ScrollPlot` pictures, `IntroLevel`, gamma fades (frontend sequences, timing tested)
-- [ ] `IntroLevel`'s text card for levels without a title picture (fan worlds); the main menu after `Win` and after a death
+- [ ] `IntroLevel`'s text card for levels without a title picture (fan worlds)
+- [x] Main menu: buttons by mouse and key, instructions, credits, the X message; back to it after `Win`, a death and Escape (with a question)
+- [ ] Options as a screen of the port's own (instead of the preferences dialog); pause (caps lock), the map (`ShowMap`), the warp dialog
 - [x] The ripple: phase, cheat, `BuildSineTable` (7865 cases), row shifts in the renderer
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock

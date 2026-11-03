@@ -1,12 +1,14 @@
 //! Harry the Handsome Executive: the game with SDL3. `ouro-harry [pack.zip]
 //! [level]`; without a path the data pack `harry-data.zip` is looked for
-//! next to the program, in the current folder and in `re/work`.
+//! next to the program, in the current folder and in `re/work`. It starts
+//! with the main menu, or with a level given at once.
 //!
 //! The game runs at the original's 30 frames per second, with its sounds. Keys as on the
 //! Mac (the default bindings): ← → turn, ↓ scoot, ↑ inch, space kick,
 //! control select item, option / alt use item, 1–4 pick a weapon or the
-//! swivel. Escape quits, F11 toggles full screen; N / P jump to the next /
-//! previous level (for testing).
+//! swivel. Escape asks before the game is given up (then the main menu;
+//! in the menu it quits), F11 toggles full screen; F8 / F7 jump to the
+//! next / previous level (for testing).
 //!
 //! `ouro-harry --screenshot out.bmp [level] [frames]` runs the frames
 //! without keys and writes the picture, without a window. With
@@ -16,6 +18,7 @@
 
 mod audio;
 mod balloon;
+mod menu;
 mod render;
 mod scenes;
 mod text;
@@ -219,6 +222,8 @@ fn main() -> Result<()> {
         blob: &loaded.blob,
         face_bounds: &face_bounds,
     };
+    // a level on the command line starts it at once, else the main menu
+    let direct = args.get(2).is_some();
     let mut level: usize = args.get(2).and_then(|s| s.parse::<usize>().ok()).map_or(0, |n| n.clamp(1, data.levels.len()) - 1);
     let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.subsec_nanos() | 1);
     let start = |level: usize, g: PlayerGlobals, seed: u32| {
@@ -305,9 +310,31 @@ fn main() -> Result<()> {
         c.fill(16, 16, 448, 448, 255);
         c
     };
-    let mut scene = Some(scenes::Scenes::new(start_screen(&game), true, scenes::game_start(&game.level, true)));
+    let menu_screen = |m: &menu::Menu| m.draw(&data, &fonts).0;
+    // the main menu (when it shows, the game waits); the question before a
+    // game is given up
+    let mut in_menu: Option<menu::Menu> = None;
+    let mut confirm = false;
+    let mut scene = if direct {
+        Some(scenes::Scenes::new(start_screen(&game), true, scenes::game_start(&game.level, true)))
+    } else {
+        let m = menu::Menu::new();
+        let mut sc = scenes::Scenes::new(start_screen(&game), true, Vec::new());
+        sc.then = Some((menu_screen(&m), vec![scenes::Step::FadeIn(8)]));
+        in_menu = Some(m);
+        Some(sc)
+    };
     let mut tick = Instant::now();
     let mut faded = true;
+    // to the main menu from the screen shown: fade out, the menu, fade in
+    let to_menu = |screen: render::Canvas, faded: bool, steps: Vec<scenes::Step>| {
+        let m = menu::Menu::new();
+        let mut steps = steps;
+        steps.push(scenes::Step::FadeOut(8));
+        let mut sc = scenes::Scenes::new(screen, faded, steps);
+        sc.then = Some((menu_screen(&m), vec![scenes::Step::FadeIn(8)]));
+        (m, sc)
+    };
     let mut text_texture: Option<(sdl3::render::Texture, Vec<text::Line>, (u32, u32))> = None;
     // HARRY_STATS: loop timing once a second
     let stats = std::env::var_os("HARRY_STATS").is_some();
@@ -318,10 +345,56 @@ fn main() -> Result<()> {
         // a key or mouse button pressed now (it can end a scrolled picture;
         // one held since before cannot)
         let mut pressed = false;
-        for e in events.poll_iter() {
+        let mut action: Option<menu::Action> = None;
+        let mut give_up = false;
+        for mut e in events.poll_iter() {
+            e.convert_coords(&canvas);
+            let menu_live = scene.is_none() && in_menu.is_some();
             match e {
                 Event::Quit { .. } => break 'run,
-                Event::MouseButtonDown { .. } => pressed = true,
+                Event::MouseButtonDown { x, y, .. } => {
+                    pressed = true;
+                    if menu_live && let Some(m) = in_menu.as_mut() {
+                        m.mouse_down(x as i32, y as i32);
+                    }
+                }
+                Event::MouseMotion { x, y, .. } => {
+                    if menu_live && let Some(m) = in_menu.as_mut() {
+                        m.mouse_move(x as i32, y as i32);
+                    }
+                }
+                Event::MouseButtonUp { x, y, .. } => {
+                    if menu_live && let Some(m) = in_menu.as_mut() {
+                        action = action.or(m.mouse_up(x as i32, y as i32));
+                    }
+                }
+                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if confirm => match sc {
+                    Scancode::Return | Scancode::KpEnter | Scancode::Y => {
+                        confirm = false;
+                        give_up = true;
+                    }
+                    Scancode::Escape | Scancode::N => {
+                        confirm = false;
+                        next = Instant::now();
+                    }
+                    _ => {}
+                },
+                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if menu_live && sc != Scancode::F11 => {
+                    let Some(m) = in_menu.as_mut() else { continue };
+                    if sc == Scancode::Escape {
+                        if m.message.is_none() && !m.credits_open() {
+                            break 'run;
+                        }
+                        m.key('\x1b');
+                    } else if let Some(c) = Keycode::from_scancode(sc, SDL_KMOD_NONE, false)
+                        .and_then(|k| char::from_u32(k as u32))
+                        .filter(char::is_ascii_lowercase)
+                    {
+                        m.key(c);
+                    } else if matches!(sc, Scancode::Return | Scancode::KpEnter) {
+                        m.key('\r');
+                    }
+                }
                 Event::KeyDown { scancode: Some(sc), repeat: false, .. } => {
                     if let Some((_, since)) = &shown {
                         // Return / Enter at once, any key after a second
@@ -332,14 +405,15 @@ fn main() -> Result<()> {
                         continue;
                     }
                     match sc {
-                        Scancode::Escape => break 'run,
                         _ if scene.is_some() && sc != Scancode::F11 => pressed = true,
+                        // CheckGameLoopKeys: Escape asks before the game is given up
+                        Scancode::Escape => confirm = true,
                         Scancode::F11 => {
                             fullscreen = !fullscreen;
                             let _ = canvas.window_mut().set_fullscreen(fullscreen);
                         }
-                        Scancode::N => jump = Some((level + 1) % data.levels.len()),
-                        Scancode::P => jump = Some((level + data.levels.len() - 1) % data.levels.len()),
+                        Scancode::F8 => jump = Some((level + 1) % data.levels.len()),
+                        Scancode::F7 => jump = Some((level + data.levels.len() - 1) % data.levels.len()),
                         _ => {}
                     }
                 }
@@ -364,7 +438,50 @@ fn main() -> Result<()> {
                 next = Instant::now();
             }
         }
-        while scene.is_none() && shown.is_none() && next <= now {
+        // the main menu: its ticks, sounds and what it asks for
+        if scene.is_none()
+            && let Some(m) = in_menu.as_mut()
+        {
+            while tick <= now {
+                action = action.or(m.tick(&data));
+                tick += TICK;
+            }
+            mixer.events(&std::mem::take(&mut m.sounds), false);
+        }
+        match action {
+            Some(menu::Action::NewGame) => {
+                level = 0;
+                game = start(level, PlayerGlobals::new_game(), game.rng.seed);
+                in_menu = None;
+                scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, true)));
+                tick = now;
+            }
+            // ContinueGame: the save list is to come; the game saved in
+            // this session goes on (a copier save without the story)
+            Some(menu::Action::Continue) => {
+                let saved = save_path.as_ref().filter(|_| have_save).and_then(|p| std::fs::read(p).ok());
+                if let Some(sg) = saved.map(|b| SaveGame::from_bytes(&b))
+                    && let Some(missing) = game.continue_game(&sg, &data.levels, &assets)
+                {
+                    level = (sg.level as usize).saturating_sub(1);
+                    if !missing.is_empty() {
+                        eprintln!("level {}: not ported yet: {missing:?}", level + 1);
+                    }
+                    in_menu = None;
+                    scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, !sg.copier)));
+                    tick = now;
+                }
+            }
+            Some(menu::Action::Quit) => break 'run,
+            None => {}
+        }
+        if give_up {
+            let (m, sc) = to_menu(render::draw(&data, &game), faded, Vec::new());
+            in_menu = Some(m);
+            scene = Some(sc);
+            tick = now;
+        }
+        while scene.is_none() && in_menu.is_none() && !confirm && shown.is_none() && next <= now {
             next += FRAME;
             let keys = keymap(&events.keyboard_state());
             let mut asked = None;
@@ -398,14 +515,10 @@ fn main() -> Result<()> {
                             }
                             scene = Some(scenes::Scenes::new(screen, faded, scenes::up_level(&old, &game.level)));
                         }
-                        // after Win the main menu (not ported): a new game
+                        // after Win the main menu
                         (UpLevel::Won, _) => {
-                            let mut steps = scenes::win(&data.world);
-                            level = 0;
-                            game = start(level, PlayerGlobals::new_game(), game.rng.seed);
-                            steps.push(scenes::Step::BlackScreen);
-                            let mut sc = scenes::Scenes::new(screen, faded, steps);
-                            sc.then = Some((start_screen(&game), scenes::game_start(&game.level, true)));
+                            let (m, sc) = to_menu(screen, faded, scenes::win(&data.world));
+                            in_menu = Some(m);
                             scene = Some(sc);
                         }
                     }
@@ -419,30 +532,11 @@ fn main() -> Result<()> {
                     if game.g.comfort < 1 || game.g.favor < 1 {
                         steps.push(scenes::Step::EndLevel);
                     }
-                    // AskToContinue's dialog is not ported: with a game saved
-                    // in this session it goes on from there, else a new game
-                    // starts at this level; both start with GameLoop's
-                    // sequence (a copier save without the story)
-                    let saved = save_path.as_ref().filter(|_| have_save).and_then(|p| std::fs::read(p).ok());
-                    let mut intro = true;
-                    match saved.map(|b| SaveGame::from_bytes(&b)) {
-                        Some(sg) => {
-                            if let Some(missing) = game.continue_game(&sg, &data.levels, &assets) {
-                                level = (sg.level as usize).saturating_sub(1);
-                                intro = !sg.copier;
-                                if !missing.is_empty() {
-                                    eprintln!("level {}: not ported yet: {missing:?}", level + 1);
-                                }
-                            }
-                        }
-                        None => {
-                            let session = std::mem::take(&mut game.session);
-                            game = start(level, PlayerGlobals::new_game(), game.rng.seed);
-                            game.session = session;
-                        }
-                    }
-                    let mut sc = scenes::Scenes::new(screen, faded, steps);
-                    sc.then = Some((start_screen(&game), scenes::game_start(&game.level, intro)));
+                    // then the main menu (AskToContinue is to come with the
+                    // save list; the menu's Continue goes on from the game
+                    // saved in this session)
+                    let (m, sc) = to_menu(screen, faded, steps);
+                    in_menu = Some(m);
                     scene = Some(sc);
                     tick = Instant::now();
                 }
@@ -458,7 +552,17 @@ fn main() -> Result<()> {
                 }
             }
         }
-        let (mut image, mut lines) = picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b));
+        let (mut image, mut lines) = match &in_menu {
+            Some(m) if scene.is_none() => m.draw(&data, &fonts),
+            _ => picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b)),
+        };
+        if confirm {
+            lines.extend(menu::message_box(
+                &mut image,
+                &fonts,
+                "Are you sure you want to abort this game?\n\nReturn: yes      Escape: no",
+            ));
+        }
         let mut dark = if faded { 256 } else { 0 };
         if let Some(sc) = &scene {
             image = sc.image.clone();
@@ -512,7 +616,7 @@ fn main() -> Result<()> {
                 (loops, frames_run, busy, stat_start) = (0, 0, Duration::ZERO, Instant::now());
             }
         }
-        let wake = if scene.is_some() { tick } else { next };
+        let wake = if scene.is_some() || in_menu.is_some() { tick } else { next };
         std::thread::sleep(wake.saturating_duration_since(Instant::now()).min(FRAME));
     }
     Ok(())
