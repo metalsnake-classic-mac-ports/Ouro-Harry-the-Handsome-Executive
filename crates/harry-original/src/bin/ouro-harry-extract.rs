@@ -41,7 +41,7 @@ fn indexed(p: &pict::Picture, clut: &HashMap<[u8; 3], u8>, mask: Option<&pict::P
     Ok(Image { width: p.width, height: p.height, pixels })
 }
 
-fn run(dir: &Path, out: &Path) -> Result<(), String> {
+fn run(dir: &Path, out: &Path, qtmi: &Path) -> Result<(), String> {
     let app = open(dir, "Harry 1.0.1.bin")?;
     let gfx = open(dir, "Harry Graphics.bin")?;
     let ep = open(dir, "Episode 1.bin")?;
@@ -129,7 +129,7 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
             .collect()
     };
     let (sounds, world_sounds) = (sound_set(&sound_file), sound_set(&ep));
-    let music = music(dir)?;
+    let music = music(dir, qtmi)?;
     let data =
         GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, world_pictures, world: world_info, icons, levels, texts, messages, words, sounds, world_sounds, music };
     let bytes = harry_data::pack::write(&data).map_err(|e| e.to_string())?;
@@ -149,10 +149,10 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
 
 /// The music: every tune of `Harry Music`, every instrument of `Harry
 /// Instruments`, and the instruments of QuickTime Musical Instruments the
-/// tunes ask for - from `<dir>/../qtmi/QuickTime Musical
-/// Instruments.rsrc` (its resource fork, copied from a Mac with
-/// QuickTime) if it is there; without it those parts stay silent.
-fn music(dir: &Path) -> Result<harry_data::music::Music, String> {
+/// tunes ask for, from `qtmi` (the resource fork of QuickTime Musical
+/// Instruments, copied from a Mac with QuickTime). The pack always holds
+/// them: nine of the 17 tunes play General MIDI instruments.
+fn music(dir: &Path, qt_path: &Path) -> Result<harry_data::music::Music, String> {
     use harry_original::qtma;
     let mut m = harry_data::music::Music::default();
     let tunes = open(dir, "Harry Music.bin")?;
@@ -171,20 +171,15 @@ fn music(dir: &Path) -> Result<harry_data::music::Music, String> {
         by_name.insert(s.tone.instrument.clone(), key.clone());
         m.instruments.insert(key, inst);
     }
-    let qt_path = dir.join("../qtmi/QuickTime Musical Instruments.rsrc");
-    let qt = std::fs::read(&qt_path).ok().map(|d| Resources::parse(&d)).transpose().map_err(|e| e.to_string())?;
-    if qt.is_none() {
-        eprintln!("{}: not found, the General MIDI parts stay silent", qt_path.display());
-    }
+    let qt = std::fs::read(qt_path).map_err(|e| format!("{}: {e} (QuickTime Musical Instruments' resource fork)", qt_path.display()))?;
+    let qt = Resources::parse(&qt).map_err(|e| e.to_string())?;
     // QuickTime's instruments share their samples: all of them by id
     let mut qt_ssai = BTreeMap::new();
     let mut qt_samples = BTreeMap::new();
-    if let Some(qt) = &qt {
-        for id in qt.ids(b"ssai") {
-            if let Some(s) = qt.get(b"ssai", id).ok().and_then(qtma::ssai) {
-                qt_samples.extend(s.samples.clone());
-                qt_ssai.insert(id, s);
-            }
+    for id in qt.ids(b"ssai") {
+        if let Some(s) = qt.get(b"ssai", id).ok().and_then(qtma::ssai) {
+            qt_samples.extend(s.samples.clone());
+            qt_ssai.insert(id, s);
         }
     }
     for id in tunes.ids(b"Tune") {
@@ -205,8 +200,7 @@ fn music(dir: &Path) -> Result<harry_data::music::Music, String> {
                 m.instruments.insert(key.clone(), inst);
                 key
             } else {
-                eprintln!("Tune {id} part {part}: no instrument {:?} (#{:#x})", t.instrument, t.number);
-                continue;
+                return Err(format!("Tune {id} part {part}: no instrument {:?} (#{:#x})", t.instrument, t.number));
             };
             tune.parts.insert(part, key);
         }
@@ -218,11 +212,13 @@ fn music(dir: &Path) -> Result<harry_data::music::Music, String> {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     let Some(dir) = args.get(1) else {
-        eprintln!("usage: ouro-harry-extract <folder with the installed game> [pack.zip]");
+        eprintln!("usage: ouro-harry-extract <folder with the installed game> [pack.zip] [QuickTime Musical Instruments.rsrc]");
         return ExitCode::FAILURE;
     };
     let out = args.get(2).map_or_else(|| PathBuf::from("harry-data.zip"), PathBuf::from);
-    match run(Path::new(dir), &out) {
+    // QuickTime Musical Instruments: by default next to the game's folder
+    let qtmi = args.get(3).map_or_else(|| Path::new(dir).join("../qtmi/QuickTime Musical Instruments.rsrc"), PathBuf::from);
+    match run(Path::new(dir), &out, &qtmi) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("ouro-harry-extract: {e}");

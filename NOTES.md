@@ -1857,7 +1857,7 @@ queue plus `STPlay3DSound` / `CalcStereoVolume` (positional stereo).
   synthesizer name, instrument name (Str31 each), instrument number, GM
   number. Type 6, atomic instrument: 12 bytes, then a QuickTime atom
   container `sean` with a `tone` atom (the same ToneDescription).
-- Tunes 600–604, 606, 607, 615, 616, 620 ask "Best Synthesizer" for
+- Tunes 600, 601, 603, 604, 606, 607, 615, 616, 620 ask "Best Synthesizer" for
   General MIDI instruments (Flute #74, Standard Kit #0x4001, ...): the
   instruments of QuickTime Musical Instruments (Apple's extension, Roland
   GS sounds; not part of Harry). Tunes 605, 608–614 ask "QuickTime Music
@@ -1893,8 +1893,11 @@ queue plus `STPlay3DSound` / `CalcStereoVolume` (positional stereo).
   knobs, zones), `music/samples/KEY.wav` (8-bit mono); a recording
   `music/recordings/ID.wav` / `.flac` replaces the synthesized tune.
   QuickTime Musical Instruments is read from `re/work/qtmi` (its
-  resource fork, copied from the Mac OS 9 disk); only the instruments
-  the tunes ask for (24) go into the pack.
+  resource fork, copied from the Mac OS 9 disk; another path as the
+  extract tool's third argument) and is required: the pack always holds
+  the instruments the tunes ask for (24) - decided 2026-11-04, Apple has
+  no objection to shipping them. Tunes run 32 s (614) to 91 s (601) once
+  through.
 - **The port's synthesizer** (`crates/harry/src/music.rs`, in the audio
   callback at 22 254 Hz): the tune's events at 600 units a second,
   looping at the end with the notes still sounding (as kTuneLoopUntil +
@@ -1994,7 +1997,7 @@ needs QuickTime 2.5+ with QuickTime Musical Instruments.
   recordings or the pack skip when `re/work/` lacks them.
 - **Data pack** (`harry-data`, made by `cargo run --release -p
   harry-original --bin ouro-harry-extract -- re/work/installed
-  re/work/harry-data.zip`): a zip of PNGs and text - the 929 faces with
+  re/work/harry-data.zip [path of QuickTime Musical Instruments.rsrc]`): a zip of PNGs and text - the 929 faces with
   their header rects, the 9 tile sets of Episode 1 (foreground with its
   mask as transparency), the collision masks (`cicn` 290, 299, 571–574,
   598, 599, 1299; the wall sheet PICT 160), `Harry Titles` PICT 129 (the

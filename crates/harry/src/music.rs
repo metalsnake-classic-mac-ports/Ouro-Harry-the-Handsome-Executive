@@ -262,7 +262,8 @@ mod tests {
         harry_data::pack::read(&std::fs::read(root).ok()?).ok()
     }
 
-    /// Render `seconds` of a tune (`HARRY_MUSIC_DUMP=<dir>`: as a WAV file).
+    /// Render `seconds` of a tune (`HARRY_MUSIC_DUMP=<dir>`: the whole tune,
+    /// once through, as a WAV file).
     fn render(data: &harry_data::GameData, id: i16, seconds: f64) -> Vec<f32> {
         let mut p = Player::new(Library::new(&data.music), 22254);
         p.set_volume(9);
@@ -292,7 +293,8 @@ mod tests {
     fn every_tune_sounds_and_does_not_clip() {
         let Some(data) = pack() else { return };
         for &id in data.music.tunes.keys() {
-            let out = render(&data, id, if std::env::var("HARRY_MUSIC_DUMP").is_ok() { 40.0 } else { 6.0 });
+            let whole = data.music.tunes[&id].length() as f64 / 600.0;
+            let out = render(&data, id, if std::env::var("HARRY_MUSIC_DUMP").is_ok() { whole } else { whole.min(6.0) });
             let peak = out.iter().fold(0.0f32, |m, x| m.max(x.abs()));
             let rms = (out.iter().map(|x| x * x).sum::<f32>() / out.len() as f32).sqrt();
             assert!(rms > 0.005, "Tune {id} is silent ({rms})");

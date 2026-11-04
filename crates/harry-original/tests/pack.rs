@@ -93,10 +93,7 @@ fn pack_holds_the_original_data() {
     for (id, t) in &m.tunes {
         let (parts, events) = harry_original::qtma::tune(tunes.get(b"Tune", *id).unwrap()).unwrap();
         assert_eq!(t.events, events, "Tune {id}");
-        // (the General MIDI parts need QuickTime Musical Instruments)
-        if root().join("re/work/qtmi").exists() {
-            assert_eq!(t.parts.len(), parts.len(), "Tune {id}: a part without an instrument");
-        }
+        assert_eq!(t.parts.len(), parts.len(), "Tune {id}: a part without an instrument");
         for key in t.parts.values() {
             for z in &m.instruments[key].zones {
                 assert!(m.samples.contains_key(&z.sample), "Tune {id}: {key}: no sample {}", z.sample);

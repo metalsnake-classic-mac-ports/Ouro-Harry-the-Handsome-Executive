@@ -111,7 +111,6 @@
 - [ ] `MakeITable`'s inverse table exactly (the port takes the nearest colour); second faces clipped like the original at the ring buffer's wrap
 - [x] Music: the synthesizer (tunes from the pack, a recording instead when there is one), `SetMusic` / `FadeMusic` where the game calls them, the volume in the options
 - [ ] Music closer to QuickTime: the instruments' knobs (envelopes, velocity curves, transposition), controller 33, the mixing level - against recordings from SheepShaver
-- [ ] Decide: QuickTime Musical Instruments in the shipped pack, a free GM soundfont, or only when provided (asked 2026-11-04)
 - [ ] Sound feedback into the game: "is a voice / the fan / the bump playing" (the original asks its channels; the port answers no)
 - [x] Frontend: letters by the keyboard layout (an improvement, NOTES "Port improvements"); F1–F4, F12, F13, N and P mapped
 - [x] `KeyEvent::Balloon`: the P-A-R-G-H-Z and B-E-N balloons (texts from the PowerPC data section)
