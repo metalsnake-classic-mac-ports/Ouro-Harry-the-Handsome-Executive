@@ -20,6 +20,9 @@
 //!   (`STR#` 6900–6905, 6800–6801), one string per line (UTF-8)
 //! - `sounds/ID.wav`, `world_sounds/ID.wav`: the sounds (8-bit mono WAV)
 //! - `messages.txt`: the application's balloon texts, as `texts.txt`
+//! - `music/tunes/ID.txt`, `music/instruments/KEY.txt`,
+//!   `music/samples/KEY.wav` (8-bit mono): the music (`music`); optional
+//!   `music/recordings/ID.wav` / `.flac`, played instead of tune ID
 //! - `texts.txt`: the world's texts, `n text` per line (UTF-8; a line
 //!   break inside a text is `\r`, a backslash `\\`)
 
@@ -29,10 +32,11 @@ use std::io::{Cursor, Read, Write};
 use harry_core::mask::Mask;
 use zip::write::SimpleFileOptions;
 
+use crate::music;
 use crate::{Face, GameData, Image, MaskImages, Result, Sound, TileSet, WorldInfo, clut8, corrupt, level};
 
 /// The first line of `pack.txt`.
-pub const FORMAT: &str = "Harry the Handsome Executive data pack 6";
+pub const FORMAT: &str = "Harry the Handsome Executive data pack 7";
 
 fn encode_png(width: usize, height: usize, color: png::ColorType, data: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
@@ -172,6 +176,19 @@ pub fn write(data: &GameData) -> Result<Vec<u8>> {
             put(&format!("{dir}/{id}.wav"), &wav(snd))?;
         }
     }
+    let m = &data.music;
+    for (id, t) in &m.tunes {
+        put(&format!("music/tunes/{id}.txt"), music::tune_text(t).as_bytes())?;
+    }
+    for (key, i) in &m.instruments {
+        put(&format!("music/instruments/{key}.txt"), music::instrument_text(i).as_bytes())?;
+    }
+    for (key, snd) in &m.samples {
+        put(&format!("music/samples/{key}.wav"), &wav(snd))?;
+    }
+    for (id, r) in &m.recordings {
+        put(&format!("music/recordings/{id}.wav"), &wav16(r))?;
+    }
     let cursor = zip.finish().map_err(|e| corrupt(e.to_string()))?;
     Ok(cursor.into_inner())
 }
@@ -279,7 +296,35 @@ pub fn read(bytes: &[u8]) -> Result<GameData> {
     };
     let sounds = sound_set("sounds")?;
     let world_sounds = sound_set("world_sounds")?;
-    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, world_pictures, world, icons, levels, texts, messages, words, sounds, world_sounds })
+    // the music: tunes, instruments, samples, recordings (WAV or FLAC)
+    let mut music = music::Music::default();
+    for name in names.iter().filter(|n| n.starts_with("music/")) {
+        let mut f = zip.by_name(name).map_err(|e| corrupt(e.to_string()))?;
+        let mut d = Vec::new();
+        f.read_to_end(&mut d).map_err(|e| corrupt(format!("{name}: {e}")))?;
+        let (dir, file) = name["music/".len()..].split_once('/').unwrap_or(("", ""));
+        let Some((stem, ext)) = file.rsplit_once('.') else { continue };
+        let bad = || corrupt(format!("{name}: cannot read it"));
+        match (dir, ext) {
+            ("tunes", "txt") => {
+                let id = stem.parse().map_err(|_| bad())?;
+                music.tunes.insert(id, music::parse_tune(&text(d)).ok_or_else(bad)?);
+            }
+            ("instruments", "txt") => {
+                music.instruments.insert(stem.to_string(), music::parse_instrument(&text(d)).ok_or_else(bad)?);
+            }
+            ("samples", "wav") => {
+                music.samples.insert(stem.to_string(), unwav(&d).ok_or_else(bad)?);
+            }
+            ("recordings", "wav" | "flac") => {
+                let id = stem.parse().map_err(|_| bad())?;
+                let r = if ext == "wav" { unwav16(&d) } else { unflac(&d) };
+                music.recordings.insert(id, r.ok_or_else(bad)?);
+            }
+            _ => {}
+        }
+    }
+    Ok(GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, world_pictures, world, icons, levels, texts, messages, words, sounds, world_sounds, music })
 }
 
 fn word_lists(w: &harry_core::words::Words) -> Vec<(i16, &Vec<Vec<u8>>)> {
@@ -306,6 +351,75 @@ fn wav(s: &Sound) -> Vec<u8> {
     w.extend_from_slice(&n.to_le_bytes());
     w.extend_from_slice(&s.samples);
     w
+}
+
+/// A recording as a 16-bit WAV file.
+fn wav16(r: &music::Recording) -> Vec<u8> {
+    let n = (r.samples.len() * 2) as u32;
+    let mut w = Vec::with_capacity(44 + n as usize);
+    w.extend_from_slice(b"RIFF");
+    w.extend_from_slice(&(36 + n).to_le_bytes());
+    w.extend_from_slice(b"WAVEfmt ");
+    w.extend_from_slice(&16u32.to_le_bytes());
+    w.extend_from_slice(&1u16.to_le_bytes());
+    w.extend_from_slice(&r.channels.to_le_bytes());
+    w.extend_from_slice(&r.rate.to_le_bytes());
+    w.extend_from_slice(&(r.rate * u32::from(r.channels) * 2).to_le_bytes());
+    w.extend_from_slice(&(r.channels * 2).to_le_bytes());
+    w.extend_from_slice(&16u16.to_le_bytes());
+    w.extend_from_slice(b"data");
+    w.extend_from_slice(&n.to_le_bytes());
+    for v in &r.samples {
+        w.extend_from_slice(&v.to_le_bytes());
+    }
+    w
+}
+
+/// Read a recording from a PCM WAV file (8 or 16 bits, any channels).
+fn unwav16(d: &[u8]) -> Option<music::Recording> {
+    if d.get(..4)? != b"RIFF" || d.get(8..12)? != b"WAVE" {
+        return None;
+    }
+    let le16 = |o: usize| Some(u16::from_le_bytes(d.get(o..o + 2)?.try_into().ok()?));
+    let le32 = |o: usize| Some(u32::from_le_bytes(d.get(o..o + 4)?.try_into().ok()?));
+    let (mut p, mut fmt) = (12, None);
+    while p + 8 <= d.len() {
+        let size = le32(p + 4)? as usize;
+        match d.get(p..p + 4)? {
+            b"fmt " => {
+                if le16(p + 8)? != 1 {
+                    return None;
+                }
+                fmt = Some((le16(p + 10)?, le32(p + 12)?, le16(p + 22)?));
+            }
+            b"data" => {
+                let (channels, rate, bits) = fmt?;
+                let data = d.get(p + 8..(p + 8 + size).min(d.len()))?;
+                let samples = match bits {
+                    8 => data.iter().map(|&b| (i16::from(b) - 128) << 8).collect(),
+                    16 => data.as_chunks::<2>().0.iter().map(|b| i16::from_le_bytes(*b)).collect(),
+                    _ => return None,
+                };
+                return Some(music::Recording { rate, channels, samples });
+            }
+            _ => {}
+        }
+        p += 8 + size + (size & 1);
+    }
+    None
+}
+
+/// Read a recording from a FLAC file (to 16 bits).
+fn unflac(d: &[u8]) -> Option<music::Recording> {
+    let mut r = claxon::FlacReader::new(Cursor::new(d)).ok()?;
+    let info = r.streaminfo();
+    let shift = i32::try_from(info.bits_per_sample).ok()? - 16;
+    let samples = r
+        .samples()
+        .map(|s| s.map(|v| if shift >= 0 { (v >> shift) as i16 } else { (v << -shift) as i16 }))
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .ok()?;
+    Some(music::Recording { rate: info.sample_rate, channels: info.channels as u16, samples })
 }
 
 /// Read an 8-bit mono WAV file.

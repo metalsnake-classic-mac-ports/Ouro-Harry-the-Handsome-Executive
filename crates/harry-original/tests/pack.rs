@@ -85,6 +85,24 @@ fn pack_holds_the_original_data() {
         assert_eq!((data.sounds[&id].rate, &data.sounds[&id].samples), (s.rate, &s.samples), "snd {id}");
     }
     assert_eq!(data.world_sounds.keys().copied().collect::<Vec<_>>(), [200, 201, 203]);
+    // the music: every tune with all its parts played by an instrument
+    // whose samples are there, the events as the original's
+    let m = &data.music;
+    let tunes = installed("Harry Music.bin").unwrap();
+    assert_eq!(m.tunes.len(), 17);
+    for (id, t) in &m.tunes {
+        let (parts, events) = harry_original::qtma::tune(tunes.get(b"Tune", *id).unwrap()).unwrap();
+        assert_eq!(t.events, events, "Tune {id}");
+        // (the General MIDI parts need QuickTime Musical Instruments)
+        if root().join("re/work/qtmi").exists() {
+            assert_eq!(t.parts.len(), parts.len(), "Tune {id}: a part without an instrument");
+        }
+        for key in t.parts.values() {
+            for z in &m.instruments[key].zones {
+                assert!(m.samples.contains_key(&z.sample), "Tune {id}: {key}: no sample {}", z.sample);
+            }
+        }
+    }
     let screen = &data.pictures[&129];
     assert_eq!((screen.width, screen.height), (640, 480));
     let meters = &data.pictures[&150];

@@ -11,7 +11,7 @@
 - [x] `HrSp` encoded faces → PNG (`re/tools/hrsp.py`)
 - [x] Screen palette: clut 8
 - [ ] Map object ids → sprite faces (which HrSp per kind) for a full level picture
-- [ ] `Tune` format (QTMA) and `ssai` instruments; plan for the music
+- [x] `Tune` format (QTMA) and `ssai` instruments: read into the data pack (tunes as text, instruments, 8-bit samples; recordings optional)
 - [ ] Compare with 1.0.0 (older installer format) - worth it?
 
 ## Phase 2: code (PPC is the reference)
@@ -109,7 +109,8 @@
 - [x] Sprite tints: the draw procs' blits (whole frames), the colour tables (13 812 colours), drawn in the frontend
 - [x] Meters as `UpdateMeters` draws them, with the rounded ends (cicn 10135–10137 in the pack); the fans' grilles and the dart enemies' darts
 - [ ] `MakeITable`'s inverse table exactly (the port takes the nearest colour); second faces clipped like the original at the ring buffer's wrap
-- [ ] Frontend: music (`Tune`), with its volume in the options
+- [ ] Frontend: the synthesizer (tunes from the pack, a recording instead when there is one), `SetMusic` / `FadeMusic` where the game calls them, the volume in the options
+- [ ] Decide: QuickTime Musical Instruments in the shipped pack, a free GM soundfont, or only when provided (asked 2026-11-04)
 - [ ] Sound feedback into the game: "is a voice / the fan / the bump playing" (the original asks its channels; the port answers no)
 - [x] Frontend: letters by the keyboard layout (an improvement, NOTES "Port improvements"); F1–F4, F12, F13, N and P mapped
 - [x] `KeyEvent::Balloon`: the P-A-R-G-H-Z and B-E-N balloons (texts from the PowerPC data section)

@@ -129,8 +129,9 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
             .collect()
     };
     let (sounds, world_sounds) = (sound_set(&sound_file), sound_set(&ep));
+    let music = music(dir)?;
     let data =
-        GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, world_pictures, world: world_info, icons, levels, texts, messages, words, sounds, world_sounds };
+        GameData { faces, tile_sets, masks: MaskImages { cicns, walls }, pictures, world_pictures, world: world_info, icons, levels, texts, messages, words, sounds, world_sounds, music };
     let bytes = harry_data::pack::write(&data).map_err(|e| e.to_string())?;
     std::fs::write(out, &bytes).map_err(|e| format!("{}: {e}", out.display()))?;
     println!(
@@ -144,6 +145,74 @@ fn run(dir: &Path, out: &Path) -> Result<(), String> {
         bytes.len() / 1024
     );
     Ok(())
+}
+
+/// The music: every tune of `Harry Music`, every instrument of `Harry
+/// Instruments`, and the instruments of QuickTime Musical Instruments the
+/// tunes ask for - from `<dir>/../qtmi/QuickTime Musical
+/// Instruments.rsrc` (its resource fork, copied from a Mac with
+/// QuickTime) if it is there; without it those parts stay silent.
+fn music(dir: &Path) -> Result<harry_data::music::Music, String> {
+    use harry_original::qtma;
+    let mut m = harry_data::music::Music::default();
+    let tunes = open(dir, "Harry Music.bin")?;
+    let harry = open(dir, "Harry Instruments.bin")?;
+    let mut by_name = BTreeMap::new();
+    for id in harry.ids(b"ssai") {
+        let s = qtma::ssai(harry.get(b"ssai", id).map_err(|e| e.to_string())?).ok_or(format!("ssai {id}"))?;
+        let key = format!("harry-{id}");
+        let mut inst = s.instrument;
+        for (z, sid) in inst.zones.iter_mut().zip(&s.zone_samples) {
+            z.sample = format!("{key}-{sid}");
+        }
+        for (sid, snd) in s.samples {
+            m.samples.insert(format!("{key}-{sid}"), snd);
+        }
+        by_name.insert(s.tone.instrument.clone(), key.clone());
+        m.instruments.insert(key, inst);
+    }
+    let qt_path = dir.join("../qtmi/QuickTime Musical Instruments.rsrc");
+    let qt = std::fs::read(&qt_path).ok().map(|d| Resources::parse(&d)).transpose().map_err(|e| e.to_string())?;
+    if qt.is_none() {
+        eprintln!("{}: not found, the General MIDI parts stay silent", qt_path.display());
+    }
+    // QuickTime's instruments share their samples: all of them by id
+    let mut qt_ssai = BTreeMap::new();
+    let mut qt_samples = BTreeMap::new();
+    if let Some(qt) = &qt {
+        for id in qt.ids(b"ssai") {
+            if let Some(s) = qt.get(b"ssai", id).ok().and_then(qtma::ssai) {
+                qt_samples.extend(s.samples.clone());
+                qt_ssai.insert(id, s);
+            }
+        }
+    }
+    for id in tunes.ids(b"Tune") {
+        let (parts, events) = qtma::tune(tunes.get(b"Tune", id).map_err(|e| e.to_string())?).ok_or(format!("Tune {id}"))?;
+        let mut tune = harry_data::music::Tune { events, ..Default::default() };
+        for (part, t) in parts {
+            let key = if let Some(k) = by_name.get(&t.instrument) {
+                k.clone()
+            } else if let Some(s) = i16::try_from(t.number).ok().and_then(|n| qt_ssai.get(&n)) {
+                let key = format!("qt-{}", t.number);
+                let mut inst = s.instrument.clone();
+                for (z, sid) in inst.zones.iter_mut().zip(&s.zone_samples) {
+                    z.sample = format!("qt-{sid}");
+                    if let Some(snd) = qt_samples.get(sid) {
+                        m.samples.insert(z.sample.clone(), snd.clone());
+                    }
+                }
+                m.instruments.insert(key.clone(), inst);
+                key
+            } else {
+                eprintln!("Tune {id} part {part}: no instrument {:?} (#{:#x})", t.instrument, t.number);
+                continue;
+            };
+            tune.parts.insert(part, key);
+        }
+        m.tunes.insert(id, tune);
+    }
+    Ok(m)
 }
 
 fn main() -> ExitCode {

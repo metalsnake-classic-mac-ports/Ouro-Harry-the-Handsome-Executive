@@ -7,6 +7,7 @@ pub mod hlvl;
 pub mod hrsp;
 pub mod masks;
 pub mod pef;
+pub mod qtma;
 pub mod pict;
 pub mod resfork;
 pub mod snd;

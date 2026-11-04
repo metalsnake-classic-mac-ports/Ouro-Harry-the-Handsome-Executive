@@ -193,6 +193,14 @@ option) and why.
   low memory (0x2 / 0x4). Port: kept with that position as 0 (the view
   moves up and left), as the recorder's zeroed page 0 gives.
 
+- **Two instruments of Tune 614 have no name length.** Parts 2 and 5 of
+  Tune 614 (level 14) ask for "Towerful" and "Racked" with the Str31's
+  length byte 0 (the text behind it intact); their instrument numbers
+  (0x8258, 0x8259) are the instrument component's numbering of the time
+  the tune was made, not today's. What QuickTime then played is not
+  known (by number: something else, by name: nothing). Port: the name
+  read up to its first zero, so the instruments the tune meant play.
+
 ## Fixed in 1.0.1
 
 Known from the 1.0.1 notes as fixed in 1.0.1 (so not

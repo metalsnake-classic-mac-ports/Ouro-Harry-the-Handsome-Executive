@@ -1887,6 +1887,14 @@ queue plus `STPlay3DSound` / `CalcStereoVolume` (positional stereo).
   Harry's, `smin` (id) holding `sdat`, `snam`, `quid` in QuickTime's, where
   an instrument also uses samples kept in another instrument's `smin`.
   All samples are 8-bit mono.
+- The port reads both (`harry_original::qtma`) into the data pack
+  (`harry_data::music`): `music/tunes/ID.txt` (parts and events as text),
+  `music/instruments/KEY.txt` (`harry-<ssai id>`, `qt-<number>`: name,
+  knobs, zones), `music/samples/KEY.wav` (8-bit mono); a recording
+  `music/recordings/ID.wav` / `.flac` replaces the synthesized tune.
+  QuickTime Musical Instruments is read from `re/work/qtmi` (its
+  resource fork, copied from the Mac OS 9 disk); only the instruments
+  the tunes ask for (24) go into the pack.
 - A Python prototype (session scratchpad, `tune_proto.py`) renders a tune
   with these samples (key range, pitch from the normal pitch, loop,
   velocity, volume, pan, pitch bend, a short release); the knobs

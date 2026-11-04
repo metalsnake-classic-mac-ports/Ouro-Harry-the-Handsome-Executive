@@ -3,6 +3,7 @@
 //! original files by `ouro-harry-extract` (crate `harry-original`).
 
 pub mod level;
+pub mod music;
 pub mod pack;
 
 use std::collections::BTreeMap;
@@ -93,6 +94,8 @@ pub struct GameData {
     /// The world's own sounds, used instead in levels that bring their own
     /// (`Level::own_sounds`).
     pub world_sounds: BTreeMap<i16, Sound>,
+    /// The music (tunes, instruments, samples, recordings).
+    pub music: music::Music,
 }
 
 /// What the world file (`Hwld` 0) says beyond its levels; 0 = none.
