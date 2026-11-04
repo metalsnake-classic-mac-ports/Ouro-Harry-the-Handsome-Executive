@@ -1836,13 +1836,62 @@ queue plus `STPlay3DSound` / `CalcStereoVolume` (positional stereo).
 
 ### Music `Tune` (Harry Music 600–620)
 
-QuickTime Music Architecture tune sequences (`TuneSetHeaderWithSize`,
-`TuneQueue`, `TuneTask` imported by the PPC code), played with the
-instruments from `Harry Instruments` (35 `ssai` sampled instruments).
-600 intro/theme, 601 levels 1–2, 603–615 levels 3–15, 616 ending, 620
-storyline. Custom worlds may import MIDI files (editor b4,
-`ImportMovie`). For the port the tunes must be rendered with these
-instruments (a small QTMA synth) or recorded from the emulator.
+17 tunes (QuickTime Music Architecture): 600 intro / main menu, 601 levels
+1 and 2, 603–615 one per level (level +0x120fa), 616 the end (Hwld +0x14c),
+620 the story (Hwld +0x144, `ScrollPlot` with music). 32–91 s each.
+
+- **Playing** (`SetMusic(id)`): the resource split at its first long
+  (the header's size): `TuneSetHeaderWithSize(header)`, then
+  `TuneQueue(data, rate 1.0, 0, 0x7fffffff, flags 0x16)` - kTuneLoopUntil
+  | kTuneExcludeEdgeNotes | kTuneDontClipNotes: it loops for ever. Time
+  scale QuickTime's default, 600 units a second. `SetMusicVolume(v)`:
+  `TuneSetVolume(v − 3000)` (0 below); the volume setting (prefs +0xe, 0–9)
+  × 0x1c71. `FadeMusic(out/in, ticks)`: 24 steps of `ticks`. `MusicIdle`
+  calls `TuneTask` every 40th time. `SetMusic(-1)`: volume 0. Without
+  QuickTime (or music off, prefs +0xb) no music.
+- **Header**: a `musi` sample description (size, 'musi', reserved, data
+  ref index 1, 1), then one general event per part (head `0xF` + part
+  (12 bits) + length in words; tail `0b11` + type (14) + length), ended by
+  the marker `0x60000000`. Type 1, note request: flags, polyphony,
+  typical polyphony (Fixed), then a ToneDescription - synthesizer type,
+  synthesizer name, instrument name (Str31 each), instrument number, GM
+  number. Type 6, atomic instrument: 12 bytes, then a QuickTime atom
+  container `sean` with a `tone` atom (the same ToneDescription).
+- Tunes 600–604, 606, 607, 615, 616, 620 ask "Best Synthesizer" for
+  General MIDI instruments (Flute #74, Standard Kit #0x4001, ...): the
+  instruments of QuickTime Musical Instruments (Apple's extension, Roland
+  GS sounds; not part of Harry). Tunes 605, 608–614 ask "QuickTime Music
+  Synthesizer" for instruments of `Harry Instruments` by name ("Tech Drum
+  Kit 1", "Bassics", ...; their numbers 0x808a… are the component's).
+- **Events** (32 bit, big endian; 64 bit where noted): `000` rest (24-bit
+  duration, the only thing that advances time); `001` note: part (5),
+  pitch (6, + 32), velocity (7), duration (11); `010` controller: part
+  (5), controller (8), value (16, signed 8.8); `011` marker: `0x60000000`
+  ends the tune, `0x60000001` (234 of them) comes before a general event
+  type 5 (tune difference, an empty state snapshot); `1001` extended
+  note (64): part (12), pitch (16: a note number, or 8.8 when above 127) /
+  velocity (7), duration (22); `1010` extended controller, `1011` knob
+  (both 64, unused here); `1111` general event. Used: 23 996 notes, 1257
+  extended notes, controllers 7 volume (0–127 in 8.8), 10 pan (256 left …
+  384 middle … 512 right; 322–450 used), 32 pitch bend (±2 semitones in
+  8.8), 33 (0–127 as an integer; aftertouch?), parts 0–8.
+- **Instruments** (`ssai`, in `Harry Instruments` 512–546 and in
+  QuickTime Musical Instruments, 235 by instrument number: GM 1–128,
+  variations from 1025, drum kits from 16385 = 0x4001): a classic atom
+  (size, 'ssai', 0), then an atom container (atoms: size, type, id,
+  reserved, child count, reserved = 20 bytes): `sean` with `tone`, `knbl`
+  (knob list: flags, count, (number, value)…), one `sinf` per key range
+  (`sdsc`: format 'raw ' / 'twos', channels, bits, rate (16.16), sample
+  data id, offset, count, loop type, loop start, loop end, normal pitch,
+  lowest, highest key; optional `knbl`), and the samples - `sdat` by id in
+  Harry's, `smin` (id) holding `sdat`, `snam`, `quid` in QuickTime's, where
+  an instrument also uses samples kept in another instrument's `smin`.
+  All samples are 8-bit mono.
+- A Python prototype (session scratchpad, `tune_proto.py`) renders a tune
+  with these samples (key range, pitch from the normal pitch, loop,
+  velocity, volume, pan, pitch bend, a short release); the knobs
+  (envelopes, transpose, velocity curves) and controller 33 are not
+  applied yet.
 
 ### Pictures (Harry Titles)
 
