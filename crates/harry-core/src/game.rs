@@ -18,7 +18,7 @@ use crate::collider::{ColliderWorld, CopierSave, centre, handle_collider, hit_co
 use crate::dart_enemy::{handle_dart_enemy, hit_dart_enemy};
 use crate::frame::SLOTS;
 use crate::inventory::{EMPTY, get_item, item, remove_item, switch_item};
-use crate::savegame::{CUSTOM, DEFAULT_WORLD, SaveGame};
+use crate::savegame::{DEFAULT_WORLD, SaveGame};
 use crate::keys::Ammo;
 use crate::death::{DeathEvent, handle_player_death};
 use crate::enemy_shot::{ShotMasks, handle_enemy_shot, hit_enemy_shot, hit_enemy_shot_tile};
@@ -474,7 +474,7 @@ impl Game {
         sv.inventory = g.inventory;
         sv.track = self.track.cells.clone();
         sv.entries = self.level.sprites.clone();
-        sv.custom = self.level.rest[CUSTOM].to_vec();
+        sv.custom = self.level.custom();
         self.session.save_pending = true;
     }
 
@@ -505,7 +505,7 @@ impl Game {
             self.keep_track = true;
             self.track.cells.clone_from(&save.track);
             self.level.sprites.clone_from(&save.entries);
-            self.level.rest[CUSTOM].copy_from_slice(&save.custom);
+            self.level.set_custom(&save.custom);
         }
         self.physics = self.level.effective_physics();
         let (h, v, dir) = if save.copier {

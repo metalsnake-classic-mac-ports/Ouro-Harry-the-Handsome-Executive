@@ -74,6 +74,21 @@ pub struct Level {
 }
 
 impl Level {
+    /// The two custom sprite tables (`savegame::CUSTOM` of the `Hlvl`);
+    /// zeros when the level does not keep them (the data pack's levels).
+    pub fn custom(&self) -> Vec<u8> {
+        self.rest.get(crate::savegame::CUSTOM).map_or_else(|| vec![0; crate::savegame::CUSTOM.len()], <[u8]>::to_vec)
+    }
+
+    /// Set the custom sprite tables (from a copier save).
+    pub fn set_custom(&mut self, custom: &[u8]) {
+        let r = crate::savegame::CUSTOM;
+        if self.rest.len() < r.end {
+            self.rest.resize(r.end, 0);
+        }
+        self.rest[r.start..r.start + custom.len().min(r.len())].copy_from_slice(&custom[..custom.len().min(r.len())]);
+    }
+
     /// `LoadLevelPhysics`: the physics the game uses in this level.
     pub fn effective_physics(&self) -> Physics {
         if self.physics_set { self.physics } else { Physics::default() }
@@ -105,5 +120,38 @@ impl Level {
     pub fn fg_kind(&self, tile: u16) -> i16 {
         let t = tile as i16;
         if (32..56).contains(&t) { self.fg_kinds[(t - 32) as usize] } else { t }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn custom_tables_work_without_the_original_bytes() {
+        // a pack level keeps no `rest`: a copier save there must not panic
+        let mut l = Level {
+            name: String::new(),
+            number: 1,
+            own_sounds: false,
+            bg: vec![0; SIZE * SIZE],
+            fg: vec![NO_TILE; SIZE * SIZE],
+            sprites: vec![LevelSprite::default(); SPRITES],
+            info: [0; 16],
+            bg_kinds: [0; 96],
+            fg_kinds: [-1; 24],
+            start: (0, 0),
+            start_dir: 0,
+            music: 0,
+            fg_set: 0,
+            bg_set: 0,
+            physics_set: false,
+            physics: Physics::default(),
+            rest: Vec::new(),
+        };
+        assert_eq!(l.custom(), vec![0; crate::savegame::CUSTOM.len()]);
+        let t: Vec<u8> = (0..crate::savegame::CUSTOM.len()).map(|i| i as u8).collect();
+        l.set_custom(&t);
+        assert_eq!(l.custom(), t);
     }
 }
