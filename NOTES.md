@@ -213,7 +213,16 @@ tests against Basilisk II.
   port's), Escape in the game with a question box (Return / Y yes,
   Escape / N no), the options screen ("Port improvements"). Not yet:
   Continue from a list of saves (later; for now the game saved in this
-  session), music, the warp dialog, pause, the map.
+  session), the warp dialog.
+- **Pause** (`Pause`, from `CheckGameLoopKeys` when `CapsLockDown`): sound
+  198 (`STPlayRegSound(…, 100, 0x100)`), PICT 4921 (225 × 96, "PAUSED -
+  Press CAPS LOCK To Resume") drawn at (128, 192) over the game area,
+  the cursor and menu bar shown, then `CheckEvent` until caps lock is up
+  again (the music goes on); then the game area is redrawn and the loop
+  goes on. **Command-I** (key 0x22 with Command): `Options()`, the
+  volumes applied, the game area redrawn. The port: both, Command-I
+  (Control-I off the Mac) opening the options screen over the game area
+  (the game waits; Escape or Done goes on).
 
 ### The map (`ShowMap`)
 
@@ -2286,7 +2295,8 @@ Where the port deliberately differs from the original (the game logic in
   preferences dialog (`crates/harry/src/options.rs`): camera mode (the
   dialog's four), save between levels, sound volume (off, 1–9), scaling
   (whole multiples or filling the window), full screen and its key (F11;
-  any key the game does not use), the seven keys
+  any key the game does not use), the pause key (caps lock), the seven
+  keys
   (Return, then the key; a key already used swaps), default settings.
   Left out: reduce frame rate, line skipping, interlace, more compatible
   drawing, allow system tasks (speed options of 1997); the music volume
@@ -2301,5 +2311,10 @@ Where the port deliberately differs from the original (the game logic in
 - **Recordings.** A pack may bring a finished recording of a tune
   (`music/recordings/ID.wav` / `.flac`, e.g. a fan pack); it is played
   instead of the synthesized tune.
+- **Pause.** The pause key is a setting (caps lock by default, paused
+  while it is locked as in the original; another key pauses and goes on
+  by turns), and the game also pauses when its window loses focus (any
+  key or click goes on; the pause picture's "Press CAPS LOCK" line then
+  says what to press). No menu bar or cursor is shown.
 - **Registration.** The port plays as registered; the shareware limit
   after level 5 (`LevelLimit`) is left out.

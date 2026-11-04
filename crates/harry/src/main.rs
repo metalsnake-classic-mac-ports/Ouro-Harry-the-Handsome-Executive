@@ -42,7 +42,7 @@ use harry_core::world::World;
 use harry_core::frame::PlayerGlobals;
 use harry_data::{GameData, clut8};
 use sdl3::event::Event;
-use sdl3::keyboard::{KeyboardState, Keycode, Scancode};
+use sdl3::keyboard::{KeyboardState, Keycode, Mod, Scancode};
 use sdl3::sys::keycode::SDL_KMOD_NONE;
 use sdl3::pixels::PixelFormat;
 use sdl3::render::ScaleMode;
@@ -386,6 +386,15 @@ fn main() -> Result<()> {
     // the options screen over the menu
     let mut opts: Option<options::Screen> = None;
     let mut confirm = false;
+    // Pause (the original's `Pause`): by the pause key - caps lock as in
+    // the original, paused while it is locked; another key by turns - or
+    // when the window loses focus (until a key or a click)
+    let mut pause_toggled = false;
+    let mut focus_paused = false;
+    let mut was_paused = false;
+    // Command-I (Control-I off the Mac) in the game: the options, the game
+    // waits
+    let options_mod = if cfg!(target_os = "macos") { Mod::LGUIMOD | Mod::RGUIMOD } else { Mod::LCTRLMOD | Mod::RCTRLMOD };
     // ShowMap: open since when; frames before the key opens it again
     let mut map: Option<Instant> = None;
     let mut map_cooldown = 0u32;
@@ -432,9 +441,15 @@ fn main() -> Result<()> {
             let menu_live = scene.is_none() && in_menu.is_some();
             match e {
                 Event::Quit { .. } => break 'run,
+                Event::Window { win_event: sdl3::event::WindowEvent::FocusLost, .. } => focus_paused = true,
+                // a key or a click ends the pause of a lost focus (and does
+                // nothing else)
+                Event::KeyDown { .. } | Event::MouseButtonDown { .. } if focus_paused && scene.is_none() && in_menu.is_none() => {
+                    focus_paused = false;
+                }
                 Event::MouseButtonDown { x, y, .. } => {
                     pressed = true;
-                    if menu_live && let Some(o) = opts.as_mut() {
+                    if scene.is_none() && let Some(o) = opts.as_mut() {
                         opt_event = opt_event.or(o.click(x as i32, y as i32));
                     } else if menu_live && let Some(m) = in_menu.as_mut() {
                         m.mouse_down(x as i32, y as i32);
@@ -461,7 +476,7 @@ fn main() -> Result<()> {
                     }
                     _ => {}
                 },
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if menu_live && opts.is_some() => {
+                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if scene.is_none() && opts.is_some() => {
                     if let Some(o) = opts.as_mut() {
                         opt_event = opt_event.or(o.key(sc, mac_code(sc)));
                     }
@@ -482,7 +497,7 @@ fn main() -> Result<()> {
                         m.key('\r');
                     }
                 }
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } => {
+                Event::KeyDown { scancode: Some(sc), keymod, repeat: false, .. } => {
                     if let Some((_, since)) = &shown {
                         // Return / Enter at once, any key after a second
                         if matches!(sc, Scancode::Return | Scancode::KpEnter) || since.elapsed() >= Duration::from_secs(1) {
@@ -495,6 +510,9 @@ fn main() -> Result<()> {
                         _ if scene.is_some() && sc != settings.fullscreen_key => pressed = true,
                         // CheckGameLoopKeys: Escape asks before the game is given up
                         Scancode::Escape => confirm = true,
+                        // Command-I: the options
+                        Scancode::I if keymod.intersects(options_mod) => opts = Some(options::Screen::new(settings.clone())),
+                        _ if sc == settings.pause_key && sc != Scancode::CapsLock => pause_toggled = !pause_toggled,
                         _ if sc == settings.fullscreen_key => {
                             settings.fullscreen = !settings.fullscreen;
                             apply_display(&mut canvas, &settings);
@@ -560,6 +578,7 @@ fn main() -> Result<()> {
                     eprintln!("{}: {err}", p.display());
                 }
                 opts = None;
+                next = Instant::now();
             }
         }
         match action {
@@ -609,11 +628,34 @@ fn main() -> Result<()> {
             map = None;
             next = Instant::now();
         }
+        // the pause: its sound (snd 198) as it starts; when it ends the
+        // game goes on from now
+        let in_game = scene.is_none() && in_menu.is_none();
+        let caps = settings.pause_key == Scancode::CapsLock && sdl.keyboard().mod_state().contains(Mod::CAPSMOD);
+        let paused = in_game && (caps || pause_toggled || focus_paused);
+        if paused && !was_paused {
+            mixer.events(
+                &[harry_core::sound::SoundEvent::Play {
+                    id: 198,
+                    left: 0x100,
+                    right: 0x100,
+                    rate: harry_core::sound::RATE,
+                    channel: harry_core::sound::Channel::Effect,
+                }],
+                false,
+            );
+        } else if !paused && was_paused {
+            next = Instant::now();
+        }
+        was_paused = paused;
+        if !in_game {
+            (pause_toggled, focus_paused) = (false, false);
+        }
         // the settings the game reads
         game.prefs.scroll = settings.camera;
         game.prefs.autosave = settings.autosave;
         game.prefs.bindings = settings.bindings;
-        while scene.is_none() && in_menu.is_none() && !confirm && map.is_none() && shown.is_none() && next <= now {
+        while scene.is_none() && in_menu.is_none() && !paused && opts.is_none() && !confirm && map.is_none() && shown.is_none() && next <= now {
             next += FRAME;
             let keys = keymap(&events.keyboard_state());
             let mut asked = None;
@@ -701,7 +743,40 @@ fn main() -> Result<()> {
                 }
                 (c, l)
             }
-            _ => picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b)),
+            _ => {
+                let (mut c, mut l) = picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b));
+                if let Some(o) = &opts {
+                    // over the game area; the panel's texts stay
+                    l.extend(o.draw(&mut c, &key_name));
+                } else if paused && let Some(p) = data.pictures.get(&4921) {
+                    // Pause: PICT 4921 at (128, 192), over the game area's middle
+                    c.draw_image(p, (0, 0, p.width, p.height), 128, 192);
+                    // its "Press CAPS LOCK To Resume" (rows 64–82) when
+                    // something else goes on
+                    let hint = if focus_paused {
+                        Some("Press any key to resume".to_string())
+                    } else if settings.pause_key != Scancode::CapsLock {
+                        Some(format!("Press {} to resume", settings.pause_key.name()))
+                    } else {
+                        None
+                    };
+                    if let Some(hint) = hint {
+                        if let Some(grey) = p.get(20, 60) {
+                            c.fill(128 + 6, 192 + 62, 213, 22, grey);
+                        }
+                        let w = fonts.width(text::Face::HelveticaBold, 14.0, &hint);
+                        l.push(text::Line {
+                            x: 128.0 + (225.0 - w) / 2.0,
+                            baseline: 192.0 + 79.0,
+                            size: 14.0,
+                            face: text::Face::HelveticaBold,
+                            color: [0; 3],
+                            text: hint,
+                        });
+                    }
+                }
+                (c, l)
+            }
         };
         if map.is_some() && scene.is_none() && in_menu.is_none() {
             render::draw_map(&mut image, &data, &game);

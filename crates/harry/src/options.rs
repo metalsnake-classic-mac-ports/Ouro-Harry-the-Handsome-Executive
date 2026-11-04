@@ -33,6 +33,9 @@ pub struct Settings {
     /// The key that switches full screen (the port's; stored by its SDL
     /// name).
     pub fullscreen_key: Scancode,
+    /// The key that pauses (the port's; the original: caps lock, paused
+    /// while it is locked). Another key pauses and goes on by turns.
+    pub pause_key: Scancode,
     pub bindings: Bindings,
     /// prefs +0x1e: the key that shows the map (Tab).
     pub map_key: i16,
@@ -48,6 +51,7 @@ impl Default for Settings {
             integer_scaling: true,
             fullscreen: false,
             fullscreen_key: Scancode::F11,
+            pause_key: Scancode::CapsLock,
             bindings: Bindings { left: 0x7B, right: 0x7C, scoot: 0x7D, inch: 0x7E, kick: 0x31, select_item: 0x3B, use_item: 0x3A },
             map_key: 0x30,
         }
@@ -95,6 +99,11 @@ impl Settings {
                         s.fullscreen_key = sc;
                     }
                 }
+                "pause_key" => {
+                    if let Some(sc) = Scancode::from_name(v.trim()) {
+                        s.pause_key = sc;
+                    }
+                }
                 _ => {
                     if let Some(a) = k.strip_prefix("key ").or_else(|| k.strip_prefix("key_"))
                         && let Ok(a) = a.parse::<usize>()
@@ -120,6 +129,7 @@ impl Settings {
             u8::from(self.fullscreen)
         );
         out.push_str(&format!("fullscreen_key {}\n", self.fullscreen_key.name()));
+        out.push_str(&format!("pause_key {}\n", self.pause_key.name()));
         let mut b = self.clone();
         for (k, name) in ACTIONS.iter().enumerate() {
             out.push_str(&format!("key_{k} {}  # {name}\n", binding(&mut b, k)));
@@ -138,12 +148,13 @@ enum Row {
     Scaling,
     Fullscreen,
     FullscreenKey,
+    PauseKey,
     Key(usize),
     Defaults,
     Done,
 }
 
-const ROWS: [Row; 17] = [
+const ROWS: [Row; 18] = [
     Row::Camera,
     Row::Autosave,
     Row::Volume,
@@ -151,6 +162,7 @@ const ROWS: [Row; 17] = [
     Row::Scaling,
     Row::Fullscreen,
     Row::FullscreenKey,
+    Row::PauseKey,
     Row::Key(0),
     Row::Key(1),
     Row::Key(2),
@@ -164,7 +176,7 @@ const ROWS: [Row; 17] = [
 ];
 
 /// The first row of the keys.
-const FIRST_KEY: usize = 7;
+const FIRST_KEY: usize = 8;
 
 /// A row's height.
 const ROW: i32 = 19;
@@ -172,7 +184,7 @@ const ROW: i32 = 19;
 /// Where the rows are: y of each row's top; `ROW` high, from x 32 to 448.
 fn row_top(i: usize) -> i32 {
     // a gap before the keys and before the buttons
-    let gap = if i >= FIRST_KEY { 26 } else { 0 } + if i >= FIRST_KEY + ACTIONS.len() { 18 } else { 0 };
+    let gap = if i >= FIRST_KEY { 22 } else { 0 } + if i >= FIRST_KEY + ACTIONS.len() { 8 } else { 0 };
     66 + i as i32 * ROW + gap
 }
 
@@ -205,13 +217,19 @@ impl Screen {
                 return None;
             }
             let Row::Key(a) = row else {
-                // the full screen key: any key the game does not use
+                // the full screen and pause keys: any key the game and the
+                // other one do not use
                 let b = self.settings.bindings;
                 let used = [b.left, b.right, b.scoot, b.inch, b.kick, b.select_item, b.use_item, self.settings.map_key];
-                if code.is_some_and(|c| used.contains(&c)) {
+                let other = if row == Row::PauseKey { self.settings.fullscreen_key } else { self.settings.pause_key };
+                if code.is_some_and(|c| used.contains(&c)) || sc == other {
                     return None;
                 }
-                self.settings.fullscreen_key = sc;
+                if row == Row::PauseKey {
+                    self.settings.pause_key = sc;
+                } else {
+                    self.settings.fullscreen_key = sc;
+                }
                 return Some(Event::Changed);
             };
             let code = code?;
@@ -250,7 +268,7 @@ impl Screen {
 
     fn activate(&mut self) -> Option<Event> {
         match ROWS[self.selected] {
-            row @ (Row::Key(_) | Row::FullscreenKey) => {
+            row @ (Row::Key(_) | Row::FullscreenKey | Row::PauseKey) => {
                 self.capture = Some(row);
                 None
             }
@@ -299,7 +317,7 @@ impl Screen {
         };
         let mut lines = vec![
             Line { x: 40.0, baseline: 50.0, size: 18.0, face: Face::HelveticaBold, color: white, text: "Preferences".into() },
-            label(40.0, row_top(FIRST_KEY) - 24, "Keys", Face::HelveticaBold, white),
+            label(40.0, row_top(FIRST_KEY) - 21, "Keys", Face::HelveticaBold, white),
         ];
         let s = &self.settings;
         let mut b = s.clone();
@@ -317,6 +335,10 @@ impl Screen {
                     "Full Screen Key",
                     if self.capture == Some(*row) { "Press a key… (Escape: keep)".into() } else { s.fullscreen_key.name().to_string() },
                 ),
+                Row::PauseKey => (
+                    "Pause Key",
+                    if self.capture == Some(*row) { "Press a key… (Escape: keep)".into() } else { s.pause_key.name().to_string() },
+                ),
                 Row::Key(a) => (
                     ACTIONS[a],
                     if self.capture == Some(*row) { "Press a key… (Escape: keep)".into() } else { key_name(*binding(&mut b, a)) },
@@ -326,7 +348,7 @@ impl Screen {
             };
             lines.push(label(48.0, y, name, Face::HelveticaBold, colour));
             if !value.is_empty() {
-                let shown = if i == self.selected && !matches!(row, Row::Key(_) | Row::FullscreenKey) { format!("<  {value}  >") } else { value };
+                let shown = if i == self.selected && !matches!(row, Row::Key(_) | Row::FullscreenKey | Row::PauseKey) { format!("<  {value}  >") } else { value };
                 lines.push(label(230.0, y, &shown, Face::Helvetica, colour));
             }
         }
@@ -362,6 +384,7 @@ mod tests {
             integer_scaling: false,
             fullscreen: true,
             fullscreen_key: Scancode::F10,
+            pause_key: Scancode::Pause,
             ..Default::default()
         };
         s.bindings.kick = 0x24;
@@ -403,7 +426,7 @@ mod tests {
     #[test]
     fn the_full_screen_key_takes_any_key_the_game_does_not_use() {
         let mut sc = Screen::new(Settings::default());
-        sc.selected = FIRST_KEY - 1;
+        sc.selected = FIRST_KEY - 2;
         sc.key(Scancode::Return, None);
         // Space kicks: refused
         assert_eq!(sc.key(Scancode::Space, Some(0x31)), None);
@@ -411,6 +434,25 @@ mod tests {
         sc.key(Scancode::Return, None);
         assert_eq!(sc.key(Scancode::F, Some(0x03)), Some(Event::Changed));
         assert_eq!(sc.settings.fullscreen_key, Scancode::F);
+    }
+
+    #[test]
+    fn the_pause_key_takes_any_key_the_game_and_full_screen_do_not_use() {
+        let mut sc = Screen::new(Settings::default());
+        sc.selected = FIRST_KEY - 1;
+        sc.key(Scancode::Return, None);
+        // F11 is the full screen key, ← turns: refused
+        assert_eq!(sc.key(Scancode::F11, None), None);
+        sc.key(Scancode::Return, None);
+        assert_eq!(sc.key(Scancode::Left, Some(0x7B)), None);
+        assert_eq!(sc.settings.pause_key, Scancode::CapsLock);
+        sc.key(Scancode::Return, None);
+        assert_eq!(sc.key(Scancode::P, Some(0x23)), Some(Event::Changed));
+        assert_eq!(sc.settings.pause_key, Scancode::P);
+        // and the full screen key cannot take it then
+        sc.selected = FIRST_KEY - 2;
+        sc.key(Scancode::Return, None);
+        assert_eq!(sc.key(Scancode::P, Some(0x23)), None);
     }
 }
 

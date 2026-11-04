@@ -67,7 +67,8 @@ pub struct GameData {
     /// screen (640 × 480), 130 the main menu, 132 the instructions, 150 the
     /// meters (147 × 44: empty, comfort, surface resistance, corporate
     /// favor, 11 px each), 170 the map's tiles (32 of 4 × 4, 8 a row),
-    /// 4803 / 4804 the credits, 4901–4916 the menu's buttons.
+    /// 4803 / 4804 the credits, 4901–4916 the menu's buttons, 4921 the
+    /// pause sign.
     pub pictures: BTreeMap<i16, Image>,
     /// The world's pictures by `PICT` id (`Episode 1`): the levels' story
     /// pictures (scrolled) and title cards, the win pictures.
@@ -148,8 +149,8 @@ pub struct Sound {
 /// Graphics`): the game screen, the main menu, the instructions, the
 /// meters, the map's tiles, the credits (text, window) and the main
 /// menu's buttons pressed (4901–4906) and released (4911–4916).
-pub const PICTURES: [i16; 19] =
-    [129, 130, 132, 150, 170, 4803, 4804, 4901, 4902, 4903, 4904, 4905, 4906, 4911, 4912, 4913, 4914, 4915, 4916];
+pub const PICTURES: [i16; 20] =
+    [129, 130, 132, 150, 170, 4803, 4804, 4901, 4902, 4903, 4904, 4905, 4906, 4911, 4912, 4913, 4914, 4915, 4916, 4921];
 
 /// The colour icons the pack holds: the meters' ends, Harry on the map.
 pub const ICONS: [i16; 4] = [200, 10135, 10136, 10137];
