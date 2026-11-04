@@ -26,11 +26,11 @@
 - [ ] Later: CodeWarrior 68k far-model loader for differential tests against Basilisk II
 - [x] Main loop (`GameLoop`), timing: 30 Hz logic
 - [x] Player movement: keys, scoot/inch/kick tables, impulse by direction, friction, max speed
-- [ ] Player collisions: `HitPlayerTileSprite` (walls, tile kinds), `HitPlayerSprite`, `CheckTileCollisions`
+- [x] Player collisions: `HitPlayerTileSprite` (walls, tile kinds), `HitPlayerSprite`, `CheckTileCollisions`
 - [x] Tile kinds and `CheckTileCollisions` order; player's reaction per background kind
-- [ ] `WallBounce`, `BGTileBounce`, `RectBounceFake` (the bounce maths), mask test `FUN_10054124`
-- [ ] Ramps, stairs, half pipes (`HandleRampCollision`, `HandleStairsCollision`, `HandleHalfPipe`, `JumpScale`)
-- [ ] Meters: what changes comfort / favor; death and respawn (`HandlePlayerSpriteDeath`, copier saves)
+- [x] `WallBounce`, `BGTileBounce`, `RectBounceFake` (the bounce maths), mask test `FUN_10054124`
+- [x] Ramps, stairs, half pipes (`HandleRampCollision`, `HandleStairsCollision`, `HandleHalfPipe`, `JumpScale`)
+- [x] Meters: what changes comfort / favor; death and respawn (`HandlePlayerSpriteDeath`, copier saves)
 - [x] SAT run order (`HandleSprites`): tasks, sort pass, collision pass, player collisions - 20 000 cases
 - [x] Idle sprites (`HandleIdleSprites`) and level start (`SetupLevelSprites`, `GenerateSprite`) in the port; SAT records with the free list (3000 cases)
 - [x] Sprite record in the port (`sprite::Sprite`), faces by HrSp id; bonus, item, exit (9 000 cases)
@@ -56,7 +56,7 @@
 - [x] Whole-frame recorder (`emu_game.py`) for all 15 levels with the draw pass and every draw proc's effect (1500 runs)
 - [x] `VendingDrawProc`: drawing the vending machine sets its +0x78 (and +0x8a)
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
-- [ ] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
+- [x] `ShowBalloon` / `GenerateBuzzwords` (frontend: text layout, modal wait); world texts from `Hwld`
 - [x] Colliders: fans (`HandleRepulsions`), phone, copier, magnet, wall guns, vending machine, gate (20 000 cases)
 - [x] `HitPlayerSprite` for colliders (`RectBounce` once a frame, gate key, vending kick; 30 000 cases)
 - [x] Dart enemy (+ `HitPlayerSprite`), props (15 000 cases)
@@ -79,7 +79,7 @@
 - [x] The ripple: phase, cheat, `BuildSineTable` (7865 cases), row shifts in the renderer
 - [x] Enemy shots: setup, flight, tiles, hits (colliders, coolers, plants, shots), `FindDesiredDirectionGeneric` (57 000 cases)
 - [x] Random generator: `SATRand(n)` = |Toolbox Random| % n, seeded from the clock
-- [ ] Sprite kinds one by one
+- [x] Sprite kinds one by one
 
 ## Phase 5: port (Rust)
 - [x] Workspace: `harry-core` (no I/O), `harry-original` (tests against the original)
