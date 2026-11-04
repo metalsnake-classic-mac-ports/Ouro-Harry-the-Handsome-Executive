@@ -12,6 +12,7 @@
 //! next / previous level (for testing).
 //!
 //! `ouro-harry --screenshot out.bmp [level] [frames]` runs the frames
+//! (`HARRY_SAVE=<file>`: from that saved game)
 //! without keys and writes the picture, without a window. With
 //! `HARRY_STATS` set the game prints its loop timing once a second;
 //! `cargo run -p harry --example audio_probe` shows how SDL drives the
@@ -288,6 +289,10 @@ fn main() -> Result<()> {
     let fonts = text::Fonts::load();
     let mut score = ScoreShown::default();
     if let Some((out, frames)) = screenshot {
+        // HARRY_SAVE=<file>: continue from that record first
+        if let Some(sg) = std::env::var_os("HARRY_SAVE").and_then(|p| std::fs::read(p).ok()).map(|b| SaveGame::from_bytes(&b)) {
+            game.continue_game(&sg, &data.levels, &assets);
+        }
         // HARRY_INV=id:count,… fills the inventory (for testing), the
         // first item selected, half the ammunition
         if let Ok(inv) = std::env::var("HARRY_INV") {
@@ -569,7 +574,12 @@ fn main() -> Result<()> {
             // ContinueGame: the save list is to come; the game saved in
             // this session goes on (a copier save without the story)
             Some(menu::Action::Continue) => {
-                let saved = save_path.as_ref().filter(|_| have_save).and_then(|p| std::fs::read(p).ok());
+                // HARRY_SAVE=<file> continues from that record instead (for
+                // testing, e.g. the saves of `ouro-harry-repro`)
+                let saved = match std::env::var_os("HARRY_SAVE") {
+                    Some(p) => std::fs::read(p).ok(),
+                    None => save_path.as_ref().filter(|_| have_save).and_then(|p| std::fs::read(p).ok()),
+                };
                 if let Some(sg) = saved.map(|b| SaveGame::from_bytes(&b))
                     && let Some(missing) = game.continue_game(&sg, &data.levels, &assets)
                 {

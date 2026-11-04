@@ -98,8 +98,8 @@
 - [x] `HandleKeys` with the inventory routines: turning, moves, items, weapons, cheats and key sequences, 30 000 cases
 - [x] Player shots and the held weapon (`MakeNewShot`, `HandleHeldWeaponSprite`, shot flight, shots vs. walls), 47 500 cases
 - [x] Shots hitting sprites (`HitPlayerShotSprite`): `re/tools/emu_playershot.py`
-- [ ] See the last-strong-shot backfire, negative ammo and shots passing walls (BUGS.md) in the emulator
-- [ ] See the garbage-scale frame (BUGS.md) in the emulator: drop Harry into a hole in level 11
+- [ ] Watch the original's bugs in SheepShaver with the `ouro-harry-repro` saves (BUGS.md, "See it"; first the garbage-scale frame, the backfire, negative ammo, shots passing walls) and note what is seen
+- [ ] Saves for the bugs still without one: two pushed ramps meeting (level 14), two robots at a wall
 - [x] Level model (`harry_core::Level`), MacBinary / resource fork / `Hlvl` reader + writer (exact round trip)
 - [x] Graphics readers in Rust: PICT 1/8-bit/direct, cicn, HrSp; masks from the original files
 - [x] `harry-data`: data pack; extract tool `ouro-harry-extract` in `harry-original`
@@ -108,9 +108,7 @@
 - [x] Frontend: sound (all `snd`s, 3-D volumes, rates, channels)
 - [x] Sprite tints: the draw procs' blits (whole frames), the colour tables (13 812 colours), drawn in the frontend
 - [x] Meters as `UpdateMeters` draws them, with the rounded ends (cicn 10135–10137 in the pack); the fans' grilles and the dart enemies' darts
-- [ ] `MakeITable`'s inverse table exactly (the port takes the nearest colour); second faces clipped like the original at the ring buffer's wrap
 - [x] Music: the synthesizer (tunes from the pack, a recording instead when there is one), `SetMusic` / `FadeMusic` where the game calls them, the volume in the options
-- [ ] Music closer to QuickTime: the instruments' knobs (envelopes, velocity curves, transposition), controller 33, the mixing level - against recordings from SheepShaver
 - [ ] Sound feedback into the game: "is a voice / the fan / the bump playing" (the original asks its channels; the port answers no)
 - [x] Frontend: letters by the keyboard layout (an improvement, NOTES "Port improvements"); F1–F4, F12, F13, N and P mapped
 - [x] `KeyEvent::Balloon`: the P-A-R-G-H-Z and B-E-N balloons (texts from the PowerPC data section)
@@ -124,3 +122,7 @@
 - [ ] Music in Basilisk: QuickTime 2.5 + Musical Instruments on the System 7.5 disk
 - [x] Screen palette: clut 8 (from the code; 66 of 68 PICTs already in clut 8)
 - [ ] Harry-big Easter egg key (0x74?): short press of Shift + = + Page Up
+
+## Lowest priority (decided 2026-11-04)
+- [ ] `MakeITable`'s inverse table exactly (the port takes the nearest colour); second faces clipped like the original at the ring buffer's wrap
+- [ ] Music closer to QuickTime: the instruments' knobs (envelopes, velocity curves, transposition), controller 33, the mixing level - against recordings from SheepShaver

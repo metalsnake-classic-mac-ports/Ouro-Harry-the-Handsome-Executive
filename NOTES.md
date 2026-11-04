@@ -2008,6 +2008,16 @@ needs QuickTime 2.5+ with QuickTime Musical Instruments.
   Colours are `clut` 8 (`harry_data::clut8`); the tile set PICT 145's own
   table maps exactly. `tests/pack.rs` checks the pack against the
   original files (levels, faces, face masks, masks).
+  The pack's levels keep no custom sprite tables (empty in Episode 1):
+  `Level::custom` gives zeros for them, so copier saves work on pack
+  levels (they crashed the port before).
+- **Saves for the original's bugs** (`ouro-harry-repro <pack> <folder>`):
+  copier saves that put Harry where a bug shows, with the meters,
+  ammunition and items it needs - as the original's file (resource
+  `HrSG` 0 in the resource fork, type `HrSG` / creator `Hary` in the
+  Finder info, as the emulators' shared folders keep them on macOS) and
+  as `.hrsg` for the port (`HARRY_SAVE=<file>`, then Continue or
+  `--screenshot`). BUGS.md says per bug which save and what to do.
 - **Frontend** (`ouro-harry [pack] [level]`; `--screenshot out.bmp
   [level] [frames]` renders without a window): `harry_core::game` at 30
   frames per second with the default key bindings (SDL keys mapped to Mac

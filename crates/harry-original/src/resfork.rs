@@ -111,3 +111,49 @@ impl Resources {
         self.map.keys().filter(|(t, _)| t == ty).map(|&(_, id)| id).collect()
     }
 }
+
+/// A resource fork holding one resource (no name, no attributes), as the
+/// Resource Manager writes it: header, data, map.
+pub fn single(ty: &[u8; 4], id: i16, data: &[u8]) -> Vec<u8> {
+    let data_len = 4 + data.len() as u32;
+    // map: header copy (16), handle (4), file ref (2), attributes (2),
+    // type list and name list offsets (2 + 2), type count − 1 (2), one
+    // type (8), one reference (12)
+    let map_len = 16 + 4 + 2 + 2 + 2 + 2 + 2 + 8 + 12;
+    let head = |f: &mut Vec<u8>| {
+        for v in [256, 256 + data_len, data_len, map_len] {
+            f.extend_from_slice(&v.to_be_bytes());
+        }
+    };
+    let mut f = Vec::new();
+    head(&mut f);
+    f.resize(256, 0);
+    f.extend_from_slice(&(data.len() as u32).to_be_bytes());
+    f.extend_from_slice(data);
+    head(&mut f);
+    f.extend_from_slice(&[0; 8]);
+    f.extend_from_slice(&28u16.to_be_bytes());
+    f.extend_from_slice(&(map_len as u16).to_be_bytes());
+    f.extend_from_slice(&0u16.to_be_bytes());
+    f.extend_from_slice(ty);
+    f.extend_from_slice(&0u16.to_be_bytes());
+    f.extend_from_slice(&10u16.to_be_bytes());
+    f.extend_from_slice(&id.to_be_bytes());
+    f.extend_from_slice(&0xffffu16.to_be_bytes());
+    f.extend_from_slice(&[0; 8]);
+    f
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_single_resource_fork_reads_back() {
+        let f = single(b"HrSG", 0, &[1, 2, 3, 4, 5]);
+        let r = Resources::parse(&f).unwrap();
+        assert_eq!(r.get(b"HrSG", 0).unwrap(), &[1, 2, 3, 4, 5]);
+        assert_eq!(r.ids(b"HrSG"), [0]);
+        assert_eq!(r.map.len(), 1);
+    }
+}
