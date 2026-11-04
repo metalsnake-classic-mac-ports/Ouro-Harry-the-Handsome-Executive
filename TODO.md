@@ -52,7 +52,7 @@
 - [x] Turrets, reversors, boulders (18 000 runs); level 7 has all its kinds
 - [x] Scientists and blobs (16 000 runs), player shot hits on every kind (30 000); levels 8–14 have all their kinds
 - [x] The boss (4000 runs); every level of Episode 1 has all its kinds (hazards 3001 and desks 301–319 are not used)
-- [ ] Music (`Tune`), then the boss's `FadeMusic`
+- [x] Music (`Tune`), the boss's and Harry's `FadeMusic`
 - [x] Whole-frame recorder (`emu_game.py`) for all 15 levels with the draw pass and every draw proc's effect (1500 runs)
 - [x] `VendingDrawProc`: drawing the vending machine sets its +0x78 (and +0x8a)
 - [x] Message sprite (`ShowBalloon` as a callback; 12 000 cases)
@@ -109,7 +109,8 @@
 - [x] Sprite tints: the draw procs' blits (whole frames), the colour tables (13 812 colours), drawn in the frontend
 - [x] Meters as `UpdateMeters` draws them, with the rounded ends (cicn 10135–10137 in the pack); the fans' grilles and the dart enemies' darts
 - [ ] `MakeITable`'s inverse table exactly (the port takes the nearest colour); second faces clipped like the original at the ring buffer's wrap
-- [ ] Frontend: the synthesizer (tunes from the pack, a recording instead when there is one), `SetMusic` / `FadeMusic` where the game calls them, the volume in the options
+- [x] Music: the synthesizer (tunes from the pack, a recording instead when there is one), `SetMusic` / `FadeMusic` where the game calls them, the volume in the options
+- [ ] Music closer to QuickTime: the instruments' knobs (envelopes, velocity curves, transposition), controller 33, the mixing level - against recordings from SheepShaver
 - [ ] Decide: QuickTime Musical Instruments in the shipped pack, a free GM soundfont, or only when provided (asked 2026-11-04)
 - [ ] Sound feedback into the game: "is a voice / the fan / the bump playing" (the original asks its channels; the port answers no)
 - [x] Frontend: letters by the keyboard layout (an improvement, NOTES "Port improvements"); F1–F4, F12, F13, N and P mapped

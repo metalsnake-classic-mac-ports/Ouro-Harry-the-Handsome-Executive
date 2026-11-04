@@ -25,6 +25,8 @@ pub struct Settings {
     pub autosave: bool,
     /// The sound effects' volume, 0 (off) – 9 (prefs +0xc).
     pub volume: u8,
+    /// The music's volume, 0 (off) – 9 (prefs +0xe).
+    pub music_volume: u8,
     /// Integer scaling of the picture, else as large as the window allows.
     pub integer_scaling: bool,
     pub fullscreen: bool,
@@ -42,6 +44,7 @@ impl Default for Settings {
             camera: mode::FOLLOW,
             autosave: true,
             volume: 9,
+            music_volume: 7,
             integer_scaling: true,
             fullscreen: false,
             fullscreen_key: Scancode::F11,
@@ -84,6 +87,7 @@ impl Settings {
                 "camera" if (1..=4).contains(&n) => s.camera = n as i16,
                 "autosave" => s.autosave = n != 0,
                 "volume" if (0..=9).contains(&n) => s.volume = n as u8,
+                "music_volume" if (0..=9).contains(&n) => s.music_volume = n as u8,
                 "integer_scaling" => s.integer_scaling = n != 0,
                 "fullscreen" => s.fullscreen = n == 1,
                 "fullscreen_key" => {
@@ -107,10 +111,11 @@ impl Settings {
 
     pub fn save(&self, path: &Path) -> std::io::Result<()> {
         let mut out = format!(
-            "camera {}\nautosave {}\nvolume {}\ninteger_scaling {}\nfullscreen {}\n",
+            "camera {}\nautosave {}\nvolume {}\nmusic_volume {}\ninteger_scaling {}\nfullscreen {}\n",
             self.camera,
             u8::from(self.autosave),
             self.volume,
+            self.music_volume,
             u8::from(self.integer_scaling),
             u8::from(self.fullscreen)
         );
@@ -129,6 +134,7 @@ enum Row {
     Camera,
     Autosave,
     Volume,
+    MusicVolume,
     Scaling,
     Fullscreen,
     FullscreenKey,
@@ -137,10 +143,11 @@ enum Row {
     Done,
 }
 
-const ROWS: [Row; 16] = [
+const ROWS: [Row; 17] = [
     Row::Camera,
     Row::Autosave,
     Row::Volume,
+    Row::MusicVolume,
     Row::Scaling,
     Row::Fullscreen,
     Row::FullscreenKey,
@@ -157,16 +164,16 @@ const ROWS: [Row; 16] = [
 ];
 
 /// The first row of the keys.
-const FIRST_KEY: usize = 6;
+const FIRST_KEY: usize = 7;
 
 /// A row's height.
-const ROW: i32 = 20;
+const ROW: i32 = 19;
 
 /// Where the rows are: y of each row's top; `ROW` high, from x 32 to 448.
 fn row_top(i: usize) -> i32 {
     // a gap before the keys and before the buttons
     let gap = if i >= FIRST_KEY { 26 } else { 0 } + if i >= FIRST_KEY + ACTIONS.len() { 18 } else { 0 };
-    72 + i as i32 * ROW + gap
+    66 + i as i32 * ROW + gap
 }
 
 /// The options screen over the main menu's left part.
@@ -265,6 +272,7 @@ impl Screen {
             }
             Row::Autosave => s.autosave = !s.autosave,
             Row::Volume => s.volume = (i32::from(s.volume) + by).clamp(0, 9) as u8,
+            Row::MusicVolume => s.music_volume = (i32::from(s.music_volume) + by).clamp(0, 9) as u8,
             Row::Scaling => s.integer_scaling = !s.integer_scaling,
             Row::Fullscreen => s.fullscreen = !s.fullscreen,
             _ => return None,
@@ -283,7 +291,7 @@ impl Screen {
         let grey = [0xbb; 3];
         let label = |x: f32, y: i32, text: &str, face: Face, color: [u8; 3]| Line {
             x,
-            baseline: (y + 14) as f32,
+            baseline: (y + 13) as f32,
             size: 12.0,
             face,
             color,
@@ -302,6 +310,7 @@ impl Screen {
                 Row::Camera => ("Camera Mode", CAMERAS.iter().find(|c| c.0 == s.camera).map_or("?", |c| c.1).to_string()),
                 Row::Autosave => ("Save between levels", on_off(s.autosave)),
                 Row::Volume => ("Sound Volume", if s.volume == 0 { "Off".into() } else { s.volume.to_string() }),
+                Row::MusicVolume => ("Music Volume", if s.music_volume == 0 { "Off".into() } else { s.music_volume.to_string() }),
                 Row::Scaling => ("Scaling", if s.integer_scaling { "Whole multiples (sharp)".into() } else { "Fill the window".into() }),
                 Row::Fullscreen => ("Full Screen", on_off(s.fullscreen)),
                 Row::FullscreenKey => (

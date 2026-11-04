@@ -20,6 +20,7 @@
 mod audio;
 mod balloon;
 mod menu;
+mod music;
 mod options;
 mod render;
 mod scenes;
@@ -360,6 +361,7 @@ fn main() -> Result<()> {
     };
     apply_display(&mut canvas, &settings);
     mixer.set_volume(settings.volume);
+    mixer.set_music_volume(settings.music_volume);
     let palette = clut8();
     let mut rgb = vec![0u8; render::SCREEN_WIDTH * render::SCREEN_HEIGHT * 3];
     let mut next = Instant::now();
@@ -383,23 +385,28 @@ fn main() -> Result<()> {
     let mut map: Option<Instant> = None;
     let mut map_cooldown = 0u32;
     let mut scene = if direct {
-        Some(scenes::Scenes::new(start_screen(&game), true, scenes::game_start(&game.level, true)))
+        Some(scenes::Scenes::new(start_screen(&game), true, scenes::game_start(&game.level, true, &data.world)))
     } else {
         let m = menu::Menu::new();
         let mut sc = scenes::Scenes::new(start_screen(&game), true, Vec::new());
-        sc.then = Some((menu_screen(&m), vec![scenes::Step::FadeIn(8)]));
+        // main: SetMusic(600), the menu
+        sc.then = Some((menu_screen(&m), vec![scenes::Step::Music(600), scenes::Step::FadeIn(8)]));
         in_menu = Some(m);
         Some(sc)
     };
     let mut tick = Instant::now();
     let mut faded = true;
+    // the music is faded out (FadeMusic's DAT_10072711)
+    let mut music_faded = false;
     // to the main menu from the screen shown: fade out, the menu, fade in
     let to_menu = |screen: render::Canvas, faded: bool, steps: Vec<scenes::Step>| {
         let m = menu::Menu::new();
         let mut steps = steps;
         steps.push(scenes::Step::FadeOut(8));
         let mut sc = scenes::Scenes::new(screen, faded, steps);
-        sc.then = Some((menu_screen(&m), vec![scenes::Step::FadeIn(8)]));
+        let mut then = vec![scenes::Step::FadeIn(8)];
+        then.extend(scenes::menu_music());
+        sc.then = Some((menu_screen(&m), then));
         (m, sc)
     };
     let mut text_texture: Option<(sdl3::render::Texture, Vec<text::Line>, (u32, u32))> = None;
@@ -501,15 +508,23 @@ fn main() -> Result<()> {
         if let Some(n) = jump {
             level = n;
             game = start(level, PlayerGlobals::new_game(), game.rng.seed);
-            scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, false)));
+            scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, false, &data.world)));
             tick = Instant::now();
         }
         let now = Instant::now();
         if let Some(sc) = scene.as_mut() {
+            sc.music_faded = music_faded;
             while tick <= now && !sc.done() {
                 sc.tick(&data, std::mem::take(&mut pressed));
+                for c in std::mem::take(&mut sc.music) {
+                    match c {
+                        scenes::MusicCommand::Play(id) => mixer.music(id),
+                        scenes::MusicCommand::Fade { out, ticks } => mixer.fade_music(out, ticks),
+                    }
+                }
                 tick += TICK;
             }
+            music_faded = sc.music_faded;
             if sc.done() {
                 faded = sc.dark >= 256;
                 scene = None;
@@ -532,6 +547,7 @@ fn main() -> Result<()> {
             settings = o.settings.clone();
             apply_display(&mut canvas, &settings);
             mixer.set_volume(settings.volume);
+            mixer.set_music_volume(settings.music_volume);
             if e == options::Event::Done {
                 if let Some(p) = &settings_path
                     && let Err(err) = settings.save(p)
@@ -547,7 +563,7 @@ fn main() -> Result<()> {
                 level = 0;
                 game = start(level, PlayerGlobals::new_game(), game.rng.seed);
                 in_menu = None;
-                scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, true)));
+                scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, true, &data.world)));
                 tick = now;
             }
             // ContinueGame: the save list is to come; the game saved in
@@ -562,7 +578,7 @@ fn main() -> Result<()> {
                         eprintln!("level {}: not ported yet: {missing:?}", level + 1);
                     }
                     in_menu = None;
-                    scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, !sg.copier)));
+                    scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, !sg.copier, &data.world)));
                     tick = now;
                 }
             }
@@ -606,6 +622,9 @@ fn main() -> Result<()> {
                 map_cooldown = 6;
             }
             mixer.events(&game.sounds, game.level.own_sounds);
+            if game.sounds.iter().any(|e| matches!(e, harry_core::sound::SoundEvent::FadeMusicOut(_))) {
+                music_faded = true;
+            }
             score.step(game.g.score);
             if let Some(b) = asked {
                 shown = Some((b, Instant::now()));
@@ -625,7 +644,7 @@ fn main() -> Result<()> {
                             if !missing.is_empty() {
                                 eprintln!("level {}: not ported yet: {missing:?}", level + 1);
                             }
-                            scene = Some(scenes::Scenes::new(screen, faded, scenes::up_level(&old, &game.level)));
+                            scene = Some(scenes::Scenes::new(screen, faded, scenes::up_level(&old, &game.level, &data.world)));
                         }
                         // after Win the main menu
                         (UpLevel::Won, _) => {

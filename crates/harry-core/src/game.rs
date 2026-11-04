@@ -715,7 +715,8 @@ impl Game {
                     }
                 }
                 // the music is not ported yet
-                SpriteEvent::FadeMusic => {}
+                // HandleBossSpriteDeath: FadeMusic(0, 1)
+                SpriteEvent::FadeMusic => self.sounds.push(SoundEvent::FadeMusicOut(1)),
                 SpriteEvent::StopSound(id) => self.sounds.push(SoundEvent::Stop(id)),
                 SpriteEvent::BigBlast { h, v } => {
                     let i = self.explosion(h, v, 0, 0);
@@ -742,7 +743,7 @@ impl Game {
         for e in events {
             match e {
                 // the music is not ported yet
-                DeathEvent::FadeMusic => {}
+                DeathEvent::FadeMusic => self.sounds.push(SoundEvent::FadeMusicOut(1)),
                 DeathEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
                 DeathEvent::Explosion { h, v, dir, behind } => {
                     let i = self.explosion(h, v, 0, dir);

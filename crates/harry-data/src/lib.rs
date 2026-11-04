@@ -111,13 +111,23 @@ pub struct WorldInfo {
     pub win_seconds: i16,
     /// +0x14c: the music after the last level.
     pub win_music: i16,
+    /// +0x1c4: the first level (`IntroLevel` fades the music out before
+    /// any other).
+    pub first_level: i16,
 }
 
 impl WorldInfo {
     /// The fields from the `Hwld` 0 resource.
     pub fn from_hwld(d: &[u8]) -> WorldInfo {
         let f = |o: usize| d.get(o..o + 2).map_or(0, |b| i16::from_be_bytes([b[0], b[1]]));
-        WorldInfo { scroll_music: f(0x144), win_scroll: f(0x146), win_show: f(0x148), win_seconds: f(0x14a), win_music: f(0x14c) }
+        WorldInfo {
+            scroll_music: f(0x144),
+            win_scroll: f(0x146),
+            win_show: f(0x148),
+            win_seconds: f(0x14a),
+            win_music: f(0x14c),
+            first_level: f(0x1c4),
+        }
     }
 
     /// The pictures a world uses: the levels' info #5–#8 (scroll after /

@@ -5,7 +5,8 @@
 //! a remark and the charge sound each replace the one before.
 //!
 //! The mixing runs in SDL's audio callback, so a sound starts within one
-//! buffer of the device (256 frames).
+//! buffer of the device (256 frames). The music (`crate::music`) is mixed
+//! in the same callback.
 
 use std::sync::Arc;
 
@@ -27,15 +28,17 @@ struct Voice {
     channel: Channel,
 }
 
-/// The voices, mixed by the audio thread.
-struct Voices(Vec<Voice>);
+/// The voices and the music, mixed by the audio thread.
+struct Voices(Vec<Voice>, crate::music::Player);
 
 impl AudioCallback<i16> for Voices {
     fn callback(&mut self, stream: &mut AudioStream, requested: i32) {
         let frames = requested.max(0) as usize / 2;
+        let mut music = vec![0.0f32; frames * 2];
+        self.1.mix(&mut music);
         let mut out = vec![0i16; frames * 2];
         for f in 0..frames {
-            let (mut l, mut r) = (0.0f32, 0.0f32);
+            let (mut l, mut r) = (music[2 * f] * 32768.0, music[2 * f + 1] * 32768.0);
             for v in &mut self.0 {
                 if let Some(&s) = v.samples.get(v.pos as usize) {
                     let x = (f32::from(s) - 128.0) * 256.0;
@@ -74,10 +77,34 @@ impl Mixer {
         let stream = sdl
             .audio()
             .map_err(|e| e.to_string())
-            .and_then(|a| a.open_playback_stream(&spec, Voices(Vec::new())).map_err(|e| e.to_string()))
+            .and_then(|a| {
+                let player = crate::music::Player::new(crate::music::Library::new(&data.music), OUTPUT_RATE);
+                a.open_playback_stream(&spec, Voices(Vec::new(), player)).map_err(|e| e.to_string())
+            })
             .and_then(|s| s.resume().map(|_| s).map_err(|e| e.to_string()));
         let stream = stream.map_err(|e| eprintln!("no sound: {e}")).ok();
         Mixer { stream, sounds: table(&data.sounds), world: table(&data.world_sounds), volume: 1.0 }
+    }
+
+    /// `SetMusic(id)`: the tune from its start (silent while faded out).
+    pub fn music(&mut self, id: i16) {
+        if let Some(mut v) = self.stream.as_mut().and_then(|s| s.lock()) {
+            v.1.play(id);
+        }
+    }
+
+    /// `FadeMusic`: out (or in) in 24 steps of `ticks`.
+    pub fn fade_music(&mut self, out: bool, ticks: u16) {
+        if let Some(mut v) = self.stream.as_mut().and_then(|s| s.lock()) {
+            v.1.fade(out, ticks);
+        }
+    }
+
+    /// The music volume setting, 0 (off) – 9.
+    pub fn set_music_volume(&mut self, vol: u8) {
+        if let Some(mut v) = self.stream.as_mut().and_then(|s| s.lock()) {
+            v.1.set_volume(vol);
+        }
     }
 
     /// The volume setting, 0 (off) – 9 (full), for the sounds started from
@@ -105,8 +132,9 @@ impl Mixer {
             .collect();
         let volume = self.volume;
         let Some(stream) = &mut self.stream else { return };
-        let Some(mut voices) = stream.lock() else { return };
-        let voices = &mut voices.0;
+        let Some(mut all) = stream.lock() else { return };
+        let mut fade = None;
+        let voices = &mut all.0;
         for (e, found) in events.iter().zip(new) {
             match *e {
                 SoundEvent::Play { id, left, right, rate, channel } => {
@@ -136,7 +164,13 @@ impl Mixer {
                 SoundEvent::HaltVoices => voices.retain(|v| !matches!(v.channel, Channel::Voice | Channel::Chatter)),
                 SoundEvent::StopCharge => voices.retain(|v| v.channel != Channel::Charge),
                 SoundEvent::Stop(id) => voices.retain(|v| v.id != id),
+                // the music fades without stopping the game (the original
+                // waits for it; NOTES.md, "Port improvements")
+                SoundEvent::FadeMusicOut(ticks) => fade = Some(ticks),
             }
+        }
+        if let Some(ticks) = fade {
+            all.1.fade(true, ticks);
         }
     }
 }

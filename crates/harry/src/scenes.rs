@@ -39,6 +39,19 @@ pub enum Step {
     Whole(i16),
     /// `Delay` or a wait: this many ticks.
     Wait(u32),
+    /// `SetMusic(id)`: the tune from its start (silent while faded out).
+    Music(i16),
+    /// `FadeMusic(in, ticks)`: the music fades out (or in) in 24 steps of
+    /// `ticks`, and the sequence waits for it; nothing when it is already
+    /// out (in).
+    FadeMusic { out: bool, ticks: u16 },
+}
+
+/// What a sequence asks of the music player.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MusicCommand {
+    Play(i16),
+    Fade { out: bool, ticks: u16 },
 }
 
 /// What a running step remembers.
@@ -61,12 +74,25 @@ pub struct Scenes {
     /// What follows on another screen (a new game's start after a death or
     /// the win): its screen and steps.
     pub then: Option<(Canvas, Vec<Step>)>,
+    /// The music is faded out (`DAT_10072711`); kept by the caller.
+    pub music_faded: bool,
+    /// Music commands for the caller to pass on.
+    pub music: Vec<MusicCommand>,
 }
 
 impl Scenes {
     /// A sequence over `image`; `faded` if the screen is black already.
     pub fn new(image: Canvas, faded: bool, steps: Vec<Step>) -> Scenes {
-        Scenes { image, dark: if faded { 256 } else { 0 }, texts: true, steps: steps.into(), running: None, then: None }
+        Scenes {
+            image,
+            dark: if faded { 256 } else { 0 },
+            texts: true,
+            steps: steps.into(),
+            running: None,
+            then: None,
+            music_faded: false,
+            music: Vec::new(),
+        }
     }
 
     pub fn done(&self) -> bool {
@@ -217,6 +243,18 @@ impl Scenes {
                 }
                 Some(Running::Wait(t))
             }
+            Step::Music(id) => {
+                self.music.push(MusicCommand::Play(id));
+                return false;
+            }
+            Step::FadeMusic { out, ticks } => {
+                if out == self.music_faded {
+                    return false;
+                }
+                self.music_faded = out;
+                self.music.push(MusicCommand::Fade { out, ticks });
+                Some(Running::Wait(24 * u32::from(ticks.max(1))))
+            }
         };
         true
     }
@@ -262,48 +300,87 @@ fn scroll_copy(c: &mut Canvas, p: &Image, top: i32) {
 
 /// The steps of `IntroLevel` for a level: fade out, the game area black,
 /// the title card, fade in, a second's wait.
-pub fn intro_level(title: i16) -> Vec<Step> {
+pub fn intro_level(title: i16, fade_music: bool) -> Vec<Step> {
     let mut s = vec![Step::FadeOut(8), Step::Black];
     if title != 0 {
         s.push(Step::Title(title));
     }
-    s.extend([Step::FadeIn(8), Step::Wait(60)]);
+    s.push(Step::FadeIn(8));
+    // for any level but the world's first the music fades out here
+    if fade_music {
+        s.push(Step::FadeMusic { out: true, ticks: 2 });
+    }
+    s.push(Step::Wait(60));
     s
 }
 
-/// `GameLoop`'s start: with `intro` and a story picture before the level
-/// (info #6), it scrolls between fades; then `IntroLevel`.
-pub fn game_start(level: &harry_core::Level, intro: bool) -> Vec<Step> {
-    let mut s = Vec::new();
-    if intro && level.info[6] != 0 {
-        s.extend([Step::FadeIn(8), Step::Scroll(level.info[6]), Step::FadeOut(8)]);
+/// `ScrollPlot(pict, music)`: with music (the world's scroll music, if it
+/// has one) the music changes to it around the picture.
+fn scroll_plot(pict: i16, music: i16) -> Vec<Step> {
+    if music == 0 {
+        return vec![Step::Scroll(pict)];
     }
-    s.extend(intro_level(level.info[8]));
+    vec![
+        Step::FadeMusic { out: true, ticks: 2 },
+        Step::Music(music),
+        Step::FadeMusic { out: false, ticks: 2 },
+        Step::Scroll(pict),
+        Step::FadeMusic { out: true, ticks: 2 },
+    ]
+}
+
+/// The level's music fading in, as `GameLoop` and `UpLevel` start it.
+fn level_music(level: &harry_core::Level) -> [Step; 2] {
+    [Step::Music(level.music), Step::FadeMusic { out: false, ticks: 2 }]
+}
+
+/// `GameLoop`'s start: the music fades out; with `intro` and a story
+/// picture before the level (info #6), it scrolls between fades; then
+/// `IntroLevel` and the level's music.
+pub fn game_start(level: &harry_core::Level, intro: bool, world: &harry_data::WorldInfo) -> Vec<Step> {
+    let mut s = vec![Step::FadeMusic { out: true, ticks: 4 }];
+    if intro && level.info[6] != 0 {
+        s.push(Step::FadeIn(8));
+        s.extend(scroll_plot(level.info[6], world.scroll_music));
+        s.push(Step::FadeOut(8));
+    }
+    s.extend(intro_level(level.info[8], level.number != world.first_level));
+    s.extend(level_music(level));
     s
 }
 
 /// `UpLevel` to the next level: the old level's story picture after it
 /// (info #5), the game area black, the new level's `IntroLevel`, then its
 /// story picture before it (info #6) - after the title card here, unlike
-/// at `GameLoop`'s start.
-pub fn up_level(old: &harry_core::Level, new: &harry_core::Level) -> Vec<Step> {
+/// at `GameLoop`'s start - and its music.
+pub fn up_level(old: &harry_core::Level, new: &harry_core::Level, world: &harry_data::WorldInfo) -> Vec<Step> {
     let mut s = vec![Step::EndLevel];
     if old.info[5] != 0 {
-        s.push(Step::Scroll(old.info[5]));
+        s.extend(scroll_plot(old.info[5], world.scroll_music));
     }
     s.push(Step::Black);
-    s.extend(intro_level(new.info[8]));
+    s.extend(intro_level(new.info[8], new.number != world.first_level));
     if new.info[6] != 0 {
-        s.extend([Step::Black, Step::Scroll(new.info[6])]);
+        s.push(Step::Black);
+        s.extend(scroll_plot(new.info[6], world.scroll_music));
     }
+    s.extend(level_music(new));
     s
 }
 
-/// `UpLevel` past the last level: `EndLevelEffect`, then `Win`: the
-/// world's picture scrolled, a long fade out, its win picture on the whole
-/// screen for its seconds, fade out.
+/// `UpLevel` past the last level: `EndLevelEffect`, then `Win`: the win
+/// music, the world's picture scrolled (without its scroll music), a long
+/// fade out, its win picture on the whole screen for its seconds, the
+/// music and the screen fade out.
 pub fn win(world: &harry_data::WorldInfo) -> Vec<Step> {
     let mut s = vec![Step::EndLevel];
+    if world.win_music != 0 {
+        s.extend([
+            Step::FadeMusic { out: true, ticks: 6 },
+            Step::Music(world.win_music),
+            Step::FadeMusic { out: false, ticks: 6 },
+        ]);
+    }
     if world.win_scroll != 0 {
         s.push(Step::Scroll(world.win_scroll));
     }
@@ -314,10 +391,16 @@ pub fn win(world: &harry_data::WorldInfo) -> Vec<Step> {
             Step::Whole(world.win_show),
             Step::FadeIn(75),
             Step::Wait(world.win_seconds.max(0) as u32 * 60),
+            Step::FadeMusic { out: true, ticks: 6 },
             Step::FadeOut(75),
         ]);
     }
     s
+}
+
+/// The main menu after a game (`NewGame`'s end): the menu's music fades in.
+pub fn menu_music() -> [Step; 2] {
+    [Step::Music(600), Step::FadeMusic { out: false, ticks: 2 }]
 }
 
 #[cfg(test)]
@@ -372,8 +455,10 @@ mod tests {
     fn the_story_scrolls_four_ticks_a_row_and_a_key_ends_it() {
         let Some(data) = pack() else { return };
         // level 1: the story (PICT 200, 993 rows) between fades, the title
-        let steps = game_start(&data.levels[0], true);
-        assert_eq!(steps[..3], [Step::FadeIn(8), Step::Scroll(200), Step::FadeOut(8)]);
+        let steps = game_start(&data.levels[0], true, &data.world);
+        assert_eq!(steps[1..3], [Step::FadeIn(8), Step::FadeMusic { out: true, ticks: 2 }]);
+        assert!(steps.contains(&Step::Music(620)) && steps.contains(&Step::Scroll(200)));
+        assert_eq!(steps[steps.len() - 2..], [Step::Music(601), Step::FadeMusic { out: false, ticks: 2 }]);
         let mut sc = Scenes::new(screen(), true, vec![Step::Scroll(200)]);
         assert_eq!(run(&data, &mut sc, None, "scroll", 400), (993 + 449) * 4 - 3);
         // a key pressed at once: it ends with the 8th row
@@ -391,7 +476,7 @@ mod tests {
     #[test]
     fn a_title_card_fades_in_and_waits_a_second() {
         let Some(data) = pack() else { return };
-        let mut sc = Scenes::new(screen(), false, intro_level(301));
+        let mut sc = Scenes::new(screen(), false, intro_level(301, false));
         // fade out 16 + 1 ticks, fade in 8 + 1, wait 60
         assert_eq!(run(&data, &mut sc, None, "title", 5), 17 + 9 + 60);
         assert_eq!(sc.dark, 0);
@@ -412,8 +497,10 @@ mod tests {
         assert_eq!((w.win_scroll, w.win_show, w.win_seconds), (209, 400, 12));
         let mut sc = Scenes::new(screen(), false, win(w));
         let t = run(&data, &mut sc, None, "win", 600);
-        // the squares, the scroll, three fades of 75 (257, 86, 257 ticks), 12 s
-        assert_eq!(t, 114 + (530 + 449) * 4 - 3 + 257 + 86 + 720 + 257);
+        // the squares, the music's fades (24 · 6 ticks each, the first a no-op
+        // while the music plays), the scroll, three screen fades of 75 (257,
+        // 86, 257 ticks), 12 s
+        assert_eq!(t, 114 + 144 + 144 + (530 + 449) * 4 - 3 + 257 + 86 + 720 + 144 + 257);
         assert!(!sc.texts);
         assert_eq!(sc.dark, 256);
     }

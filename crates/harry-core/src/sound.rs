@@ -31,6 +31,9 @@ pub enum SoundEvent {
     StopCharge,
     /// Stop every playing instance of a sound (`FUN_10056c0c`).
     Stop(i16),
+    /// `FadeMusic(0, ticks)`: the music fades out in 24 steps of `ticks`
+    /// (Harry's and the boss's death).
+    FadeMusicOut(u16),
 }
 
 /// The normal rate.

@@ -1895,11 +1895,26 @@ queue plus `STPlay3DSound` / `CalcStereoVolume` (positional stereo).
   QuickTime Musical Instruments is read from `re/work/qtmi` (its
   resource fork, copied from the Mac OS 9 disk); only the instruments
   the tunes ask for (24) go into the pack.
-- A Python prototype (session scratchpad, `tune_proto.py`) renders a tune
-  with these samples (key range, pitch from the normal pitch, loop,
-  velocity, volume, pan, pitch bend, a short release); the knobs
-  (envelopes, transpose, velocity curves) and controller 33 are not
-  applied yet.
+- **The port's synthesizer** (`crates/harry/src/music.rs`, in the audio
+  callback at 22 254 Hz): the tune's events at 600 units a second,
+  looping at the end with the notes still sounding (as kTuneLoopUntil +
+  kTuneDontClipNotes); per note the zone of its key, the pitch from the
+  zone's normal key, pitch bend (controller 32, ±2 semitones), the
+  sample's loop while it sounds, velocity, part volume (7) and pan (10),
+  linear interpolation, a release of 80 ms; at most 48 notes. Not yet:
+  the knobs (envelopes, velocity curves, transposition), controller 33,
+  polyphony limits, QuickTime's own mixing level - to compare with
+  recordings of the original (SheepShaver has QuickTime). A recording of
+  a tune in the pack is played instead. Volume: `TuneSetVolume(v ·
+  0x1c71 − 3000)` with the setting v (0–9, default 7, in the options).
+- Where the port plays music: the main menu 600; `GameLoop`'s start
+  (fade out over 4, the story with the scroll music 620, `IntroLevel` -
+  which fades the music out for any level but the world's first (Hwld
+  +0x1c4) - then the level's music (Hlvl +0x120fa) fading in over 2);
+  `UpLevel` (the stories with the scroll music, then the next level's);
+  `Win` (the win music 616 over 6, out over 6 at the end); Harry's and
+  the boss's death fade it out over 1. In the sequences the port waits
+  for a fade as the original does.
 
 ### Pictures (Harry Titles)
 
@@ -2266,5 +2281,12 @@ Where the port deliberately differs from the original (the game logic in
   folder. The defaults are the original's (`InitPrefs`: camera 1 =
   Constant, Catch-up; sound 9, music 7; keys ← → ↓ ↑, space, control,
   option, Tab for the map).
+- **Music fades in the game.** `FadeMusic` waits for its 24 steps: at
+  Harry's death (frame 0) and the boss's the original stops for 0.4 s.
+  The port fades while the game goes on (in the sequences between the
+  frames it waits as the original).
+- **Recordings.** A pack may bring a finished recording of a tune
+  (`music/recordings/ID.wav` / `.flac`, e.g. a fan pack); it is played
+  instead of the synthesized tune.
 - **Registration.** The port plays as registered; the shareware limit
   after level 5 (`LevelLimit`) is left out.

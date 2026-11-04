@@ -142,8 +142,8 @@ pub fn write(data: &GameData) -> Result<Vec<u8>> {
     }
     let w = &data.world;
     let world = format!(
-        "scroll_music {}\nwin_scroll {}\nwin_show {}\nwin_seconds {}\nwin_music {}\n",
-        w.scroll_music, w.win_scroll, w.win_show, w.win_seconds, w.win_music
+        "scroll_music {}\nwin_scroll {}\nwin_show {}\nwin_seconds {}\nwin_music {}\nfirst_level {}\n",
+        w.scroll_music, w.win_scroll, w.win_show, w.win_seconds, w.win_music, w.first_level
     );
     put("world.txt", world.as_bytes())?;
     for (id, p) in &data.icons {
@@ -245,6 +245,7 @@ pub fn read(bytes: &[u8]) -> Result<GameData> {
             "win_show" => world.win_show = v,
             "win_seconds" => world.win_seconds = v,
             "win_music" => world.win_music = v,
+            "first_level" => world.first_level = v,
             _ => {}
         }
     }
