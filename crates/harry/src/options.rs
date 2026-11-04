@@ -161,8 +161,6 @@ const ROWS: [Row; 18] = [
     Row::MusicVolume,
     Row::Scaling,
     Row::Fullscreen,
-    Row::FullscreenKey,
-    Row::PauseKey,
     Row::Key(0),
     Row::Key(1),
     Row::Key(2),
@@ -171,12 +169,18 @@ const ROWS: [Row; 18] = [
     Row::Key(5),
     Row::Key(6),
     Row::Key(7),
+    Row::FullscreenKey,
+    Row::PauseKey,
     Row::Defaults,
     Row::Done,
 ];
 
 /// The first row of the keys.
-const FIRST_KEY: usize = 8;
+const FIRST_KEY: usize = 6;
+
+/// The rows of the full screen and pause keys (after the game's keys).
+const FULLSCREEN_ROW: usize = FIRST_KEY + ACTIONS.len();
+const PAUSE_ROW: usize = FULLSCREEN_ROW + 1;
 
 /// A row's height.
 const ROW: i32 = 19;
@@ -184,7 +188,7 @@ const ROW: i32 = 19;
 /// Where the rows are: y of each row's top; `ROW` high, from x 32 to 448.
 fn row_top(i: usize) -> i32 {
     // a gap before the keys and before the buttons
-    let gap = if i >= FIRST_KEY { 22 } else { 0 } + if i >= FIRST_KEY + ACTIONS.len() { 8 } else { 0 };
+    let gap = if i >= FIRST_KEY { 26 } else { 0 } + if i > PAUSE_ROW { 10 } else { 0 };
     66 + i as i32 * ROW + gap
 }
 
@@ -317,7 +321,7 @@ impl Screen {
         };
         let mut lines = vec![
             Line { x: 40.0, baseline: 50.0, size: 18.0, face: Face::HelveticaBold, color: white, text: "Preferences".into() },
-            label(40.0, row_top(FIRST_KEY) - 21, "Keys", Face::HelveticaBold, white),
+            label(40.0, row_top(FIRST_KEY) - 23, "Keys", Face::HelveticaBold, white),
         ];
         let s = &self.settings;
         let mut b = s.clone();
@@ -354,7 +358,7 @@ impl Screen {
         }
         lines.push(Line {
             x: 40.0,
-            baseline: 452.0,
+            baseline: 458.0,
             size: 10.0,
             face: Face::Helvetica,
             color: grey,
@@ -426,7 +430,7 @@ mod tests {
     #[test]
     fn the_full_screen_key_takes_any_key_the_game_does_not_use() {
         let mut sc = Screen::new(Settings::default());
-        sc.selected = FIRST_KEY - 2;
+        sc.selected = FULLSCREEN_ROW;
         sc.key(Scancode::Return, None);
         // Space kicks: refused
         assert_eq!(sc.key(Scancode::Space, Some(0x31)), None);
@@ -439,7 +443,7 @@ mod tests {
     #[test]
     fn the_pause_key_takes_any_key_the_game_and_full_screen_do_not_use() {
         let mut sc = Screen::new(Settings::default());
-        sc.selected = FIRST_KEY - 1;
+        sc.selected = PAUSE_ROW;
         sc.key(Scancode::Return, None);
         // F11 is the full screen key, ← turns: refused
         assert_eq!(sc.key(Scancode::F11, None), None);
@@ -450,7 +454,7 @@ mod tests {
         assert_eq!(sc.key(Scancode::P, Some(0x23)), Some(Event::Changed));
         assert_eq!(sc.settings.pause_key, Scancode::P);
         // and the full screen key cannot take it then
-        sc.selected = FIRST_KEY - 2;
+        sc.selected = FULLSCREEN_ROW;
         sc.key(Scancode::Return, None);
         assert_eq!(sc.key(Scancode::P, Some(0x23)), None);
     }
