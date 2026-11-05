@@ -54,8 +54,9 @@ def build(save):
     src = WORK / 'repro' / save
     if not src.exists():
         sys.exit(f'{src}: no such save (run ouro-harry-repro first)')
-    # cp keeps the resource fork and the Finder info
-    subprocess.run(['cp', str(src), str(game / save)], check=True)
+    # cp keeps the resource fork and the Finder info; the Open dialog
+    # selects the first name, which must sort before "System Folder"
+    subprocess.run(['cp', str(src), str(game / f'Repro {save}')], check=True)
     return game
 
 

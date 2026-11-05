@@ -43,6 +43,9 @@ fn repros() -> Vec<Repro> {
         // every frame, so it cannot hold a value from the save)
         Repro { meters: (72, 72, 2), ..r("meter-end", 1, L1_START) },
         Repro { ammo: (0, 5, 0), items: &[item::BADASS], ..r("badass-backfire", 1, L1_START) },
+        // the same with 7: the strong shot fires (6 still backfires: it
+        // takes 6, then finds 0)
+        Repro { ammo: (0, 7, 0), items: &[item::BADASS], ..r("badass-control", 1, L1_START) },
         Repro { ammo: (10, 10, 10), items: &[item::MYSTERY_VIAL, item::STAPLE_GUN], ..r("vial-negative", 1, L1_START) },
         Repro { ammo: (99, 0, 0), items: &[item::STAPLE_GUN], ..r("ammo-over-100", 1, L1_START) },
         Repro { ammo: (100, 0, 0), items: &[item::STAPLE_GUN], ..r("shots-walls", 1, L1_START) },

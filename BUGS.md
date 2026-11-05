@@ -135,8 +135,12 @@ bug was watched in the original yet; "expected" is what the code says.
   **See it:** save `badass-backfire` (level 1, the B.A.D.A.S.S. selected,
   5 ammunition). Hold Option for 2 s (34 frames or more) and let go:
   instead of four shots there is an explosion at the gun with the
-  "empty" sound, and the ammunition is 0. With 6 or more the strong shot
-  fires. Not seen yet.
+  "empty" sound, and the ammunition is 0. With 6 it backfires too (6
+  taken, 0 left); with 7 or more the strong shot fires (save
+  `badass-control`). **Seen** in systemless (2026-11-05,
+  `re/tools/sl_repro.py badass-backfire option:150 frames:60`): with 5
+  and 6 an explosion at the gun, Harry reddened and pushed back; with 7
+  a shot and no explosion.
   **See it:** save `vial-negative` (level 1, the vial selected, 10 of
   each ammunition, the staple gun carried). Use the vial (Option); one
   outcome in six takes 25 from every ammunition: select the staple gun
