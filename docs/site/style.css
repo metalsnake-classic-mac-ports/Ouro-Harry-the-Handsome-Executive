@@ -1,0 +1,278 @@
+/* Ouro Harry - the materials of the game screen itself: the black floor
+   window with its red glow, the grey granite of the side panel, the
+   panel's white italic labels, the yellow captions of the instructions,
+   the three meters' red, blue and orange. Helvetica Bold, as the panel. */
+
+:root {
+  --screen: #000000;
+  --glow: #8e1010;
+  --glow-dark: #3a0606;
+  --granite: #5a5a5a;
+  --text: #ecebe8;
+  --text-dim: #b9b7b2;
+  --caption: #ffe94a;
+  --comfort: #e0261f;
+  --surface: #2b4fe0;
+  --favor: #f08c12;
+  --link: #ffd36b;
+  --link-hover: #ffffff;
+
+  --size-body: 1.125rem;
+  --size-small: 0.95rem;
+  --measure: 70ch;
+  --gap: 2rem;
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--screen); }
+
+body {
+  margin: 0;
+  background: var(--screen);
+  color: var(--text);
+  font-family: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  font-size: var(--size-body);
+  line-height: 1.6;
+}
+
+.pixel { image-rendering: pixelated; }
+
+img { max-width: 100%; height: auto; display: block; }
+
+a { color: var(--link); text-underline-offset: 0.18em; }
+a:hover { color: var(--link-hover); }
+a:focus-visible, .button:focus-visible {
+  outline: 3px solid var(--caption);
+  outline-offset: 3px;
+}
+
+/* --- top line: the side panel's granite with the logo --------------- */
+
+.top {
+  background: var(--granite) url("granite.png");
+  border-bottom: 3px solid var(--glow);
+}
+.top-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+}
+.brand { display: flex; align-items: center; gap: 1rem; text-decoration: none; color: var(--text); }
+.brand h1 { margin: 0; line-height: 0; }
+.brand h1 img { width: 160px; height: auto; }
+.brand .ouro {
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--size-small);
+  text-shadow: 1px 1px 0 #000;
+}
+.source {
+  font-size: var(--size-small);
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--text);
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* --- page --------------------------------------------------------- */
+
+main {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 2.5rem 1rem 3rem;
+  display: grid;
+  gap: 3rem;
+}
+main > *, .gallery > *, .split > * { min-width: 0; }
+
+/* headings: the panel's labels (LEVEL, SCORE, COMFORT ...) */
+h2 {
+  margin: 0 0 1rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  color: var(--text);
+  text-shadow: 2px 2px 0 #000;
+}
+/* the three meters under each heading */
+h2::after {
+  content: "";
+  display: block;
+  width: 9rem;
+  height: 6px;
+  margin-top: 0.45rem;
+  background: linear-gradient(to right,
+    var(--comfort) 0 33%, var(--screen) 33% 34%,
+    var(--surface) 34% 66%, var(--screen) 66% 67%,
+    var(--favor) 67% 100%);
+}
+
+p, ul, ol, dl, table { max-width: var(--measure); }
+p { margin: 0 0 1em; }
+
+/* --- the hero: the main menu --------------------------------------- */
+
+.hero { display: grid; gap: 1.5rem; }
+.menu-picture {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  box-shadow: 0 0 0 3px var(--glow-dark), 0 0 28px var(--glow);
+}
+.menu-picture img { width: 100%; }
+.lead {
+  font-size: 1.4rem;
+  line-height: 1.45;
+  margin: 0 auto;
+  max-width: 44ch;
+  text-align: center;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0 auto;
+}
+
+/* buttons: the panel's bevelled fields */
+.button {
+  display: inline-block;
+  padding: 0.6rem 1.2rem;
+  background: var(--granite) url("granite.png");
+  color: var(--text);
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-shadow: 1px 1px 0 #000;
+  border: 3px solid;
+  border-color: #9a9a9a #262626 #262626 #9a9a9a;
+}
+.button:hover { color: var(--caption); }
+.button:active { border-color: #262626 #9a9a9a #9a9a9a #262626; }
+
+/* --- boxes: the black floor window with its red glow ---------------- */
+
+.box {
+  padding: 1.5rem 1.75rem 1.25rem;
+  background: var(--screen);
+  border: 2px solid var(--glow);
+  box-shadow: 0 0 0 4px var(--glow-dark), 0 0 22px rgba(142, 16, 16, 0.65);
+}
+.box > :last-child { margin-bottom: 0; }
+
+.box ul { padding-left: 1.2em; margin: 0 0 1em; }
+.box li { margin-bottom: 0.5em; }
+.box li::marker { color: var(--comfort); }
+
+.caption { color: var(--caption); font-weight: 700; }
+
+figure { margin: 1.5rem 0 0; }
+figure img { width: 100%; }
+figcaption {
+  margin-top: 0.5rem;
+  font-size: var(--size-small);
+  color: var(--text-dim);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 403px);
+  gap: var(--gap);
+  align-items: start;
+}
+.split figure { margin: 0; }
+
+/* --- screens ------------------------------------------------------ */
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap);
+}
+.gallery figure { margin: 0; }
+
+/* --- play --------------------------------------------------------- */
+
+.box ol { padding-left: 1.4em; margin: 0 0 1em; }
+.box ol li { margin-bottom: 1em; }
+.box ol li::marker { color: var(--caption); font-weight: 700; }
+
+pre {
+  margin: 0.5rem 0 0;
+  padding: 0.75rem 1rem;
+  background: #111;
+  border-left: 4px solid var(--favor);
+  overflow-x: auto;
+}
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.note {
+  border-left: 4px solid var(--surface);
+  padding: 0.25rem 0 0.25rem 1rem;
+}
+
+/* --- keys --------------------------------------------------------- */
+
+.keys { border-collapse: collapse; margin-bottom: 1em; }
+.keys th, .keys td { text-align: left; vertical-align: top; padding: 0.35rem 0; }
+.keys th { padding-right: 2rem; white-space: nowrap; font-weight: 700; color: var(--caption); }
+.keys tr + tr th, .keys tr + tr td { border-top: 1px solid rgba(255, 255, 255, 0.15); }
+
+/* --- credits ------------------------------------------------------ */
+
+.credits-body {
+  display: grid;
+  grid-template-columns: 136px 1fr;
+  gap: var(--gap);
+  align-items: start;
+}
+.credits-body > img { width: 136px; }
+.credits dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.2rem 1.5rem;
+  margin: 0 0 1em;
+}
+.credits dt { color: var(--caption); font-weight: 700; }
+.credits dd { margin: 0; }
+
+/* --- footer ------------------------------------------------------- */
+
+footer {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  border-top: 3px solid var(--glow);
+  font-size: var(--size-small);
+  color: var(--text-dim);
+}
+
+/* --- small screens ------------------------------------------------ */
+
+@media (max-width: 44rem) {
+  :root { --size-body: 1rem; --gap: 1.25rem; }
+  main { gap: 2rem; }
+  .box { padding: 1rem; }
+  h2 { font-size: 1.3rem; }
+  .brand h1 img { width: 120px; }
+  .brand .ouro, .source { display: none; }
+  .split, .credits-body, .gallery { grid-template-columns: 1fr; }
+  .credits-body > img { display: none; }
+  .keys th { padding-right: 1rem; white-space: normal; }
+}
