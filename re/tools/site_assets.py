@@ -7,7 +7,7 @@ screens the game exports.
 Writes: logo.png (the logo from the game screen's panel, on its granite),
 granite.png (a tile of the panel's stone), menu.png (the main menu
 picture), things.png (the instructions' "things at ScumCo"), credits.png
-(the credits list), victory.png (the end picture), screen-*.png (the
+(the credits list), screen-*.png (the
 port's level screens, 640 x 480) and harry.png (Harry on his chair, the
 icon). Needs Pillow.
 """
@@ -36,7 +36,6 @@ def main():
     image("pictures/130.png").save(f"{out}/menu.png", optimize=True)
     image("pictures/132.png").save(f"{out}/things.png", optimize=True)
     image("pictures/4803.png").save(f"{out}/credits.png", optimize=True)
-    image("world/400.png").save(f"{out}/victory.png", optimize=True)
     face = Image.open(io.BytesIO(z.read("faces/1110.png"))).convert("RGBA")
     icon = Image.new("RGBA", (48, 48))
     icon.alpha_composite(face, ((48 - face.width) // 2, (48 - face.height) // 2))
