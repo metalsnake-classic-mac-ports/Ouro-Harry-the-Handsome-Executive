@@ -2006,11 +2006,38 @@ SAVE [STEPS]` builds `re/work/systemless/harry` (the installed files, one
 `ouro-harry-repro` save - the Continue dialog takes the first file), goes
 through the menu's Continue Game and Open, and takes screenshots
 (`frames:N` one a tick; the screen is 800 × 600 with the game at (80,
-60)). The application copy has its registration check `FUN_10057cb0`
-(file offset 0x59330 in the MacBinary) replaced by "registered, no
-error" (`li r0,1; stb r0,0(r3); li r3,0; blr`): unregistered, Continue
-refuses levels after 5. The menu then reads "licensed to: NOT REGISTERED
-(0 copies)".
+60)). The application is unchanged; a licence file in systemless's
+Preferences folder (`<game folder>/System Folder/Preferences`, also in
+the zip of `sl_peek.py`) registers it - unregistered, Continue refuses
+levels after 5. The menu then reads "This copy of Harry is licensed to:
+Ouro Test". (Before: the check `FUN_10057cb0`, file offset 0x59330 in
+the MacBinary, patched to `li r0,1; stb r0,0(r3); li r3,0; blr`.)
+
+### Registration (`FUN_10057cb0`)
+
+The check reads "Harry License" from the Preferences folder (FindFolder
+'pref'; the name is STR# 900 #1 "Harry" + " License"; created empty
+with type 'Areg', creator 'Alic' if missing - the `Register Harry`
+utility writes it): 0x202 bytes, the licensee as a Pascal string at 0,
+the code at 0x100, the number of copies (word) at 0x200. An empty file
+gets the default from `FUN_10058a24` (STR# 900: "NOT REGISTERED",
+"N/A"). `FUN_10059074` computes the code: the name upper-cased (ASCII
+a-z, `FUN_10058f9c`), a 32-bit sum from 0 over the name's bytes, then
+"Harry" (`FUN_10058fd8`: low byte += byte, rotate left 5, low word +=
+copies), then eight letters 'A' + low nibble, rotating right 4 after
+each. `EqualString` compares it with the stored code, case-sensitive.
+After reading, the check writes the handle back to the file
+(`FUN_10058c94`). With the flag `*_DAT_10066238` clear it returns
+−1001 and "unregistered" without looking. It is the old-style Ambrosia code (variant 1) that
+siddhartha77's BSNG plugin "Ambrosia Software" also computes.
+`re/tools/harry_license.py NAME [COPIES] [--write DIR]` gives the code
+and writes the file; `re/tools/emu_license.py` checks it against
+`FUN_10059074` in Unicorn (3663 names and copy counts, all equal; a
+planted bug in the upper-casing shows as 666 differences). Checked in
+systemless: the unchanged application with the file is registered and
+continues in level 6; one wrong letter, and it is unregistered again.
+For SheepShaver the same file goes into its System Folder's
+Preferences (type and creator through the shared folder's Finder info).
 What systemless gets wrong (its Toolbox, not Harry's): the game area is
 striped while a balloon waits, and the panel's level name is drawn with
 its letters spread out ("T  e  m"). Otherwise the screens match the

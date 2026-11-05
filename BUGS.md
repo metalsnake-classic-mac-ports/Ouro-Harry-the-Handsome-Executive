@@ -18,7 +18,7 @@ save is also written as `<name>.hrsg` for the port:
 `HARRY_SAVE=re/work/emu-ppc/shared/repro/<name>.hrsg`, then Continue
 (or with `--screenshot` for a picture). Quicker than SheepShaver, without
 a window: `python3 -I re/tools/sl_repro.py <name> [steps]` runs the
-original in systemless (NOTES.md, "systemless") - for looking; what
+unchanged original, registered by a licence file, in systemless (NOTES.md, "systemless") - for looking; what
 systemless draws wrong is listed there. The original's default keys:
 ← / → turn, ↑ inch, ↓ scoot, Space kick, Control select item, Option
 use item, Tab map. A frame is 1/30 s. "Seen" below says whether the
@@ -351,6 +351,20 @@ bug was watched in the original yet; "expected" is what the code says.
   `halfpipe-left`): whether parts 2 and 5 (Towerful, Racked) play, and
   with what. Needs QuickTime Musical Instruments in the Mac OS 9 system;
   not heard yet.
+
+- **The registration check upper-cases one byte past the name.**
+  `FUN_10058f9c` runs from length + 1 down to 1, so the byte after the
+  licensee's name (inside the 0x100-byte field of the licence handle)
+  is changed too if it is a-z. Harmless (that byte is not read).
+  Port: no registration, not ported.
+- **The registration check rewrites the licence file every time.**
+  `FUN_10057cb0` reads "Harry License" and writes the same bytes back
+  (`FUN_10058c94`, with FlushVol) on every call (seven callers: the
+  menu line, level limits, ...). Harmless; on a locked disk the write
+  fails silently. If the file cannot be opened at all (no Preferences
+  folder, `FUN_10058ae0` returns 0), the check goes on with the nil
+  handle and reads the name and code through address 0 - garbage
+  compared, normally "unregistered". Port: not ported.
 
 ## Fixed in 1.0.1
 

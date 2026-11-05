@@ -50,28 +50,33 @@ def crc16(b):
     return c
 
 
-def macbinary(name, rsrc, finder_info):
+def macbinary(name, rsrc, finder_info, data=b''):
     h = bytearray(128)
     n = name.encode('mac_roman')
     h[1] = len(n)
     h[2:2 + len(n)] = n
     h[65:73] = finder_info[:8]
-    struct.pack_into('>II', h, 83, 0, len(rsrc))
+    struct.pack_into('>II', h, 83, len(data), len(rsrc))
     h[122] = h[123] = 129
     struct.pack_into('>H', h, 124, crc16(h[:124]))
-    return bytes(h) + rsrc + bytes(-len(rsrc) % 128)
+    return bytes(h) + data + bytes(-len(data) % 128) + rsrc + bytes(-len(rsrc) % 128)
 
 
 def pack(game, out):
+    """The folder as a zip: MacBinary files as they are, native files
+    (resource fork, Finder info) as MacBinary, folders kept."""
     with zipfile.ZipFile(out, 'w') as z:
-        for f in sorted(os.listdir(game)):
-            p = game / f
-            if f.endswith('.bin'):
-                z.write(p, f)
+        for p in sorted(game.rglob('*')):
+            rel = p.relative_to(game).as_posix()
+            if p.is_dir():
                 continue
-            rsrc = (p / '..namedfork/rsrc').read_bytes()
+            if p.name.endswith('.bin'):
+                z.write(p, rel)
+                continue
+            fork = p / '..namedfork/rsrc'
+            rsrc = fork.read_bytes() if fork.exists() else b''
             info = subprocess.run(['xattr', '-px', 'com.apple.FinderInfo', str(p)], capture_output=True, text=True, check=True)
-            z.writestr(f + '.bin', macbinary(f, rsrc, bytes.fromhex(''.join(info.stdout.split()))))
+            z.writestr(rel + '.bin', macbinary(p.name, rsrc, bytes.fromhex(''.join(info.stdout.split())), p.read_bytes()))
 
 
 def inputs(steps):

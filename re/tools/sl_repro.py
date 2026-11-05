@@ -11,14 +11,15 @@ after the game is on screen:
     shot:NAME       a screenshot NAME.png
     frames:N        a screenshot every tick for N ticks (f000.png ...)
 
-It builds re/work/systemless/harry: the installed game files, the save
-alone (the Continue dialog takes the first file), and the application
-with its registration check (`FUN_10057cb0`) patched to "registered" -
-the unregistered original refuses levels after 5. That copy is for
-looking only (BUGS.md "See it"); systemless's own Toolbox draws it, so it
-is not the reference either (NOTES.md "Emulator"). Needs `systemless`
-(brew install benletchford/tap/systemless).
+It builds re/work/systemless/harry: the installed game files, unchanged,
+the save (as "Repro SAVE": the Open dialog selects the first name) and a
+licence file in systemless's Preferences folder (harry_license.py) - the
+unregistered original refuses levels after 5. systemless's own Toolbox
+draws it, so it is for looking (BUGS.md "See it"), not the reference
+(NOTES.md "Emulator"). Needs `systemless` (brew install
+benletchford/tap/systemless).
 """
+import importlib.util
 import json
 import pathlib
 import shutil
@@ -29,11 +30,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORK = ROOT / 're/work'
 GAME_FILES = ['Harry 1.0.1.bin', 'Episode 1.bin', 'Harry Graphics.bin', 'Harry Instruments.bin',
               'Harry Music.bin', 'Harry Sounds.bin', 'Harry Titles.bin']
-# FUN_10057cb0 in the MacBinary file: code section at data fork + 0x1600
-CHECK_AT = 128 + 0x1600 + 0x57cb0
-CHECK_WAS = bytes.fromhex('7c0802a693e1fffc93c1fff893a1fff4')
-# *param = 1 (registered); return 0
-CHECK_NOW = bytes.fromhex('38000001' '98030000' '38600000' '4e800020')
+LICENSEE = 'Ouro Test'
 KEYS = {'left': (123, 28), 'right': (124, 29), 'down': (125, 31), 'up': (126, 30), 'space': (49, 32),
         'ctrl': (59, 0), 'option': (58, 0), 'return': (36, 13), 'tab': (48, 9)}
 
@@ -45,12 +42,10 @@ def build(save):
     game.mkdir(parents=True)
     for f in GAME_FILES:
         shutil.copyfile(WORK / 'installed' / f, game / f)
-    app = game / 'Harry 1.0.1.bin'
-    d = bytearray(app.read_bytes())
-    if d[CHECK_AT:CHECK_AT + 16] != CHECK_WAS:
-        sys.exit('the registration check is not where it should be')
-    d[CHECK_AT:CHECK_AT + 16] = CHECK_NOW
-    app.write_bytes(d)
+    spec = importlib.util.spec_from_file_location('harry_license', ROOT / 're/tools/harry_license.py')
+    lic = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(lic)
+    lic.write(game, LICENSEE)
     src = WORK / 'repro' / save
     if not src.exists():
         sys.exit(f'{src}: no such save (run ouro-harry-repro first)')
