@@ -124,6 +124,16 @@
 - [x] Screen palette: clut 8 (from the code; 66 of 68 PICTs already in clut 8)
 - [ ] Harry-big Easter egg key (0x74?): short press of Shift + = + Page Up
 
+## Release
+- [ ] First release: the repository on GitHub, GitHub Pages from `docs/`,
+      CHANGELOG cut to 0.1.0, tag `v0.1.0`
+- [ ] Homebrew: formula `ouro-harry` in the tap `homebrew-games` (url of
+      the tag's tarball, its sha256, `license "GPL-3.0-or-later"`, `head`
+      on `main`; tested with a local tarball on 2026-11-05: builds,
+      `brew test` and `brew audit --strict` pass), pull request, bottles
+      with the "brew pr-pull" workflow, the tap's README table
+- [ ] Build and test on Windows and Linux (so far built only on macOS)
+
 ## Lowest priority (decided 2026-11-04)
 - [ ] `MakeITable`'s inverse table exactly (the port takes the nearest colour); second faces clipped like the original at the ring buffer's wrap
 - [ ] Music closer to QuickTime: the instruments' knobs (envelopes, velocity curves, transposition), controller 33, the mixing level - against recordings from SheepShaver
