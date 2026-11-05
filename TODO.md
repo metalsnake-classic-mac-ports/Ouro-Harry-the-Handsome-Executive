@@ -99,7 +99,7 @@
 - [x] `HandleKeys` with the inventory routines: turning, moves, items, weapons, cheats and key sequences, 30 000 cases
 - [x] Player shots and the held weapon (`MakeNewShot`, `HandleHeldWeaponSprite`, shot flight, shots vs. walls), 47 500 cases
 - [x] Shots hitting sprites (`HitPlayerShotSprite`): `re/tools/emu_playershot.py`
-- [ ] Watch the original's bugs in SheepShaver with the `ouro-harry-repro` saves (BUGS.md, "See it"; first the garbage-scale frame, the backfire, negative ammo, shots passing walls) and note what is seen
+- [ ] Watch the original's bugs with the `ouro-harry-repro` saves (systemless: `re/tools/sl_repro.py`; meter-end seen; then SheepShaver for what systemless may draw wrong) (BUGS.md, "See it"; first the garbage-scale frame, the backfire, negative ammo, shots passing walls) and note what is seen
 - [ ] Saves for the bugs still without one: two pushed ramps meeting (level 14), two robots at a wall
 - [x] Level model (`harry_core::Level`), MacBinary / resource fork / `Hlvl` reader + writer (exact round trip)
 - [x] Graphics readers in Rust: PICT 1/8-bit/direct, cicn, HrSp; masks from the original files

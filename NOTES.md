@@ -1996,6 +1996,27 @@ must be press - pause - release (cliclick `dd`/`du` with 100–150 ms),
 instant clicks are ignored. The boot disk has no QuickTime yet: music
 needs QuickTime 2.5+ with QuickTime Musical Instruments.
 
+### systemless (no ROM, no System)
+
+systemless 0.109 (`brew install benletchford/tap/systemless`; a Toolbox
+of its own in Rust, see the skill's `references/related-projects.md`)
+runs the PowerPC build from the folder of MacBinary files, headless, with
+a JSON play script: 28 s of game in about 4 s. `re/tools/sl_repro.py
+SAVE [STEPS]` builds `re/work/systemless/harry` (the installed files, one
+`ouro-harry-repro` save - the Continue dialog takes the first file), goes
+through the menu's Continue Game and Open, and takes screenshots
+(`frames:N` one a tick; the screen is 800 × 600 with the game at (80,
+60)). The application copy has its registration check `FUN_10057cb0`
+(file offset 0x59330 in the MacBinary) replaced by "registered, no
+error" (`li r0,1; stb r0,0(r3); li r3,0; blr`): unregistered, Continue
+refuses levels after 5. The menu then reads "licensed to: NOT REGISTERED
+(0 copies)".
+What systemless gets wrong (its Toolbox, not Harry's): the game area is
+striped while a balloon waits, and the panel's level name is drawn with
+its letters spread out ("T  e  m"). Otherwise the screens match the
+port's (level 1, level 11, the meters). For looking, never as the
+reference: the differential tests stay in Unicorn.
+
 ## Port and differential tests
 
 - Rust workspace: `crates/harry-core` (game logic, no I/O; doc comments

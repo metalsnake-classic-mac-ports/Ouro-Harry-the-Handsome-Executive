@@ -16,7 +16,10 @@ In SheepShaver (the command is in NOTES.md, "Emulator") the folder is
 on the `Unix` disk: Continue Game, open `repro`, pick the save. Each
 save is also written as `<name>.hrsg` for the port:
 `HARRY_SAVE=re/work/emu-ppc/shared/repro/<name>.hrsg`, then Continue
-(or with `--screenshot` for a picture). The original's default keys:
+(or with `--screenshot` for a picture). Quicker than SheepShaver, without
+a window: `python3 -I re/tools/sl_repro.py <name> [steps]` runs the
+original in systemless (NOTES.md, "systemless") - for looking; what
+systemless draws wrong is listed there. The original's default keys:
 ← / → turn, ↑ inch, ↓ scoot, Space kick, Control select item, Option
 use item, Tab map. A frame is 1/30 s. "Seen" below says whether the
 bug was watched in the original yet; "expected" is what the code says.
@@ -104,7 +107,11 @@ bug was watched in the original yet; "expected" is what the code says.
   between two holes). Kick sideways so that the jump ends over a hole:
   for one frame Harry is drawn with the scale −29 788 before he starts
   to shrink. What that frame looks like is the open question (TODO);
-  step through with a screen recording at 30 fps or more. Not seen yet.
+  step through with a screen recording at 30 fps or more
+  (`re/tools/sl_repro.py hole-scale ... frames:120`). Scooting off the
+  bridge does not show it (systemless, 2026-11-05: Harry shrinks from
+  his normal size at once) - it needs a *jump* that ends over the hole.
+  Not seen yet.
 
 - **Harmless out-of-bounds read with no item selected.**
   `HandlePlayerSprite` checks `inventory[gCurInvSlot].id == -1`; with slot
@@ -303,11 +310,14 @@ bug was watched in the original yet; "expected" is what the code says.
   short, and at a value under 3 the strip is gone and the end is drawn
   left of the meter, over its frame. The picture stays until that meter
   changes again. Port: kept (`Game::meters` records it as drawn).
-  **See it:** save `meter-end` (level 1, comfort 72, surface 142: the
-  blue meter is drawn inverted, so 2 points of strip). Right after
-  Continue the blue meter shows no strip at all where a short strip with
-  a rounded end belongs (the port shows the same). Not seen in the
-  original yet.
+  **See it:** save `meter-end` (level 1, comfort 72, corporate favor 2).
+  After Continue the orange meter shows no strip at all where a 2-point
+  strip with a rounded end belongs, and stays so until favor changes.
+  (Surface resistance cannot be set this way: `HandlePlayerGlide` sets
+  it from the floor every frame.) **Seen** in systemless (2026-11-05,
+  `re/tools/sl_repro.py meter-end`): no orange strip, and the rounded
+  end a speck left of the meter, over its frame - for as long as favor
+  stays; the port shows the same.
 
 - **A cheat balloon that does not fit reads a null sprite.** The
   P-A-R-G-H-Z and B-E-N balloons are `ShowBalloon(NULL, text, 2)`. When

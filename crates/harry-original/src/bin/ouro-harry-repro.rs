@@ -39,8 +39,9 @@ const L11_HOLES: (i16, i16) = (1760, 1072);
 fn repros() -> Vec<Repro> {
     vec![
         Repro { dir: Some(35), ..r("dir35", 1, L1_START) },
-        // the surface meter is drawn inverted: 142 is a 2-point strip
-        Repro { meters: (72, 142, 72), ..r("meter-end", 1, L1_START) },
+        // favor 2 after comfort 72 (the surface meter follows the floor
+        // every frame, so it cannot hold a value from the save)
+        Repro { meters: (72, 72, 2), ..r("meter-end", 1, L1_START) },
         Repro { ammo: (0, 5, 0), items: &[item::BADASS], ..r("badass-backfire", 1, L1_START) },
         Repro { ammo: (10, 10, 10), items: &[item::MYSTERY_VIAL, item::STAPLE_GUN], ..r("vial-negative", 1, L1_START) },
         Repro { ammo: (99, 0, 0), items: &[item::STAPLE_GUN], ..r("ammo-over-100", 1, L1_START) },
