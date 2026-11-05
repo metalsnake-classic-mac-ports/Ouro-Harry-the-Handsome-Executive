@@ -256,8 +256,33 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
     }
 }
 
+const HELP: &str = "\
+Ouro Harry: Harry the Handsome Executive (Ben Spees / Ambrosia Software,
+1997) for modern systems.
+
+usage: ouro-harry [DATA] [LEVEL]
+       ouro-harry --screenshot OUT.bmp [LEVEL] [FRAMES]
+       ouro-harry --version | --help
+
+The game data is built in; DATA, a data pack made by ouro-harry-extract,
+replaces it (so do HARRY_DATA and ouro-harry-data.zip next to the program
+or in the current folder). LEVEL starts that level at once.
+
+Keys: left / right turn, down scoots, up inches, Space kicks, Control
+selects an item, Option (Alt) uses it, 1-4 pick a weapon, Tab shows the
+map, Caps Lock pauses; Command (or Ctrl) + I opens the options, F11 full
+screen, Esc gives up the game. The keys can be changed in the options.";
+
 fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().collect();
+    if args.iter().skip(1).any(|a| a == "--version" || a == "-V") {
+        println!("ouro-harry {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+    if args.iter().skip(1).any(|a| a == "--help" || a == "-h") {
+        println!("{HELP}");
+        return Ok(());
+    }
     let screenshot = (args.get(1).map(String::as_str) == Some("--screenshot")).then(|| {
         let out = args.get(2).cloned().unwrap_or_else(|| "harry.bmp".into());
         let frames = args.get(4).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1);
