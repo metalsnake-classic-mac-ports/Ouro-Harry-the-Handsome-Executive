@@ -10,7 +10,7 @@ or items. `ouro-harry-repro` writes copier saves for them (in the
 original's format, so Continue Game puts Harry right there):
 
     cargo run --release -p harry-original --bin ouro-harry-repro -- \
-        re/work/harry-data.zip re/work/emu-ppc/shared/repro
+        data/ouro-harry-data.zip re/work/emu-ppc/shared/repro
 
 In SheepShaver (the command is in NOTES.md, "Emulator") the folder is
 on the `Unix` disk: Continue Game, open `repro`, pick the save. Each

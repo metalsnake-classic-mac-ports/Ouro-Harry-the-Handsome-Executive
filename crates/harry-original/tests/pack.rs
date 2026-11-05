@@ -1,6 +1,7 @@
-//! The data pack made by `ouro-harry-extract` holds the original's data
-//! unchanged (run `cargo run -p harry-original --bin ouro-harry-extract --
-//! re/work/installed re/work/harry-data.zip` first).
+//! The game's data pack (`data/ouro-harry-data.zip`, made by
+//! `ouro-harry-extract re/work/installed data/ouro-harry-data.zip`) holds
+//! the original's data unchanged; it is checked when the original's files
+//! are in `re/work/installed`.
 
 use std::path::PathBuf;
 
@@ -18,10 +19,7 @@ fn installed(name: &str) -> Option<Resources> {
 
 #[test]
 fn pack_holds_the_original_data() {
-    let Ok(bytes) = std::fs::read(root().join("re/work/harry-data.zip")) else {
-        eprintln!("skipped: re/work/harry-data.zip not found");
-        return;
-    };
+    let bytes = std::fs::read(root().join("data/ouro-harry-data.zip")).unwrap();
     let (Some(app), Some(gfx), Some(ep)) = (installed("Harry 1.0.1.bin"), installed("Harry Graphics.bin"), installed("Episode 1.bin"))
     else {
         return;

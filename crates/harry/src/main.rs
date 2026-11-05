@@ -1,7 +1,8 @@
 //! Harry the Handsome Executive: the game with SDL3. `ouro-harry [pack.zip]
-//! [level]`; without a path the data pack `harry-data.zip` is looked for
-//! next to the program, in the current folder and in `re/work`. It starts
-//! with the main menu, or with a level given at once.
+//! [level]`: the data pack `data/ouro-harry-data.zip` is built in; a pack
+//! on the command line, in `HARRY_DATA`, or as `ouro-harry-data.zip` next to
+//! the program or in the current folder replaces it. It starts with the
+//! main menu, or with a level given at once.
 //!
 //! The game runs at the original's 30 frames per second, with its sounds. Keys as on the
 //! Mac (the default bindings): ← → turn, ↓ scoot, ↑ inch, space kick,
@@ -147,15 +148,37 @@ fn mac_seconds() -> u32 {
     (unix + 2_082_844_800) as u32
 }
 
-fn find_pack(arg: Option<&String>) -> Result<PathBuf> {
-    if let Some(a) = arg {
-        return Ok(PathBuf::from(a));
-    }
+/// The data pack `ouro-harry-extract` makes (`data/ouro-harry-data.zip`),
+/// built into the program.
+pub(crate) const BUNDLED: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/ouro-harry-data.zip"));
+/// A pack of this name next to the program or in the current folder is
+/// used instead of the built-in one.
+const PACK: &str = "ouro-harry-data.zip";
+
+/// The game data: a pack from the command line, `HARRY_DATA`, next to the
+/// program or in the current folder, else the built-in one.
+fn load_data(arg: Option<&String>) -> Result<GameData> {
     let exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf));
-    let candidates = [exe_dir.map(|d| d.join("harry-data.zip")), Some(PathBuf::from("harry-data.zip")), Some(PathBuf::from("re/work/harry-data.zip"))];
-    candidates.into_iter().flatten().find(|p| p.exists()).ok_or_else(|| {
-        anyhow!("harry-data.zip not found - make it with ouro-harry-extract from the original game's files")
-    })
+    let candidates = arg
+        .map(PathBuf::from)
+        .into_iter()
+        .chain(std::env::var_os("HARRY_DATA").map(PathBuf::from))
+        .chain(exe_dir.map(|d| d.join(PACK)))
+        .chain([PathBuf::from(PACK)]);
+    for path in candidates {
+        if arg.is_some_and(|a| PathBuf::from(a) == path) && !path.exists() {
+            return Err(anyhow!("{}: not found", path.display()));
+        }
+        if !path.exists() {
+            continue;
+        }
+        let bytes = std::fs::read(&path).with_context(|| path.display().to_string())?;
+        match harry_data::pack::read(&bytes) {
+            Ok(data) => return Ok(data),
+            Err(e) => eprintln!("{}: {e}", path.display()),
+        }
+    }
+    harry_data::pack::read(BUNDLED).context("the built-in game data")
 }
 
 /// The masks the game routines need, from the pack.
@@ -245,9 +268,11 @@ fn main() -> Result<()> {
         }
         (out, frames)
     });
-    let path = find_pack(args.get(1).filter(|s| !s.is_empty()))?;
-    let bytes = std::fs::read(&path).with_context(|| path.display().to_string())?;
-    let data = harry_data::pack::read(&bytes).with_context(|| path.display().to_string())?;
+    // a level number alone: the built-in pack
+    if args.get(1).is_some_and(|a| a.parse::<usize>().is_ok()) {
+        args.insert(1, String::new());
+    }
+    let data = load_data(args.get(1).filter(|s| !s.is_empty()))?;
     let loaded = Loaded::new(&data)?;
     // the settings (the options screen), in SDL's preference folder
     let settings_path = sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok().map(|d| d.join("settings.txt"));

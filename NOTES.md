@@ -2140,10 +2140,13 @@ the game's TOC (it may stop in a library).
   `crates/harry-original` (the original's formats, `ouro-harry-extract`
   and the tests against the original), `crates/harry` (the game with
   SDL3, `ouro-harry`). `cargo test` runs the tests; those that need
-  recordings or the pack skip when `re/work/` lacks them.
-- **Data pack** (`harry-data`, made by `cargo run --release -p
+  recordings or the original's files skip when `re/work/` lacks them.
+- **Data pack** (`harry-data`; `data/ouro-harry-data.zip` in the
+  repository, built into the game, made by `cargo run --release -p
   harry-original --bin ouro-harry-extract -- re/work/installed
-  re/work/harry-data.zip [path of QuickTime Musical Instruments.rsrc]`): a zip of PNGs and text - the 929 faces with
+  data/ouro-harry-data.zip [path of QuickTime Musical Instruments.rsrc,
+  default re/work/qtmi/]`; the same files give the same bytes): a zip of
+  PNGs, WAVs and text - the 929 faces with
   their header rects, the 9 tile sets of Episode 1 (foreground with its
   mask as transparency), the collision masks (`cicn` 290, 299, 571–574,
   598, 599, 1299; the wall sheet PICT 160), `Harry Titles` PICT 129 (the

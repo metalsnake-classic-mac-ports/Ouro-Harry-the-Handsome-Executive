@@ -117,10 +117,7 @@
 
 <section class="box" id="play" aria-labelledby="play-heading">
   <h2 id="play-heading">Play</h2>
-  <p class="note">The game data is not included. You need the original game, Harry the Handsome
-  Executive 1.0.1 for the Mac, installed on a classic Mac or in an emulator such as SheepShaver, and
-  Apple's QuickTime Musical Instruments for the music. A tool of this project turns those files into
-  the data pack the game reads.</p>
+  <p>Build it from its source code; it takes a few minutes, and the game data is included.</p>
   <ol>
     <li>Install <a href="https://rustup.rs">Rust</a> and SDL3. On a Mac with
       <a href="https://brew.sh">Homebrew</a>:
@@ -128,14 +125,8 @@
     <li>Get the source:
       <pre><code>git clone https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive
 cd Ouro-Harry-the-Handsome-Executive</code></pre></li>
-    <li>Copy the installed game's files as MacBinary into a folder (<code>Harry 1.0.1</code>,
-      <code>Harry Graphics</code>, <code>Harry Titles</code>, <code>Harry Sounds</code>,
-      <code>Harry Music</code>, <code>Harry Instruments</code>, <code>Episode 1</code>), save the
-      resource fork of QuickTime Musical Instruments as a file, and make the data pack:
-      <pre><code>cargo run --release -p harry-original --bin ouro-harry-extract -- \
-    FOLDER harry-data.zip "QuickTime Musical Instruments.rsrc"</code></pre></li>
-    <li>Start the game:
-      <pre><code>cargo run --release -p harry -- harry-data.zip</code></pre></li>
+    <li>Build and start the game:
+      <pre><code>cargo run --release -p harry</code></pre></li>
   </ol>
   <p>Work in progress: the whole of Episode 1 plays; see
   <a href="https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive/blob/main/TODO.md">what is still to do</a>.</p>
@@ -193,8 +184,8 @@ cd Ouro-Harry-the-Handsome-Executive</code></pre></li>
 
 <footer>
   <p>Part of <a href="https://github.com/metalsnake-classic-mac-ports">MetalSnake's Classic Mac Ports</a>.
-  Code under the GNU GPL, version 3 or later; the game's pictures, sounds and music belong to their
-  authors.</p>
+  Code under the GNU GPL, version 3 or later; the game data (pictures, sounds, music, levels) belongs
+  to the authors of the original game, the QuickTime instruments to Apple.</p>
 </footer>
 
 </body>

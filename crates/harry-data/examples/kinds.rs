@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 
 fn main() {
-    let path = std::env::args().nth(1).unwrap_or_else(|| "re/work/harry-data.zip".into());
+    let path = std::env::args().nth(1).unwrap_or_else(|| "data/ouro-harry-data.zip".into());
     let data = harry_data::pack::read(&std::fs::read(path).expect("pack")).expect("read pack");
     let mut all: BTreeMap<i16, Vec<usize>> = BTreeMap::new();
     for (n, level) in data.levels.iter().enumerate() {

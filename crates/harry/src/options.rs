@@ -468,9 +468,7 @@ mod picture {
     #[test]
     fn dump_the_screen() {
         let Ok(dir) = std::env::var("HARRY_SCENE_DUMP") else { return };
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../re/work/harry-data.zip");
-        let Ok(bytes) = std::fs::read(root) else { return };
-        let data = harry_data::pack::read(&bytes).unwrap();
+        let data = harry_data::pack::read(crate::BUNDLED).unwrap();
         let fonts = crate::text::Fonts::load();
         let menu = crate::menu::Menu::new();
         let (mut c, _) = menu.draw(&data, &fonts);

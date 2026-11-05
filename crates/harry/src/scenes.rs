@@ -408,8 +408,7 @@ mod tests {
     use super::*;
 
     fn pack() -> Option<GameData> {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../re/work/harry-data.zip");
-        harry_data::pack::read(&std::fs::read(root).ok()?).ok()
+        harry_data::pack::read(crate::BUNDLED).ok()
     }
 
     /// Run to the end; the ticks it took. With HARRY_SCENE_DUMP=<dir> a

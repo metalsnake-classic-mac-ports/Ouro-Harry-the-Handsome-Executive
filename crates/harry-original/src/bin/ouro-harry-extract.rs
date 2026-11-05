@@ -1,5 +1,6 @@
 //! Make the data pack from the original files: `ouro-harry-extract
-//! <folder with the installed game> [pack.zip]`. The folder holds the
+//! <folder with the installed game> [pack.zip] [QuickTime Musical
+//! Instruments.rsrc]`; the game's own pack is `data/ouro-harry-data.zip`. The folder holds the
 //! game's files as MacBinary (`Harry 1.0.1.bin`, `Harry Graphics.bin`,
 //! `Harry Titles.bin`, `Harry Sounds.bin`, `Episode 1.bin`).
 
@@ -215,7 +216,7 @@ fn main() -> ExitCode {
         eprintln!("usage: ouro-harry-extract <folder with the installed game> [pack.zip] [QuickTime Musical Instruments.rsrc]");
         return ExitCode::FAILURE;
     };
-    let out = args.get(2).map_or_else(|| PathBuf::from("harry-data.zip"), PathBuf::from);
+    let out = args.get(2).map_or_else(|| PathBuf::from("ouro-harry-data.zip"), PathBuf::from);
     // QuickTime Musical Instruments: by default next to the game's folder
     let qtmi = args.get(3).map_or_else(|| Path::new(dir).join("../qtmi/QuickTime Musical Instruments.rsrc"), PathBuf::from);
     match run(Path::new(dir), &out, &qtmi) {

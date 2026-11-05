@@ -258,8 +258,7 @@ mod tests {
     use super::*;
 
     fn pack() -> Option<harry_data::GameData> {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../re/work/harry-data.zip");
-        harry_data::pack::read(&std::fs::read(root).ok()?).ok()
+        harry_data::pack::read(crate::BUNDLED).ok()
     }
 
     /// Render `seconds` of a tune (`HARRY_MUSIC_DUMP=<dir>`: the whole tune,

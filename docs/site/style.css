@@ -222,11 +222,6 @@ code {
   font-size: 0.9em;
 }
 
-.note {
-  border-left: 4px solid var(--surface);
-  padding: 0.25rem 0 0.25rem 1rem;
-}
-
 /* --- keys --------------------------------------------------------- */
 
 .keys { border-collapse: collapse; margin-bottom: 1em; }

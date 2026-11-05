@@ -2,7 +2,7 @@
 screens the game exports.
 
     for l in 1 2 7 9 11; do ouro-harry --screenshot shots/l$l.bmp $l 40; done
-    re/work/venv/bin/python3 -I re/tools/site_assets.py re/work/harry-data.zip shots docs/site
+    re/work/venv/bin/python3 -I re/tools/site_assets.py data/ouro-harry-data.zip shots docs/site
 
 Writes: logo.png (the logo from the game screen's panel, on its granite),
 granite.png (a tile of the panel's stone), menu.png (the main menu
