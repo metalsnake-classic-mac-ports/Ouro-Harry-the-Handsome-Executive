@@ -127,11 +127,9 @@
 ## Release
 - [x] First release 0.1.0 (2026-11-05): the repository on GitHub, GitHub Pages from `docs/`,
       tag `v0.1.0`
-- [ ] Homebrew: formula `ouro-harry` in the tap `homebrew-games` (url of
-      the tag's tarball, its sha256, `license "GPL-3.0-or-later"`, `head`
-      on `main`; tested with a local tarball on 2026-11-05: builds,
-      `brew test` and `brew audit --strict` pass), pull request, bottles
-      with the "brew pr-pull" workflow, the tap's README table
+- [x] Homebrew: formula `ouro-harry` 0.1.0 in the tap `homebrew-games` (PR #3), bottles for
+      macOS 15, macOS 26 and Linux
+- [ ] Homebrew bottles for Intel Macs, as for S.C.Out
 - [ ] Build and test on Windows and Linux (so far built only on macOS)
 
 ## Lowest priority (decided 2026-11-04)
