@@ -54,6 +54,9 @@ def main():
     work = sys.argv[1] if len(sys.argv) > 1 else "re/work"
     m = Machine(f"{work}/ppc")
     faces = Faces(m, work)
+    # the desks' face tables (InitFaces; only HrSp 6001 and 6011 exist)
+    m.w32(m.glob(0x100658C4), m.call("Load1EncFaceFromCicn", 301, 0, 6001))
+    m.w32(m.glob(0x100658C0), m.call("Load1EncFaceFromCicn", 311, 0, 6011))
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))
     for f in ("InitRobotSprite", "InitTileHotRects", "InitPlayerKickRects", "InitBarrelSprite", "InitPlantSprite",
               "InitCoolerSprite", "InitDoorSprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite",
@@ -211,13 +214,14 @@ def main():
     out = open(f"{work}/diff/robothit.txt", "w")
     out.write("# HitRobotSprite: name=value inputs -> dump || other dump | contact events\n")
     partners = ["harry", "harry", "barrel", "effect", "ramp", "stairs", "plant", "cooler", "collider", "coworker",
-                "chair", "door", "sliding", "grate"]
+                "chair", "door", "sliding", "grate", "desk"]
     setups = {"barrel": ("SetupBarrelSprite", [550]), "effect": ("SetupEffectSprite", [0, 14, -1]),
               "ramp": ("SetupRampSprite", [9701, 9702, 9703, 9704]), "stairs": ("SetupStairsSprite", [9901, 9902, 9903, 9904]),
               "plant": ("SetupPlantSprite", [601]), "cooler": ("SetupCoolerSprite", [500]),
               "collider": ("SetupColliderSprite", [9200, 9600, 3100]), "coworker": ("SetupCoWorkerSprite", [1301, 1321]),
               "chair": ("SetupChairSprite", [560]), "door": ("SetupDoorSprite", DOORS), "sliding": ("SetupSlidingDoorSprite", [951, 961]),
-              "grate": ("SetupGrateSprite", [3900, 3905, 3910, 3915])}
+              "grate": ("SetupGrateSprite", [3900, 3905, 3910, 3915]),
+              "desk": ("SetupDeskSprite", [301, 305, 310, 311, 319])}
     for _ in range(HITS):
         m.heap = mark
         m.regions.clear()
@@ -254,6 +258,10 @@ def main():
             m.call(setups[p][0], other)
             if p == "effect":
                 m.w16(other, st["okind"])
+            if p == "desk":
+                # its fix as the port's setup sets it (BUGS.md)
+                m.w32(other + 0x5E, st["oh"] << 8)
+                m.w32(other + 0x62, st["ov"] << 8)
         m.w16(other + 0x5A, st["ov"])
         m.w16(other + 0x5C, st["oh"])
         m.w16(other + 0x66, st["odir"] if p in ("harry", "barrel") else m.r16(other + 0x66))

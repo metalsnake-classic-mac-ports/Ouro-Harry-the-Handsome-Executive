@@ -6,7 +6,7 @@ HandleTurretSprite (Harry walking, steps), each followed at random by
 HitTurretSprite with a player shot or an explosion.
 reversor.txt: SetupReversorSprite, then frames of HandleReversorSprite and
 CheckTileCollisions (the reversor alone), each followed at random by
-HitReversorSprite with a partner: barrel, plant, door, shot, robot.
+HitReversorSprite with a partner: barrel, plant, door, desk, shot, robot.
 boulder.txt: SetupBoulderSprite, then frames of HandleBoulderSprite and
 CheckTileCollisions, each followed at random by HitBoulderSprite with a
 robot.
@@ -44,6 +44,9 @@ def main():
     work = sys.argv[1] if len(sys.argv) > 1 else "re/work"
     m = Machine(f"{work}/ppc")
     faces = Faces(m, work)
+    # the desks' face tables (InitFaces; only HrSp 6001 and 6011 exist)
+    m.w32(m.glob(0x100658C4), m.call("Load1EncFaceFromCicn", 301, 0, 6001))
+    m.w32(m.glob(0x100658C0), m.call("Load1EncFaceFromCicn", 311, 0, 6011))
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))
     for f in ("InitTurretSprite", "InitReversorSprite", "InitBoulderSprite", "InitRobotSprite", "InitTileHotRects",
               "InitBarrelSprite", "InitPlantSprite", "InitDoorSprite"):
@@ -166,7 +169,7 @@ def main():
                 hit = "-"
                 if rnd.random() < 0.1:
                     hit = rnd.choice({"turret": ["shot", "fx", "fx0"], "boulder": ["robot", "plant"],
-                                      "reversor": ["barrel", "plant", "door", "shot", "eshot", "robot"]}[group])
+                                      "reversor": ["barrel", "plant", "door", "desk", "shot", "eshot", "robot"]}[group])
                 steps.append(f"{rnd.randint(-5, 5)}:{rnd.randint(-5, 5)}:{hit}")
             st["steps"] = ",".join(steps)
             m.w16(m.glob(PLAYER_H), st["ph"])
@@ -203,9 +206,14 @@ def main():
                     ov, oh = s16(m.r16(sp + 0x5A)) + 4, s16(m.r16(sp + 0x5C)) + 4
                     m.w16(other + 2, ov)
                     m.w16(other + 4, oh)
-                    if hit in ("barrel", "plant", "door"):
-                        m.w16(other, {"barrel": 550, "plant": 601, "door": 901}[hit])
-                        m.call({"barrel": "SetupBarrelSprite", "plant": "SetupPlantSprite", "door": "SetupDoorSprite"}[hit], other)
+                    if hit in ("barrel", "plant", "door", "desk"):
+                        m.w16(other, {"barrel": 550, "plant": 601, "door": 901, "desk": 301}[hit])
+                        m.call({"barrel": "SetupBarrelSprite", "plant": "SetupPlantSprite", "door": "SetupDoorSprite",
+                                "desk": "SetupDeskSprite"}[hit], other)
+                        if hit == "desk":
+                            # its fix as the port's setup sets it (BUGS.md)
+                            m.w32(other + 0x5E, oh << 8)
+                            m.w32(other + 0x62, ov << 8)
                     else:
                         t = {"shot": "HandlePlayerShotSprite", "eshot": "HandleEnemyShotSprite", "fx": "HandleEffectSprite",
                              "fx0": "HandleEffectSprite", "robot": "HandleRobotSprite"}[hit]

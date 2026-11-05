@@ -54,6 +54,7 @@ pub enum Setup {
     Scientist,
     Blob,
     Boss,
+    Desk,
 }
 
 /// Run a setup routine on a sprite.
@@ -77,6 +78,7 @@ pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random, player: (i16, 
         Setup::Barrel => crate::furniture::setup_barrel(sp),
         Setup::Chair => crate::furniture::setup_chair(sp, rng),
         Setup::Stairs => crate::stairs::setup_stairs(sp),
+        Setup::Desk => crate::desk::setup_desk(sp),
         Setup::Button => crate::button::setup_button(sp),
         Setup::SlidingDoor => crate::button::setup_sliding_door(sp),
         Setup::CoWorker => crate::coworker::setup_coworker(sp),
@@ -303,14 +305,18 @@ impl World {
 
     /// `GenerateSprite` for one entry of the level's sprite list (`h`, `v`
     /// = its position − 6). Returns false for the object ids whose kinds
-    /// the port does not have yet (desks, barrels, chairs, sliding doors,
+    /// the port does not have yet (hazards 3001; once also desks, barrels, chairs, sliding doors,
     /// scientists, co-workers, mail guys, blobs, robots, reversors,
     /// turrets, the boss, hazards, grates, fire pipes, ghosts, boulders,
     /// stairs, buttons); ids that make nothing return true.
     pub fn generate_sprite(&mut self, h: i16, v: i16, kind: i16, index: i16, rng: &mut Random) -> bool {
         let idle = |w: &mut World, h: i16, v: i16, setup: Setup, rng: &mut Random| w.add_idle(kind, h, v, index, 0, setup, rng);
         match kind {
-            301..=319 | 3001 => return false,
+            // no level index (the others made directly get one)
+            301..=319 => {
+                self.sprites.spawn(kind, h, v, Setup::Desk, rng);
+            }
+            3001 => return false,
             500 | 501 => idle(self, even(h), even(v), Setup::Cooler, rng),
             550 => idle(self, even(h), even(v), Setup::Barrel, rng),
             560 => idle(self, even(h), even(v), Setup::Chair, rng),

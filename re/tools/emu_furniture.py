@@ -75,6 +75,11 @@ def main():
     work = sys.argv[1] if len(sys.argv) > 1 else "re/work"
     m = Machine(f"{work}/ppc")
     faces = Faces(m, work)
+    # the desks' face tables (InitFaces): only HrSp 6001 and 6011 exist,
+    # the other entries stay 0 (the port's "no face" for 302-305 / 312-315,
+    # whose loads fail in the original)
+    m.w32(m.glob(0x100658C4), m.call("Load1EncFaceFromCicn", 301, 0, 6001))
+    m.w32(m.glob(0x100658C0), m.call("Load1EncFaceFromCicn", 311, 0, 6011))
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # the mask loader; filled below
     for f in ("InitBarrelSprite", "InitChairSprite", "InitPlantSprite", "InitCoolerSprite", "InitDoorSprite",
               "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitGrateSprite", "InitEffectSprite", "InitTileHotRects", "InitPlayerKickRects"):
@@ -188,13 +193,13 @@ def main():
     out = open(f"{work}/diff/furniturehit.txt", "w")
     out.write("# HitBarrelSprite / HitChairSprite: name=value inputs -> dump || other dump | contact events\n")
     # other: 1 Harry, 2 barrel, 3 chair, 4 plant, 5 cooler, 6 door, 7 collider, 8 ramp, 9 player shot,
-    # 10 enemy shot, 11 explosion, 12 stairs, 13 sliding door, 14 co-worker, 15 mail guy, 16 grate
+    # 10 enemy shot, 11 explosion, 12 stairs, 13 sliding door, 14 co-worker, 15 mail guy, 16 grate, 17 desk
     for _ in range(HITS):
         m.heap = mark
         regions()
         kind = rnd.choice([550, 560])
         v, h = rnd.randint(200, 3800), rnd.randint(200, 3800)
-        ok = rnd.choice([1, 1, 1, 1, 2, 2, 3, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11, 12, 13, 14, 15, 16, 16])
+        ok = rnd.choice([1, 1, 1, 1, 2, 2, 3, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11, 12, 13, 14, 15, 16, 16, 17, 17])
         st = {"kind": kind, "v": v, "h": h, "other": ok, "okind": 0,
               "ov": v + rnd.randint(-40, 40), "oh": h + rnd.randint(-40, 40), "samefix": int(rnd.random() < 0.05),
               "speedh": rnd.randint(-2500, 2500), "speedv": rnd.randint(-2500, 2500),
@@ -225,6 +230,8 @@ def main():
             st["okind"] = rnd.choice([1601, 1611, 1621, 1631])
         elif ok == 16:
             st["okind"] = rnd.choice([3900, 3905, 3910, 3915])
+        elif ok == 17:
+            st["okind"] = rnd.choice([301, 305, 309, 310, 311, 319])
         elif ok in (9, 10):
             st["okind"] = rnd.choice([0, 1, 9450, 9610])
         elif ok == 11:
@@ -247,7 +254,7 @@ def main():
         setup = {2: "SetupBarrelSprite", 3: "SetupChairSprite", 4: "SetupPlantSprite", 5: "SetupCoolerSprite",
                  6: "SetupDoorSprite", 8: "SetupRampSprite", 11: "SetupEffectSprite", 12: "SetupStairsSprite",
                  13: "SetupSlidingDoorSprite", 14: "SetupCoWorkerSprite",
-                 15: "SetupMailGuySprite", 16: "SetupGrateSprite"}.get(ok)
+                 15: "SetupMailGuySprite", 16: "SetupGrateSprite", 17: "SetupDeskSprite"}.get(ok)
         if setup:
             if ok == 11:
                 # the flames' setup comes with the fire pipes: an explosion's,
@@ -259,6 +266,10 @@ def main():
             if ok == 11:
                 m.w16(other, st["okind"])
                 m.w16(other + 0x7C, st["okind"])
+            if ok == 17:
+                # the desk's fix as the port's setup sets it (BUGS.md)
+                m.w32(other + 0x5E, st["oh"] << 8)
+                m.w32(other + 0x62, st["ov"] << 8)
         else:
             task = {1: "HandlePlayerSprite", 7: "HandleColliderSprite", 9: "HandlePlayerShotSprite",
                     10: "HandleEnemyShotSprite"}[ok]

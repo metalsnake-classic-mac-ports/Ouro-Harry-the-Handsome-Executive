@@ -41,6 +41,7 @@ pub fn task_name(t: Option<Task>) -> &'static str {
         Some(Task::Blob) => "HandleBlobSprite",
         Some(Task::Boss) => "HandleBossSprite",
         Some(Task::BossDeath) => "HandleBossSpriteDeath",
+        Some(Task::Desk) => "HandleDeskSprite",
     }
 }
 
@@ -76,6 +77,7 @@ pub fn hit_name(t: Option<HitTask>) -> &'static str {
         Some(HitTask::Scientist) => "HitScientistSprite",
         Some(HitTask::Blob) => "HitBlobSprite",
         Some(HitTask::Boss) => "HitBossSprite",
+        Some(HitTask::Desk) => "HitDeskSprite",
     }
 }
 

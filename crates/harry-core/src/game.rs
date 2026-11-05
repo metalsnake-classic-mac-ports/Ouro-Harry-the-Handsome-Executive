@@ -139,6 +139,8 @@ pub struct Assets<'a> {
     /// so with the faces' mirrored bits) and the blobs' (HrSp 1451).
     pub robot: &'a Mask,
     pub blob: &'a Mask,
+    /// Harry's masks against desks (HrSp 6021 across, 6022 along).
+    pub desks: [&'a Mask; 2],
     /// The bounds (top, left, bottom, right) of a face; (0, 0, 0, 0) for
     /// none.
     pub face_bounds: &'a dyn Fn(Face) -> Rect,
@@ -1163,7 +1165,7 @@ impl Game {
                 self.death_events(dev);
                 sp = std::mem::take(&mut self.world.sprites.recs[i]);
             }
-            Some(Task::Exit | Task::Stairs) | None => {}
+            Some(Task::Exit | Task::Stairs | Task::Desk) | None => {}
         }
         let at = sp.at;
         self.world.sprites.recs[i] = sp;
@@ -1249,7 +1251,7 @@ impl Game {
             }
             Some(HitTask::MailGuy) => crate::mailguy::hit_mail_guy(&sp, &mut o),
             Some(HitTask::Button) => hit_button(&mut sp, &o, &mut events),
-            Some(HitTask::Bonus | HitTask::Item | HitTask::Stairs | HitTask::SlidingDoor | HitTask::FirePipe) | None => {}
+            Some(HitTask::Bonus | HitTask::Item | HitTask::Stairs | HitTask::SlidingDoor | HitTask::FirePipe | HitTask::Desk) | None => {}
             Some(t) => panic!("hit task {t:?} is not in the frame yet"),
         }
         let at = sp.at;
@@ -1385,7 +1387,7 @@ impl Game {
 
     /// `CheckPlayerCollision`: the first sprite with Harry's task against
     /// every other sprite with a task, `at` + hot rect → `HitPlayerSprite`.
-    fn check_player_collision(&mut self, _assets: &Assets) {
+    fn check_player_collision(&mut self, assets: &Assets) {
         let Some(p) = self.player() else { return };
         let list = self.world.sprites.list.clone();
         for o in list {
@@ -1399,7 +1401,13 @@ impl Game {
             }
             let mut h = harry_from(me);
             let mut other = std::mem::take(&mut self.world.sprites.recs[o]);
-            let mut w = TouchWorld { level: &mut self.level, physics: &self.physics, voice_playing: false };
+            let mut w = TouchWorld {
+                level: &mut self.level,
+                physics: &self.physics,
+                body: &assets.player.body,
+                desks: assets.desks,
+                voice_playing: false,
+            };
             let mut events = Vec::new();
             touch(&mut h, &mut self.g, &mut other, &mut w, &mut events);
             for e in events {

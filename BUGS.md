@@ -352,11 +352,32 @@ bug was watched in the original yet; "expected" is what the code says.
   with what. Needs QuickTime Musical Instruments in the Mac OS 9 system;
   not heard yet.
 
+- **A desk's `fix` is never set.** `SetupDeskSprite` sets `at` from
+  `pos` but not the 24.8 position. A plant touching a desk jitters both
+  apart and sets each one's `pos` / `at` from its `fix` - for the desk
+  the record's old value (0 in a fresh record, else the last sprite's):
+  the desk jumps there. Barrels and chairs do not touch it. Port: fixed
+  (the setup sets `fix` from `at`; a garbage read).
+  **See it:** only in a world with a desk (Episode 1 has none): push a
+  plant against it; expected: the desk jumps to the level's top left
+  (or where a dead sprite was). Not tried.
+- **Desk faces past the two that exist.** `InitFaces` loads HrSp
+  6001–6005 and 6011–6015 for desks 301–305 / 311–315, but only 6001
+  and 6011 exist (the loads of the others fail, `ReportError`); desks
+  306–309 and 316–319 read their face past the five-entry tables, 310
+  before the second. Port: those desks get no face (they still collide).
+  **See it:** only in a world with such a desk (Episode 1 has none).
+- **Desk 310 is 32 × 32 for Harry's bounce.** The side test uses
+  `kind < 310` for the width and `kind > 310` for the height, so a 310
+  desk (along, 32 × 64) is taken as 32 × 32. Port: kept.
+  **See it:** only in a world with a desk 310: walk into its lower half
+  from the side; Harry bounces as off a corner.
 - **The registration check upper-cases one byte past the name.**
   `FUN_10058f9c` runs from length + 1 down to 1, so the byte after the
   licensee's name (inside the 0x100-byte field of the licence handle)
   is changed too if it is a-z. Harmless (that byte is not read).
   Port: no registration, not ported.
+  **See it:** not visible (the byte after the name in the licence handle).
 - **The registration check rewrites the licence file every time.**
   `FUN_10057cb0` reads "Harry License" and writes the same bytes back
   (`FUN_10058c94`, with FlushVol) on every call (seven callers: the
@@ -365,6 +386,10 @@ bug was watched in the original yet; "expected" is what the code says.
   folder, `FUN_10058ae0` returns 0), the check goes on with the nil
   handle and reads the name and code through address 0 - garbage
   compared, normally "unregistered". Port: not ported.
+  **See it:** in systemless, `re/tools/sl_repro.py` with the licence
+  file present the file should be written at each menu (the write
+  back), and without a readable Preferences folder Harry should say
+  "unregistered". Expected from the code, not tried.
 
 ## Fixed in 1.0.1
 

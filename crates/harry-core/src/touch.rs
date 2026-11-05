@@ -8,7 +8,9 @@ use crate::bounce::{Body, rect_bounce};
 use crate::frame::{Harry, PlayerGlobals};
 use crate::inventory::{current_item, get_item, item, remove_item};
 use crate::kinds::{door_group, door_open};
+use crate::kinds::scaled;
 use crate::level::Level;
+use crate::mask::{Mask, mask_hit};
 use crate::physics::Physics;
 use crate::player::HOT_RECT;
 use crate::ramp::{self, Rider, handle_ramp_collision};
@@ -53,8 +55,49 @@ pub mod snd {
 pub struct TouchWorld<'a> {
     pub level: &'a mut Level,
     pub physics: &'a Physics,
+    /// Harry's body (cicn 299) and the desks' masks (HrSp 6021 across,
+    /// 6022 along; face masks, mirrored).
+    pub body: &'a Mask,
+    pub desks: [&'a Mask; 2],
     /// Is a voice sample playing (then the voice of a bonus is skipped)?
     pub voice_playing: bool,
+}
+
+/// Harry and a desk (also in the air): his SAT position from `fix`, then
+/// the mask test (body against HrSp 6021 / 6022). Not touching: if he
+/// kicks and his kick rect (at his SAT position) meets the desk's hot
+/// rect, kick contact 256. Touching (moved out by the test): his speed is
+/// halved and the part across the side he came through reversed - from
+/// his centre (pos + 32) against the desk's rect (64 × 32 or 32 × 64 at
+/// its pos; for kind 310 32 × 32, the two tests disagreeing): within its
+/// width h × 0.5, v × −0.5; within its height h × −0.5, v × 0.5; at a
+/// corner both × −0.5. `fix` then from his pos.
+fn desk(h: &mut Harry, g: &mut PlayerGlobals, other: &Sprite, w: &TouchWorld) {
+    let p = &mut h.player;
+    let b = &mut p.body;
+    b.pos = ((b.fix.1 >> 8) as i16, (b.fix.0 >> 8) as i16);
+    let mask = if crate::desk::across(other.kind) { w.desks[0] } else { w.desks[1] };
+    if !mask_hit(&mut b.pos, w.body, other.at, mask) {
+        if p.hot_rect[1] == 0 {
+            let kick = offset(KICK_RECTS[p.dir as usize], b.pos.0, b.pos.1);
+            if sect(kick, absolute(other.hot_rect, other.pos)) {
+                g.tile.kick_contact = 0x100;
+            }
+        }
+        return;
+    }
+    let (ch, cv) = (b.pos.1.wrapping_add(32), b.pos.0.wrapping_add(32));
+    let right = other.pos.1.wrapping_add(if other.kind < 310 { 64 } else { 32 });
+    let bottom = other.pos.0.wrapping_add(if other.kind > 310 { 64 } else { 32 });
+    let s = &mut b.speed;
+    let (fh, fv) = if ch < other.pos.1 || right < ch {
+        if cv < other.pos.0 || bottom < cv { (-0.5, -0.5) } else { (-0.5, 0.5) }
+    } else {
+        (0.5, -0.5)
+    };
+    s.h = scaled(fh, s.h);
+    s.v = scaled(fv, s.v);
+    b.fix = (i32::from(b.pos.1) << 8, i32::from(b.pos.0) << 8);
 }
 
 /// `HitPlayerSprite`.
@@ -76,6 +119,7 @@ pub fn touch(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, w: &mut T
             let p = &mut h.player;
             stairs_collision(&mut p.body, &mut p.air, &mut h.air.flip, 32, HOT_RECT, other, w.physics.bounce);
         }
+        Some(Task::Desk) => desk(h, g, other, w),
         Some(Task::Robot | Task::Boss) if on_floor => {
             if h.player.hot_rect[1] != 0 {
                 rect_bounce(&mut h.player.body, 32, i32::from(w.physics.bounce) >> 1, HOT_RECT, other.at, other.hot_rect);

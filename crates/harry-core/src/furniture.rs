@@ -190,7 +190,8 @@ fn ride_ramp(sp: &mut Sprite, half: i16, ramp: &mut Sprite, physics: &Physics) {
 /// open), sliding doors, colliders: `RectBounce`; ramps carry it. Shots stop on it and
 /// light it, the big shot (9450) pushes; explosions push it, and flames
 /// light it; stairs take it down; a mail guy crashes into it
-/// (`mail_guy_crash`); grates: `GrateBounce`. Desks come with their kind.
+/// (`mail_guy_crash`); grates: `GrateBounce`. Desks: always a hit
+/// (no mask), it bounces back × −0.4 as from a cooler.
 #[allow(clippy::too_many_arguments)]
 pub fn hit_barrel(
     sp: &mut Sprite,
@@ -260,12 +261,14 @@ pub fn hit_barrel(
     if other.task == Some(Task::Stairs) {
         object_on_stairs(sp, 12, other, physics.bounce);
     }
-    if matches!(other.task, Some(Task::Cooler | Task::Plant | Task::Chair)) {
+    if matches!(other.task, Some(Task::Cooler | Task::Plant | Task::Chair | Task::Desk)) {
         let other_mask = if other.task == Some(Task::Cooler) { masks.barrel } else { masks.plant };
-        if mask_hit(&mut sp.pos, masks.barrel, other.at, other_mask) {
+        // a desk: always a hit, no mask test (its step back, fix − speed,
+        // is overwritten by the fix from pos)
+        if other.task == Some(Task::Desk) || mask_hit(&mut sp.pos, masks.barrel, other.at, other_mask) {
             sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
             bump(bump_playing, snd::BARREL_BUMP, events);
-            if other.task == Some(Task::Cooler) {
+            if matches!(other.task, Some(Task::Cooler | Task::Desk)) {
                 back(&mut sp.speed);
             } else {
                 trade(&mut sp.speed, &mut other.speed);
@@ -366,8 +369,8 @@ fn turn(a: i16, b: i16) -> i16 {
 /// new speed); walking into it he is pushed out, it takes 0.6 of his
 /// speed, he keeps −0.3, and it spins by the angle between his path and
 /// the chair × his speed / 32. Coolers, barrels, chairs: pushed out, a
-/// barrel or chair trading momentum. Doors (not open), sliding doors,
-/// colliders: `RectBounce`; ramps carry it, stairs take it down. Shots stop on it
+/// barrel or chair trading momentum; desks: always a hit, back × −0.4.
+/// Doors (not open), sliding doors, colliders: `RectBounce`; ramps carry it, stairs take it down. Shots stop on it
 /// (sound 258).
 #[allow(clippy::too_many_arguments)]
 pub fn hit_chair(
@@ -430,12 +433,13 @@ pub fn hit_chair(
         }
         _ => {}
     }
-    if matches!(other.task, Some(Task::Cooler | Task::Barrel | Task::Chair)) {
+    if matches!(other.task, Some(Task::Cooler | Task::Barrel | Task::Chair | Task::Desk)) {
         let other_mask = if other.task == Some(Task::Chair) { masks.plant } else { masks.barrel };
-        if mask_hit(&mut sp.pos, masks.plant, other.at, other_mask) {
+        // a desk: always a hit, as for the barrel
+        if other.task == Some(Task::Desk) || mask_hit(&mut sp.pos, masks.plant, other.at, other_mask) {
             sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
             bump(bump_playing, snd::CHAIR_BUMP, events);
-            if other.task == Some(Task::Cooler) {
+            if matches!(other.task, Some(Task::Cooler | Task::Desk)) {
                 back(&mut sp.speed);
             } else {
                 trade(&mut sp.speed, &mut other.speed);

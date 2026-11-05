@@ -73,6 +73,7 @@ fn plant_hits_match_the_original() {
             15 => setup_mail_guy(&mut o),
             16 => setup_robot(&mut o, (0, 0)),
             17 => setup_grate(&mut o),
+            18 => harry_core::desk::setup_desk(&mut o),
             7 => {
                 setup_effect(&mut o);
                 o.kind = okind;

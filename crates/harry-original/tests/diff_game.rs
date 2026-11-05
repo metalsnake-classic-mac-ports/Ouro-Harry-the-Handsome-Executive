@@ -103,6 +103,7 @@ fn episode_1_frames_match_the_original() {
     let player_shot = masks::from_face(&face(4021));
     let robot = masks::from_face(&face(4251));
     let blob = masks::from_face(&face(1451));
+    let desks = [masks::from_face(&face(6021)), masks::from_face(&face(6022))];
     let ramps: Vec<_> = (571..=574).map(|id| masks::from_cicn(&gfx, id).unwrap()).collect();
     let bounds: HashMap<i16, [i16; 4]> =
         gfx.ids(b"HrSp").into_iter().map(|id| (id, hrsp::decode(gfx.get(b"HrSp", id).unwrap()).unwrap().bounds)).collect();
@@ -117,6 +118,7 @@ fn episode_1_frames_match_the_original() {
         player_shot: &player_shot,
         robot: &robot,
         blob: &blob,
+        desks: [&desks[0], &desks[1]],
         face_bounds: &face_bounds,
     };
     let levels: Vec<_> = (1..=15).map(|i| hlvl::read(ep.get(b"Hlvl", i).unwrap()).unwrap()).collect();

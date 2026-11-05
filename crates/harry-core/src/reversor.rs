@@ -77,8 +77,8 @@ pub fn handle_reversor(
 
 /// `HitReversorSprite`. A barrel: it lights (sound 801, the barrel's dir
 /// goes up by one whatever it was) and the reversor turns back. Ramps carry it,
-/// stairs take it down. Plants, coolers, grates, chairs, doors (not
-/// open), reversors, co-workers, colliders, sliding doors (desks): move
+/// stairs take it down. Plants, coolers, desks, grates, chairs, doors (not
+/// open), reversors, co-workers, colliders, sliding doors: move
 /// undone, turned back. A shot: its move undone and sent back (sound
 /// 605), and the reversor turns a quarter (its larger speed component
 /// goes to the other axis).
@@ -105,7 +105,7 @@ pub fn hit_reversor(sp: &mut Sprite, other: &mut Sprite, physics: &Physics, even
         }
         Some(Task::Stairs) => object_on_stairs(sp, 12, other, physics.bounce),
         Some(
-            Task::Plant | Task::Cooler | Task::Grate | Task::Chair | Task::Reversor | Task::CoWorker | Task::Collider
+            Task::Plant | Task::Cooler | Task::Desk | Task::Grate | Task::Chair | Task::Reversor | Task::CoWorker | Task::Collider
             | Task::SlidingDoor,
         ) => turn_back(sp),
         _ if door => turn_back(sp),

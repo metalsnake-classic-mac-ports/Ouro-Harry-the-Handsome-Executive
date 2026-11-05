@@ -179,6 +179,7 @@ fn barrel_and_chair_hits_match_the_original() {
             14 => setup_coworker(&mut o),
             15 => setup_mail_guy(&mut o),
             16 => setup_grate(&mut o),
+            17 => harry_core::desk::setup_desk(&mut o),
             11 => {
                 o.kind = 0;
                 setup_effect(&mut o);

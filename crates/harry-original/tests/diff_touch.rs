@@ -26,7 +26,7 @@ use harry_core::player::{HOT_RECT, KICK_HOT_RECT, Player, TileState};
 use harry_core::random::Random;
 use harry_core::sprite::Sprite;
 use harry_core::touch::{TouchEvent, TouchWorld, touch};
-use harry_original::hlvl;
+use harry_original::{hlvl, hrsp, masks};
 use harry_original::resfork::{MacBinary, Resources};
 
 fn root() -> PathBuf {
@@ -55,6 +55,11 @@ fn touching_matches_the_original() {
     let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
     let res = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
     let mut level = hlvl::read(res.get(b"Hlvl", 1).unwrap()).unwrap();
+    let Ok(gfx_bytes) = std::fs::read(root().join("re/work/installed/Harry Graphics.bin")) else { return };
+    let gfx = Resources::parse(&MacBinary::parse(&gfx_bytes).unwrap().rsrc).unwrap();
+    let body = masks::from_cicn(&gfx, 299).unwrap();
+    let face_mask = |id: i16| masks::from_face(&hrsp::decode(gfx.get(b"HrSp", id).unwrap()).unwrap());
+    let desks = [face_mask(6021), face_mask(6022)];
     let mut bad = 0;
     let mut n = 0;
     for line in text.lines().skip(1) {
@@ -105,6 +110,7 @@ fn touching_matches_the_original() {
         };
         let mut other = Sprite::new(kind, w("oh"), w("ov"));
         match kind {
+            301..320 => harry_core::desk::setup_desk(&mut other),
             ..800 => setup_bonus(&mut other),
             951 | 961 => setup_sliding_door(&mut other),
             1301 | 1321 | 1441 => setup_coworker(&mut other),
@@ -139,7 +145,13 @@ fn touching_matches_the_original() {
         level.sprites[li as usize].info[0] = w("info0");
         other.frozen = w("ofrozen") != 0;
         let physics = Physics { bounce: w("bounce"), ..Physics::default() };
-        let mut world = TouchWorld { level: &mut level, physics: &physics, voice_playing: w("voicebusy") != 0 };
+        let mut world = TouchWorld {
+            level: &mut level,
+            physics: &physics,
+            body: &body,
+            desks: [&desks[0], &desks[1]],
+            voice_playing: w("voicebusy") != 0,
+        };
         let mut events = Vec::new();
         touch(&mut h, &mut g, &mut other, &mut world, &mut events);
         let ev: Vec<String> = events

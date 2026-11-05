@@ -427,7 +427,8 @@ pub(crate) fn plus_scaled(a: i16, f: f64, b: i16) -> i16 {
 /// his speed and he keeps −0.3. Against another plant, a cooler, a barrel
 /// or a chair they are pushed apart (jittered when on the same pixel); a
 /// plant, barrel or chair trades momentum (0.4 each way, then both ×
-/// −0.4), a cooler stays and the plant bounces back × −0.4; a robot
+/// −0.4), a cooler stays and the plant bounces back × −0.4 (a desk too,
+/// without a mask test: always a hit); a robot
 /// (plant mask against plant mask) gives it half its speed. Doors (not
 /// open), sliding doors, colliders and co-workers: `RectBounce`; grates:
 /// `GrateBounce`; ramps carry it (sound
@@ -481,7 +482,7 @@ pub fn hit_plant(
                 other.speed.v = scaled(-0.3, other.speed.v);
             }
         }
-        Some(Task::Plant | Task::Cooler | Task::Barrel | Task::Chair | Task::Robot) => {
+        Some(Task::Plant | Task::Cooler | Task::Barrel | Task::Chair | Task::Robot | Task::Desk) => {
             if other.fix.0 >> 8 == sp.fix.0 >> 8 && other.fix.1 >> 8 == sp.fix.1 >> 8 {
                 sp.fix.0 -= i32::from(rng.below(0x300)) + 0x100;
                 sp.fix.1 -= i32::from(rng.below(0x300)) + 0x100;
@@ -493,7 +494,9 @@ pub fn hit_plant(
             other.pos = ((other.fix.1 >> 8) as i16, (other.fix.0 >> 8) as i16);
             other.at = other.pos;
             let other_mask = if matches!(other.task, Some(Task::Cooler | Task::Barrel)) { masks.barrel } else { masks.plant };
-            if mask_hit(&mut sp.pos, masks.plant, other.at, other_mask) {
+            // a desk: no mask test, always a hit (the step back it takes
+            // first is overwritten by the hit's fix from pos)
+            if other.task == Some(Task::Desk) || mask_hit(&mut sp.pos, masks.plant, other.at, other_mask) {
                 sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
                 if !bump_playing {
                     events.push(SpriteEvent::Sound(1100));
@@ -501,7 +504,7 @@ pub fn hit_plant(
                 if other.task == Some(Task::Robot) {
                     sp.speed.h = sp.speed.h.wrapping_add(other.speed.h >> 1);
                     sp.speed.v = sp.speed.v.wrapping_add(other.speed.v >> 1);
-                } else if other.task != Some(Task::Cooler) {
+                } else if !matches!(other.task, Some(Task::Cooler | Task::Desk)) {
                     other.speed.h = plus_scaled(other.speed.h, 0.4, sp.speed.h);
                     other.speed.v = plus_scaled(other.speed.v, 0.4, sp.speed.v);
                     sp.speed.h = plus_scaled(sp.speed.h, 0.4, other.speed.h);

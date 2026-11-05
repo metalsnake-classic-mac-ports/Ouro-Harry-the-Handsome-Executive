@@ -413,8 +413,8 @@ fn recoil(sp: &mut Sprite, undo: bool) {
 /// `HitRobotSprite`. A barrel: it lights (sound 801) and the robot
 /// bounces back (× −1.4, without undoing its move). An explosion (when the
 /// timer is out): pushed (centre + 12), layer 10, and 3 in 10 cost a hit
-/// point. Ramps carry it, stairs take it down. Plants, coolers, colliders,
-/// co-workers, chairs, doors (not open), sliding doors (desks, grates):
+/// point. Ramps carry it, stairs take it down. Plants, coolers, desks, colliders,
+/// co-workers, chairs, doors (not open), sliding doors, grates:
 /// its move undone, × −1.4. Harry's kick: sound 600, a hit point, flies
 /// off with 13 × the kick thrust, kick contact 128, kicked mode for 10
 /// frames; walking into it: it bounces back, on caffeine losing a point.
@@ -459,7 +459,7 @@ pub fn hit_robot(
             sp.set_body(body);
         }
         Some(Task::Stairs) => object_on_stairs(sp, 12, other, physics.bounce),
-        Some(Task::Plant | Task::Cooler | Task::Collider | Task::CoWorker | Task::Chair | Task::SlidingDoor | Task::Grate) => {
+        Some(Task::Plant | Task::Cooler | Task::Desk | Task::Collider | Task::CoWorker | Task::Chair | Task::SlidingDoor | Task::Grate) => {
             recoil(sp, true)
         }
         _ if door => recoil(sp, true),

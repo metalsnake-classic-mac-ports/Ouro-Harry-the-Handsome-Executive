@@ -751,8 +751,10 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   plants (barrel: cicn 598, chair: cicn 599; both trade momentum); ramps:
   `HandleRampCollision` (centre + 18, sound 1101 when it takes off).
   (The port missed the colliders' `RectBounce` until the recorder had
-  colliders.) Not yet: mail guy, desk, robot, grate, stairs, sliding
-  doors, co-workers.
+  colliders.) Desks: always a hit (no mask test; jittered like the
+  others), sound 1100, the plant bounces back × −0.4 like from a cooler;
+  the jitter block also sets the desk's pos / at from its `fix`, which
+  the desk's setup never sets (BUGS.md).
 - `RectBounce` (PPC 0x1001e4bc): if the hot rects (at `at`) overlap, the
   side is chosen from the centres (h distance against v distance), the
   sprite put just outside, and the speed across reflected (both × bounce
@@ -789,8 +791,8 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   12, sound 0). Shots (not the can 9610) stop on it, explosions push it
   (`HandleExplodeRadius` with + 18); either lights it, 9450 also pushes
   (speed / 4). Flames (effect kind ≥ 4200) set their +0x6e to 3 and light
-  it. Not yet: mail guy (both explode, score + 5000), desk, grate,
-  stairs, sliding doors, co-workers.
+  it. Desks: always a hit (no mask test, no jitter), sound 800, back ×
+  −0.4 as from a cooler.
 - **Chair** (560; layer 7, hot rect (8, 8, 28, 28), faces 1801–1836 (36
   directions, PICT 560), mask cicn 599): the setup takes a random
   direction (`SATRand(35)`); `f6e` = direction × 256, `timer` = spin.
@@ -809,11 +811,28 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   barrel and chair trade momentum. Doors, colliders: `RectBounce` (+ 18);
   ramps carry it. Shots (all, even the can) stop on it: 3-D sound 258,
   9450 pushes. Plants are not handled here (the plant's hit task does it).
-  Not yet: mail guy, desk, grate, stairs, sliding doors, co-workers.
+  Desks: always a hit, sound 258, back × −0.4.
 - Both are blown by fans (`HandleRepulsions`) and bounce the vending
   machine's can; `HandleBarrelSprite` / `HandleChairSprite` clear a flag
   (`PTR_DAT_10065ee0` / `PTR_DAT_10065fb0`) nothing reads. Sounds: 800
   barrel bump, 801 barrel fire, 257 chair kick, 258 chair bump.
+- **Desk** (301–319; `harry_core::desk`; direct, no level index; layer 1;
+  `HandleDeskSprite` and `HitDeskSprite` are empty). Below 310 across:
+  hot rect (0, 0, 32, 64), face entry kind − 301 of `InitFaces`' table at
+  `_DAT_100658c4` (HrSp 6001–6005); 310 and up along: (0, 0, 64, 32),
+  entry kind − 311 of `_DAT_100658c0` (HrSp 6011–6015). Only 6001 and
+  6011 exist (64 × 32 / 32 × 64: a desk with a computer); the setup sets
+  `at`, not `fix`. Harry's masks against them: HrSp 6021 / 6022
+  (`InitFaces` with `BuildMaskRegion`, `_DAT_100658bc` / `_DAT_100658b8`).
+  Episode 1 has no desk. Plants, barrels, chairs: always a hit, bounce
+  back × −0.4 (their step back, `fix` − speed, is overwritten by the
+  hit's `fix` from pos); robots and reversors: like a plant or cooler
+  (move undone, turned). Harry: see "Harry touches a sprite". Recorded
+  in `emu_playerhit.py` (2607 desk cases: side, corner, kick), 
+  `emu_planthit.py`, `emu_furniture.py`, `emu_robot.py`, `emu_turret.py`
+  (reversor), all matching; 9 mutations caught, one equivalent (the
+  kick test at the desk's pos or at: always equal). Not reached:
+  `GenerateSprite` for desks (no level has one; read from the code).
 - `re/tools/emu_furniture.py`: 12 000 task runs of 1–8 frames on all
   levels (with tile collisions, explosions, level entries, the shake) and
   40 000 hit cases (Harry kicking / walking, barrel, chair, plant,
@@ -1596,6 +1615,15 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   then - for anything but a hazard - bonus, item, custom, effect, ghost.
   Ported with the kinds (`harry_core::touch`); `re/tools/emu_playerhit.py`
   records it with the real setups of the other sprites.
+- **Desk** (also in the air): Harry's SAT position from his `fix`, then
+  the mask test (cicn 299 against HrSp 6021 below kind 310, else 6022)
+  moves him out. No hit: kicking with his kick rect (at pos) on the
+  desk's hot rect gives kick contact 256. A hit: from his centre (pos +
+  32) against the desk's rect (its pos; width 64 below 310 else 32,
+  height 64 above 310 else 32 - kind 310 is 32 × 32): within its width
+  speed h × 0.5, v × −0.5; within its height h × −0.5, v × 0.5;
+  otherwise (a corner) both × −0.5; `fix` from pos. (The constants are
+  at the Ghidra address + 4: `_DAT_10066848` reads −0.5 from 0x1006684c.)
 - **Bonus** (on the floor): 700–710 only while comfort < 144 - collected
   (frozen); 700 / 701 comfort + 10 (voice 210), 702 + 20 (212), 703 + 8
   (211), the voice only when none is playing; 704–710 vanish without

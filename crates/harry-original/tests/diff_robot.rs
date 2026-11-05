@@ -164,6 +164,7 @@ fn robot_hits_match_the_original() {
             "chair" => setup_chair(&mut o, &mut rng),
             "door" => setup_door(&mut o),
             "grate" => harry_core::grate::setup_grate(&mut o),
+            "desk" => harry_core::desk::setup_desk(&mut o),
             _ => setup_sliding_door(&mut o),
         }
         o.at = (w("ov"), w("oh"));

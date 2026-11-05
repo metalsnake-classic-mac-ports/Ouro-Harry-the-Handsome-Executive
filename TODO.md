@@ -39,7 +39,7 @@
 - [x] Water cooler (12 000 cases)
 - [x] Plant movement and tiles (`HandleGlide`, 12 000 cases)
 - [x] Plant hit task with Harry, plant, cooler, doors, shots; `RectBounce` (20 000 cases)
-- [ ] Remaining `HitPlantSprite` branches with their kinds (desk)
+- [x] Desks (301–319; none in Episode 1): setup, Harry's mask test and bounce, the plant's, barrel's, chair's, robot's and reversor's branches (recorders extended)
 - [x] Barrel and chair: setup, task, tiles, hit tasks; in the plant's, enemy shots' and fans' tests (52 000 cases)
 - [x] Stairs: setup, `HandleStairsCollision` for Harry, plants, barrels, chairs (30 000 cases)
 - [x] Buttons and sliding doors (30 000 runs), sliding doors in the Harry, object and shot recorders

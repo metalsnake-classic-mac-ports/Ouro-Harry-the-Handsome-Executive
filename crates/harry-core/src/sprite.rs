@@ -49,6 +49,8 @@ pub enum Task {
     Boss,
     /// `HandleBossSpriteDeath`.
     BossDeath,
+    /// `HandleDeskSprite`: does nothing.
+    Desk,
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
@@ -86,6 +88,8 @@ pub enum HitTask {
     Scientist,
     Blob,
     Boss,
+    /// `HitDeskSprite`: does nothing.
+    Desk,
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).

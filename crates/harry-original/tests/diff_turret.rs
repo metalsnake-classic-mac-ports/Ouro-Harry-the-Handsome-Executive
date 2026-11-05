@@ -41,15 +41,17 @@ fn partner(name: &str, sp: &Sprite) -> Sprite {
     let (ov, oh) = (sp.at.0 + 4, sp.at.1 + 4);
     let mut o = Sprite::new(0, oh, ov);
     match name {
-        "barrel" | "plant" | "door" => {
+        "barrel" | "plant" | "door" | "desk" => {
             o.kind = match name {
                 "barrel" => 550,
                 "plant" => 601,
+                "desk" => 301,
                 _ => 901,
             };
             match name {
                 "barrel" => setup_barrel(&mut o),
                 "plant" => setup_plant(&mut o),
+                "desk" => harry_core::desk::setup_desk(&mut o),
                 _ => setup_door(&mut o),
             }
         }

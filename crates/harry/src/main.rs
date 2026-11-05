@@ -169,6 +169,7 @@ struct Loaded {
     player_shot: harry_core::mask::Mask,
     robot: harry_core::mask::Mask,
     blob: harry_core::mask::Mask,
+    desks: [harry_core::mask::Mask; 2],
 }
 
 impl Loaded {
@@ -190,6 +191,7 @@ impl Loaded {
             player_shot: face(4021)?,
             robot: face(4251)?,
             blob: face(1451)?,
+            desks: [face(harry_core::desk::MASK_ACROSS)?, face(harry_core::desk::MASK_ALONG)?],
         })
     }
 }
@@ -260,6 +262,7 @@ fn main() -> Result<()> {
         player_shot: &loaded.player_shot,
         robot: &loaded.robot,
         blob: &loaded.blob,
+        desks: [&loaded.desks[0], &loaded.desks[1]],
         face_bounds: &face_bounds,
     };
     // a level on the command line starts it at once, else the main menu

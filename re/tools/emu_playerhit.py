@@ -18,7 +18,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ppcmachine import Machine, STACK_TOP  # noqa: E402
-from sprites import Faces  # noqa: E402
+from sprites import Faces, face_region  # noqa: E402
+from emu_mask import masks  # noqa: E402
 
 COMFORT, CUR_SLOT, INVENTORY = 0x1006856A, 0x1006857A, 0x10065AC4
 SLOTS = {"t24": 0x10065E24, "t28": 0x10065E28, "staple": 0x10065AEC, "badass": 0x10065AE8, "shrapnel": 0x10065AE4,
@@ -44,6 +45,9 @@ KINDS = [("SetupBonusSprite", [700, 701, 702, 703, 704, 711, 712, 713, 714]), ("
          ("SetupReversorSprite", [1851, 1862]), ("SetupBoulderSprite", [6001, 6003, 6014]),
          ("SetupScientistSprite", [1111, 1241]), ("SetupBlobSprite", [1701, 1711, 1721]),
          ("SetupBossSprite", [2201]),
+         # desks: Harry's mask test against HrSp 6021 / 6022, kick contact
+         ("SetupDeskSprite", [301, 302, 305, 309, 310, 311, 315, 319]),
+         ("SetupDeskSprite", [301, 311]),
          ("SetupEnemyShotSprite", [1018, 1038, 1051, 9610, 9450, 1800, 1950, 1150, 1299, 2281, 2291, 2500])]
 FRAME = STACK_TOP - 0x1000 - 0x140              # HitPlayerSprite's r1
 CASES = 30000
@@ -53,6 +57,15 @@ def main():
     work = sys.argv[1] if len(sys.argv) > 1 else "re/work"
     m = Machine(f"{work}/ppc")
     Faces(m, work)
+    # Harry's body (cicn 299, region at +0x1a) and the desk masks
+    # (InitFaces: HrSp 6021 / 6022 as faces, region at +0x14)
+    body_face = m.alloc(0x40)
+    m.w32(m.glob(0x10065EA0), body_face)
+    m.w32(body_face + 0x1A, m.make_region(masks(work)["body"]))
+    for slot, fid in ((0x100658BC, 6021), (0x100658B8, 6022)):
+        rec = m.alloc(0x1C)
+        m.w32(rec + 0x14, m.make_region(face_region(work, fid)))
+        m.w32(m.glob(slot), rec)
     m.stub_routine(0x1005F340, lambda mm: mm.alloc(0x40))      # mask loader (the ramps' masks)
     for init in ("InitBonusSprite", "InitItemSprite", "InitDoorSprite", "InitColliderSprite", "InitDartEnemySprite", "InitRampSprite", "InitStairsSprite", "InitSlidingDoorSprite", "InitCoWorkerSprite", "InitMailGuySprite", "InitRobotSprite", "InitGrateSprite", "InitGhostSprite", "InitReversorSprite", "InitBoulderSprite", "InitScientistSprite", "InitBlobSprite", "InitBossSprite", "InitEnemyShotSprite", "InitPlayerKickRects"):
         m.call(init)
