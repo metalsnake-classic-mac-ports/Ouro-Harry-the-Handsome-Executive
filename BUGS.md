@@ -30,14 +30,14 @@ bug was watched in the original yet; "expected" is what the code says.
   `sp->dir = gPlayerDir % 35` (0x23); directions run 0–35, so 35 becomes
   0 (a 10° turn). Probably meant % 36. Port: keep (invisible in play),
   note.
-- **Death waits for the meter animation.** Death is tested on the
-  displayed comfort / favor, which move 1 per frame toward the real value,
-  so Harry dies up to 144 frames (4.8 s) after the real value reached 0
-  and can be saved in that time. Port: keep (it is how the game plays).
   **See it:** save `dir35` (level 1, Harry saved facing direction 35).
   After Continue he faces direction 0 (left; 27 is up, ← adds one),
   one 10° step further left than saved - the same as a save made facing
   0. Not seen yet.
+- **Death waits for the meter animation.** Death is tested on the
+  displayed comfort / favor, which move 1 per frame toward the real value,
+  so Harry dies up to 144 frames (4.8 s) after the real value reached 0
+  and can be saved in that time. Port: keep (it is how the game plays).
   **See it:** save `death-delay` (level 11, comfort 19, standing on the
   invisible bridge between two holes). Turn and scoot off the bridge
   into a hole: the fall costs 20 comfort (level info #3), so the real
@@ -82,6 +82,14 @@ bug was watched in the original yet; "expected" is what the code says.
   `if (-0x200 < speedV) speedH = -0x200` - it tests the vertical speed
   but sets the horizontal one (the other three directions test and set
   the same axis). Confirmed by the differential test. Port: keep.
+  **See it:** save `halfpipe-left` (level 14, right of a half pipe that
+  runs up and down). Ride across it and let it throw Harry out to the
+  left and, for comparison, to the right. Expected: to the right he keeps
+  a fast speed out of the pipe (only raised to at least 2 px a frame);
+  to the left his sideways speed is set to exactly 2 px a frame on every
+  frame of the flip, however fast he was, so left flips are short and
+  slow (while he is moving up fast, faster than 2 px a frame, it is not
+  set at all). Not seen yet.
 - **One frame with a garbage scale when landing on a hole.** At air 999
   (set when a jump ends over a hole, background kind 7) no case of
   `JumpScale` sets the scale variable, so it uses register r30 as the
@@ -95,14 +103,6 @@ bug was watched in the original yet; "expected" is what the code says.
   different on every Mac. Port: 0 (the scale 0x100 for that frame).
   Robots leave r30 as their own address or as a direction their code
   just computed, depending on the path. Port: 0 as well.
-  **See it:** save `halfpipe-left` (level 14, right of a half pipe that
-  runs up and down). Ride across it and let it throw Harry out to the
-  left and, for comparison, to the right. Expected: to the right he keeps
-  a fast speed out of the pipe (only raised to at least 2 px a frame);
-  to the left his sideways speed is set to exactly 2 px a frame on every
-  frame of the flip, however fast he was, so left flips are short and
-  slow (while he is moving up fast, faster than 2 px a frame, it is not
-  set at all). Not seen yet.
   **See it:** save `hole-scale` (level 11, on the invisible bridge
   between two holes). Kick sideways so that the jump ends over a hole:
   for one frame Harry is drawn with the scale −29 788 before he starts
@@ -129,9 +129,6 @@ bug was watched in the original yet; "expected" is what the code says.
   clicks empty). Probably the ammo was meant to be checked before taking
   it. Confirmed by reading both routines; both are differential-tested.
   Port: keep.
-- **The mystery vial can make ammo negative.** Its outcome 5 subtracts
-  25 from all three ammo counters without a lower bound (firing clamps
-  to 0). How the panel shows it is to be checked. Port: keep.
   **See it:** save `badass-backfire` (level 1, the B.A.D.A.S.S. selected,
   5 ammunition). Hold Option for 2 s (34 frames or more) and let go:
   instead of four shots there is an explosion at the gun with the
@@ -141,12 +138,20 @@ bug was watched in the original yet; "expected" is what the code says.
   `re/tools/sl_repro.py badass-backfire option:150 frames:60`): with 5
   and 6 an explosion at the gun, Harry reddened and pushed back; with 7
   a shot and no explosion.
-  **See it:** save `vial-negative` (level 1, the vial selected, 10 of
-  each ammunition, the staple gun carried). Use the vial (Option); one
-  outcome in six takes 25 from every ammunition: select the staple gun
-  (Control) and look at its count (−15 expected; how the panel shows it
-  is the open question). Other outcomes: Continue the save again. Not
-  seen yet.
+- **The mystery vial takes ammunition below 0 - for one pass.** Its
+  outcome 5 subtracts 25 from all three counters without a lower bound,
+  but `UpdateAmmo` clamps them to 0–100 later in the same pass of the
+  game loop: on screen the effect is "below 25 → 0". Only code between
+  the two in that pass (the collision pass, e.g. a magnet's "carries
+  ammunition") sees the negative value. Port: the same (the clamp is
+  ported).
+  **See it:** save `vial-negative` (level 1, six vials selected, 10 of
+  each ammunition, the staple gun carried). Each use (Option) draws an
+  outcome; in systemless the fifth use was outcome 5 and all three
+  counters read 0 afterwards (2026-11-05, read from memory through
+  systemless's debugger: `re/tools/sl_peek.py`). The first use always
+  gives the same outcome there (the clock is fixed); in an emulator,
+  Continue the save again for another.
 
 - **Shots test walls with a wrong rect.** `HitPlayerShotTileSprite` builds
   the shot's small test rect as (atV + 4, atH + 4, atV + 6, atV + 6): the
@@ -157,10 +162,6 @@ bug was watched in the original yet; "expected" is what the code says.
   mask decide. Fixing it changes 1 319 of the 22 500 recorded near-wall
   cases (shots that passed through stop, others pass). Port: keep (an
   option to fix it later).
-- **A stopped shot keeps hitting tiles.** It is only `frozen`; the
-  remaining tiles of the same `CheckTileCollisions` pass are still
-  handled, so its sound / soda explosion can come up to 4 times in one
-  frame (seen in the recordings). Port: keep.
   **See it:** save `shots-walls` (level 1's start room, the staple gun
   with 100 staples). The room runs from x 1920 to 2240; Harry stands at
   (2087, 2082), just right of the map's diagonal. Turn right and shoot
@@ -169,18 +170,23 @@ bug was watched in the original yet; "expected" is what the code says.
   expected: many pass into the wall. Turn left and shoot at the left
   wall: they cross to the left of the diagonal and stop at the wall.
   Not seen yet.
+- **A stopped shot keeps hitting tiles.** It is only `frozen`; the
+  remaining tiles of the same `CheckTileCollisions` pass are still
+  handled, so its sound / soda explosion can come up to 4 times in one
+  frame (seen in the recordings). Port: keep.
   **See it:** with save `shots-walls`, shoot into a corner where several
   wall tiles meet: the hit sound can come several times at once
   (louder, or doubled). Hard to tell by ear; the recordings show it.
 
-- **Ammo bonuses go past 100.** `HitPlayerSprite` adds 20 to an ammo
-  counter while it is below 100, so it can reach 119; gun pickups clamp to
-  100. How the panel shows more than 100 is to be checked. Port: keep.
+- **Ammo bonuses add past 100 - for one pass.** `HitPlayerSprite` adds
+  20 to an ammo counter while it is below 100, so it can reach 119 (gun
+  pickups clamp to 100 themselves); `UpdateAmmo` clamps it to 100 in the
+  same pass of the game loop. Not visible. Port: the same.
   **See it:** save `ammo-over-100` (level 1's start room, the staple gun
   with 99 staples). Five staple bonuses (711) lie up and right of the
   start, in the corridor at x 2180–2240, y 1950–1990: take one, the
-  count is 119. How the panel shows it is the open question. Not seen
-  yet.
+  count is 100 (expected from the code and the vial's case; not read
+  yet).
 
 - **Kicking a locked door reads stale stack values.** `HitPlayerSprite`
   sets the door's hinge point only for 901, 911, 921, 931; for the locked
@@ -189,17 +195,17 @@ bug was watched in the original yet; "expected" is what the code says.
   the front or the back depends on whatever an earlier call left there.
   Port: uses the closed door's hinge (the recorder puts those values on
   the stack, so everything else is compared exactly).
+  **See it:** save `locked-door` (level 1, in the corridor above the
+  locked door 913). Kick it from the front, again after other kicks
+  elsewhere: whether the kick counts as from the front or from the back
+  can change between tries. What it changes on screen is not known;
+  the stack values are only visible in Unicorn.
 - **A kick that misses a door loses the kick's hot rect.** When Harry
   kicks a door he can neither open nor hit, `HitPlayerSprite` sets his
   normal hot rect for `RectSeparate` and does not restore the kick's
   (the restore tests an address against −8, never true). For the rest of
   the frame he is no longer kicking (e.g. in `CheckTileCollisions`).
   Port: keep.
-  **See it:** save `locked-door` (level 1, in the corridor above the
-  locked door 913). Kick it from the front, again after other kicks
-  elsewhere: whether the kick counts as from the front or from the back
-  can change between tries. What it changes on screen is not known;
-  the stack values are only visible in Unicorn.
   **See it:** not visible on its own (one frame without the kick's
   hot rect); only in the recordings.
 
@@ -209,28 +215,28 @@ bug was watched in the original yet; "expected" is what the code says.
   the sprite stays 9200 (and waits 300 frames). A level built again from
   its entries (a later save, a restored game) has the copier used.
   Port: keep.
-- **Wall guns other than 9401 / 9411 / 9421 / 9431 fire from garbage.**
-  `HandleColliderSprite` takes every id 9401–9449 as a gun, but sets the
-  shot's offset only for those four; the others use registers r27 / r28
-  as the caller left them (and speed 0). None are in Episode 1. Port:
-  offset 0.
   **See it:** save `copier-cancel` (level 6, left of the copier at
   (3864, 3579)). Touch the copier and choose Cancel. Go to the level's
   other copier (at (1803, 824), far up and left) and save there. Continue
   that save and come back: the first copier is used up (it does nothing)
   though it never saved. Not seen yet.
+- **Wall guns other than 9401 / 9411 / 9421 / 9431 fire from garbage.**
+  `HandleColliderSprite` takes every id 9401–9449 as a gun, but sets the
+  shot's offset only for those four; the others use registers r27 / r28
+  as the caller left them (and speed 0). None are in Episode 1. Port:
+  offset 0.
   **See it:** only in a custom world with such guns; none in Episode 1.
 
 - **Enemy shots hitting walls are silent.** `HitEnemyShotTileSprite`
   plays a sound only for "kind < 2001 and kind > 3000", which no kind
   is; the gun shot's own sound (251) is never heard either. Port: keep.
+  **See it:** save `turret-shots` (level 7, near the turret 1901 at
+  (633, 1541)). Let it fire and miss: its shots hit the walls without a
+  sound (sound 251 is never heard). Not checked yet.
 - **Homing shots steer once.** `HandleEnemyShotSprite` steers only on
   the frame `f7c` (12 at the start) reaches 1, so the "burst after 100
   steering frames" never comes; they fly straight after that until a
   wall, a shot or 35 slow frames. Port: keep.
-  **See it:** save `turret-shots` (level 7, near the turret 1901 at
-  (633, 1541)). Let it fire and miss: its shots hit the walls without a
-  sound (sound 251 is never heard). Not checked yet.
   **See it:** save `homing` (level 8, near the scientist 1111 at
   (463, 1240)). Let the scientist throw a test tube and move sideways:
   it turns toward Harry once, shortly after the throw (12 frames), then

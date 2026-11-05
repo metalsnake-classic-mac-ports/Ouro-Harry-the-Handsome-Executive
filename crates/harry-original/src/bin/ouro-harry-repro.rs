@@ -71,7 +71,9 @@ fn save(rp: &Repro, level: &harry_core::Level) -> SaveGame {
     s.ammo = Ammo { staple: rp.ammo.0, badass: rp.ammo.1, shrapnel: rp.ammo.2 };
     s.inventory = [(EMPTY, 0); harry_core::frame::SLOTS];
     for (slot, &id) in s.inventory.iter_mut().zip(rp.items) {
-        *slot = (id, 1);
+        // six vials: each use draws a new outcome (systemless's clock is
+        // fixed, so the first use always gives the same one)
+        *slot = (id, if id == item::MYSTERY_VIAL { 6 } else { 1 });
     }
     s.entries.clone_from(&level.sprites);
     s

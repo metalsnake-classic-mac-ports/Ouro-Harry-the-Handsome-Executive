@@ -2016,6 +2016,21 @@ striped while a balloon waits, and the panel's level name is drawn with
 its letters spread out ("T  e  m"). Otherwise the screens match the
 port's (level 1, level 11, the meters). For looking, never as the
 reference: the differential tests stay in Unicorn.
+The Open dialog takes the first name and sorts without case, so the save
+goes in as `Repro <name>` (a name after "System Folder" opened that
+folder instead). The fixed clock gives the same random numbers every
+run: the first use of a mystery vial is always the same outcome.
+**Reading globals** (`re/tools/sl_peek.py SAVE [STEPS] [--read
+NAME=ADDR]`): a systemless built with its debugger socket
+(`ouro-tools/systemless`, `cargo install systemless --version 0.109.0
+--locked --features debug-server`; Homebrew's has none) runs the steps
+as a `--tick-input-script` (the socket mode cannot take a folder: the
+game goes in as a zip, the save as MacBinary), pauses, and reads memory.
+The data section sits at 0x2000000 there (found by the B-E-N text at
++0x3718); a global at Ghidra address A is at 0x2000000 + A − 0x10065390,
+and a `@` global in `re/ghidra/globals.txt` is a TOC slot holding a
+pointer to it (the ammunition counters). r2 when paused is not always
+the game's TOC (it may stop in a library).
 
 ## Port and differential tests
 
