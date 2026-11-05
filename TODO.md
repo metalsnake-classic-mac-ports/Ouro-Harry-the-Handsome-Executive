@@ -130,7 +130,7 @@
 - [x] Homebrew: formula `ouro-harry` 0.1.0 in the tap `homebrew-games` (PR #3), bottles for
       macOS 15, macOS 26 and Linux
 - [ ] Homebrew bottles for Intel Macs, as for S.C.Out
-- [ ] Build and test on Windows and Linux (so far built only on macOS)
+- [ ] Build and test on Windows and Linux (the Linux bottle builds; not played on Linux or Windows yet)
 
 ## Lowest priority (decided 2026-11-04)
 - [ ] `MakeITable`'s inverse table exactly (the port takes the nearest colour); second faces clipped like the original at the ring buffer's wrap
