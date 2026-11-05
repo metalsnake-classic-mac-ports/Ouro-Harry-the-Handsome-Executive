@@ -128,7 +128,7 @@ pub enum SpriteEvent {
     MovingExplosion { h: i16, v: i16, speed: Speed, a: i16, b: i16 },
     /// `STPlayDynamicSound` at the sprite: a sound whose stereo position
     /// moves on with `speed` (px a frame) while it plays.
-    DynamicSound { id: i16, volume: i16, speed: Speed },
+    DynamicSound { id: i16, volume: i16, at: (i16, i16), speed: Speed },
     /// `SATNewSprite(kind, h, v, SetupEnemyShotSprite)`, then speed and
     /// `dir` set - and, if given, `fix`, `timer` and `f7c`. With `to_fix`
     /// `pos` and `at` move to `fix` too (the robots); otherwise they stay

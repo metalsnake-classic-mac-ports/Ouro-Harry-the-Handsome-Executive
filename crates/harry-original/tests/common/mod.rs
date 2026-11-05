@@ -110,7 +110,7 @@ pub fn event(e: &SpriteEvent) -> String {
         SpriteEvent::Sound3DPitched { id, rate } => format!("3d:{id}:{rate}"),
         SpriteEvent::Explosion { h, v, a, b } => format!("x:{h}:{v}:{a}:{b}"),
         SpriteEvent::MovingExplosion { h, v, speed, a, b } => format!("x:{h}:{v}:{}:{}:{a}:{b}", speed.h, speed.v),
-        SpriteEvent::DynamicSound { id, volume, speed } => format!("dyn:{id}:{volume}:{}:{}", speed.v, speed.h),
+        SpriteEvent::DynamicSound { id, volume, at, speed } => format!("dyn:{id}:{volume}:{}:{}:{}:{}", at.0, at.1, speed.v, speed.h),
         SpriteEvent::Score(n) => format!("score:{n}"),
         SpriteEvent::Ghost { kind, h, v, dir } => format!("ghost:{kind}:{h}:{v}:{dir}"),
         SpriteEvent::GhostsDie => "ghostsdie".into(),

@@ -106,7 +106,7 @@ fn player_frame_matches_the_original() {
         let mut rng = Random::new(i["seed"] as u32);
         let mut sounds = Vec::new();
         let mut keys = 0;
-        handle_player(&mut h, &mut g, level, &Physics::default(), &mut rng, |_, _, _| keys += 1, &mut sounds);
+        handle_player(&mut h, &mut g, level, &Physics::default(), &mut rng, |_, _, _| keys += 1, &mut sounds, false);
         let p = &h.player;
         let t = &g.tile;
         let m = &g.moves;

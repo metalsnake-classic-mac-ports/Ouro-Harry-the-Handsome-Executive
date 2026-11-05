@@ -928,9 +928,9 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   places in Episode 1 with tile collisions, all matching, 8 of 8
   mutations caught; the crash is in the plant and barrel / chair
   recorders (with score and level entries now), Harry's in the touch
-  recorder (with `_DAT_10065e40`). The port plays the dynamic sound at
-  the cart without moving it (the original moves its stereo position
-  with the speed while it plays).
+  recorder (with `_DAT_10065e40`); the dynamic sound with the cart's
+  `pos` before the move (the recorder logs snd, volume, position and
+  speed), moved as "Sound" below describes.
 - **Robots** (1800–1849, 2000–2099, idle; `harry_core::robot`). Setup:
   facing Harry (`FindDesiredDirection`: the generic direction from pos +
   14 toward `gPlayerH/V` + 32), timer 25, layer 7, hot rect (4, 4, 24,
@@ -1870,6 +1870,52 @@ object kind (cf. editor object ids).
 Format 1 with one bufferCmd, 8-bit unsigned: 54 at 22 050 Hz, 46 at 11 025
 Hz, 2 at 22 254 Hz; one format 2 at 5 564 Hz. Played through SAT's sound
 queue plus `STPlay3DSound` / `CalcStereoVolume` (positional stereo).
+
+- **The mixer** (in the application, `_DAT_10066600`: up to 16 voices of
+  0x34 bytes, `_DAT_10066f18` of them in use, sorted by priority
+  (+0x30) and loudness (+0x2c + 0x2e)). `FUN_1005692c` (behind
+  `STPlayRegSound`, `STPlay3DSound(Pitched)`, `STPlayDynamicSound`)
+  inserts a voice where it belongs; with 16 and none quieter it plays
+  nothing and returns 0. A voice's handle (+0) is the counter
+  `_DAT_10066f00`, + 2 each time; +4 is the `snd`. `STPlayRegSound`
+  returns −1 with sound off. `FUN_10056de8(x)` counts the voices whose
+  handle or `snd` is x - **x = 0 counts every voice**; `FUN_10056c0c(x)`
+  stops them the same way (0: all); `FUN_10056f94(x, params)` sets a
+  voice's priority, volumes and rate. `HaltTalkingSounds` stops 13 `snd`s
+  (the voices and the chatter).
+- **Who asks** (`FUN_10056de8`): `HandleKeys` (a voice or the chatter:
+  `gVoiceChannel`, `_DAT_10068aa4`; the gulp `snd`), `HitPlayerSprite`
+  and `Ouch` (the voice), `HandlePlayerSprite` (the chatter: a playing
+  voice is stopped first, then a new chatter only if the last one is
+  over - and only then `SATRand(3)`), the plant's, barrel's and chair's
+  bump (1100 / 800 / 258), `HitPlayerTileSprite` (the water sound),
+  `HandleColliderSprite` (the fan), `RandomMGShot` (606: fewer than two,
+  then `SATRand(6000)` for the pitch), `HitBossSprite` (1000, 1001:
+  neither, then `SATRand(100)`), `UpdateDynamicSounds`. The voice and
+  chatter handles are 0 until the first one: until Harry first speaks,
+  "is a voice playing" asks about every sound (BUGS.md).
+- **Dynamic sounds** (`STPlayDynamicSound(snd, priority, volume, at,
+  speed)`, only the mail guy's 400): the first free of 16 slots
+  (`_DAT_10065d34`, 0x18 bytes: used, handle, snd, priority, volume, at
+  (v, h), speed (v, h)) takes it; none free, it is not played.
+  `UpdateDynamicSounds` (each pass after `CheckGameLoopKeys`), slots
+  0–14: a slot whose sound is over is freed, the others move `at` by
+  `speed` and get new ear volumes from `CalcStereoVolume`
+  (`FUN_10056f94`). `InitDynamicSounds` (at launch) clears 0–14.
+- **The port** (`harry_core::sound`): every sound gets a handle; the
+  frontend reports before each frame what still plays (`Playing`), and
+  the game counts what it starts and stops within the frame as the
+  mixer would. All the questions above are answered from it, with the
+  original's handles (0 at first). `Audio` keeps the dynamic slots and
+  sends `Pan` for each move. Differences: the frontend mixes 8 sounds and
+  drops the oldest effect, not the original's priority list of 16 (a
+  sound it drops counts as playing until the next frame; the game never
+  gets a 0 handle from a full mixer); a voice that `HandleKeys` starts in
+  the same frame as the chatter is not stopped by it. Tests: unit tests
+  for the counting, the slots and the moves; the recorders already vary
+  "playing" for the keys, the fan and the bumps; the mail guy recorder
+  logs the dynamic sound's position; the whole-frame test runs with
+  `Audio::silent` (its recorder stubs the mixer: nothing plays).
 
 ### Music `Tune` (Harry Music 600–620)
 

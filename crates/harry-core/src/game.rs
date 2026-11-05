@@ -48,7 +48,7 @@ use crate::track::TrackMap;
 use crate::view::{View, find_upper_left_corner};
 use crate::air::AirSound;
 use crate::moves::MoveSound;
-use crate::sound::{Channel, RATE, SoundEvent, snd, stereo};
+use crate::sound::{Audio, Channel, RATE, SoundEvent, snd, stereo};
 use crate::words::Words;
 use crate::world::{Setup, World};
 
@@ -178,6 +178,9 @@ pub struct Game {
     pub words: Words,
     /// The sounds of the last frame, in order.
     pub sounds: Vec<SoundEvent>,
+    /// What plays (the frontend sets `audio.playing` before each frame),
+    /// the voice handles, the dynamic sounds.
+    pub audio: Audio,
     /// What the level started with (what a saved game keeps).
     pub level_start: LevelStart,
     /// The map of where Harry has been.
@@ -666,9 +669,12 @@ impl Game {
                     let i = self.explosion(h, v, a, b);
                     self.world.sprites.recs[i].speed = speed;
                 }
-                SpriteEvent::DynamicSound { id, volume, speed: _ } => {
-                    // the port does not move the sound with the sprite yet
-                    self.play(id, volume, Some(at), RATE, Channel::Effect);
+                // STPlayDynamicSound: only with a free slot of its table
+                SpriteEvent::DynamicSound { id, volume, at, speed } => {
+                    if self.audio.dynamic.iter().any(|d| !d.used) {
+                        let handle = self.play_handle(id, volume, Some(at), RATE, Channel::Effect);
+                        self.audio.add_dynamic(handle, volume, at, (speed.v, speed.h));
+                    }
                 }
                 SpriteEvent::Shot { kind, h, v, speed, dir, fix, to_fix, timer, f7c } => {
                     let i = self.spawn_with(kind, h, v, Setup::EnemyShot, Some(speed));
@@ -718,8 +724,8 @@ impl Game {
                 }
                 // the music is not ported yet
                 // HandleBossSpriteDeath: FadeMusic(0, 1)
-                SpriteEvent::FadeMusic => self.sounds.push(SoundEvent::FadeMusicOut(1)),
-                SpriteEvent::StopSound(id) => self.sounds.push(SoundEvent::Stop(id)),
+                SpriteEvent::FadeMusic => self.sound(SoundEvent::FadeMusicOut(1)),
+                SpriteEvent::StopSound(id) => self.sound(SoundEvent::Stop(id)),
                 SpriteEvent::BigBlast { h, v } => {
                     let i = self.explosion(h, v, 0, 0);
                     let r = &mut self.world.sprites.recs[i];
@@ -745,7 +751,7 @@ impl Game {
         for e in events {
             match e {
                 // the music is not ported yet
-                DeathEvent::FadeMusic => self.sounds.push(SoundEvent::FadeMusicOut(1)),
+                DeathEvent::FadeMusic => self.sound(SoundEvent::FadeMusicOut(1)),
                 DeathEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
                 DeathEvent::Explosion { h, v, dir, behind } => {
                     let i = self.explosion(h, v, 0, dir);
@@ -778,12 +784,39 @@ impl Game {
     }
 
     /// A sound: `STPlayRegSound` (`at` none) or `STPlay3DSound(Pitched)`.
+    /// Returns its handle; a voice's or the chatter's is kept for the
+    /// routines that ask whether it still plays.
     fn play(&mut self, id: i16, volume: i16, at: Option<(i16, i16)>, rate: u32, channel: Channel) {
+        self.play_handle(id, volume, at, rate, channel);
+    }
+
+    /// `play`, returning the sound's handle.
+    fn play_handle(&mut self, id: i16, volume: i16, at: Option<(i16, i16)>, rate: u32, channel: Channel) -> u32 {
         let (left, right) = match at {
             Some(at) => stereo(self.view.corner, at, volume),
             None => (volume.max(0) as u16, volume.max(0) as u16),
         };
-        self.sounds.push(SoundEvent::Play { id, left, right, rate, channel });
+        let handle = self.audio.handle();
+        match channel {
+            Channel::Voice => self.audio.voice = handle,
+            Channel::Chatter => self.audio.chatter = handle,
+            _ => {}
+        }
+        self.sound(SoundEvent::Play { id, left, right, rate, channel, handle });
+        handle
+    }
+
+    /// A sound event, also counted in what plays.
+    fn sound(&mut self, e: SoundEvent) {
+        if !self.audio.silent {
+            self.audio.playing.apply(&e);
+        }
+        self.sounds.push(e);
+    }
+
+    /// Does `snd` `id` play (`FUN_10056de8(snd)`)?
+    fn snd_playing(&self, id: i16) -> bool {
+        self.audio.playing.count_snd(id) > 0
     }
 
     /// Harry's sounds of his frame.
@@ -808,7 +841,10 @@ impl Game {
                     self.play(id, 0x100, None, RATE, Channel::Effect);
                 }
                 FrameSound::Chatter(n) => {
-                    if let Some(&id) = snd::CHATTER.get(n as usize) {
+                    if self.audio.playing.count(self.audio.voice) > 0 {
+                        self.sound(SoundEvent::StopHandle(self.audio.voice));
+                    }
+                    if let Some(&id) = n.and_then(|n| snd::CHATTER.get(n as usize)) {
                         self.play(id, 0x100, None, RATE, Channel::Chatter);
                     }
                 }
@@ -869,6 +905,10 @@ impl Game {
             self.seen_level = self.counter.current;
             return FrameEnd::LevelDone;
         }
+        // UpdateDynamicSounds
+        for e in self.audio.update_dynamic(self.view.corner) {
+            self.sounds.push(e);
+        }
         self.track.update(self.g.player_pos);
         if died { FrameEnd::Died } else { FrameEnd::Running }
     }
@@ -917,7 +957,20 @@ impl Game {
         match sp.task {
             Some(Task::Player) => {
                 let mut h = harry_from(&sp);
-                let input = KeyInput { keys, bindings: &self.prefs.bindings, debug: false, gulp_playing: false, voice_playing: false };
+                let input = KeyInput {
+                    keys,
+                    bindings: &self.prefs.bindings,
+                    debug: false,
+                    gulp_playing: self.snd_playing(crate::keys::snd::GULP),
+                    voice_playing: self.audio.voice_playing(),
+                };
+                // the chatter stops a playing voice first, then asks
+                // whether the chatter plays
+                let mut after = self.audio.playing.clone();
+                if after.count(self.audio.voice) > 0 {
+                    after.apply(&SoundEvent::StopHandle(self.audio.voice));
+                }
+                let chatter_playing = after.count(self.audio.chatter) > 0;
                 let mut key_events = Vec::new();
                 let mut sounds: Vec<FrameSound> = Vec::new();
                 let effects = handle_player(
@@ -928,6 +981,7 @@ impl Game {
                     &mut self.rng,
                     |h, g, rng| handle_keys(h, g, &input, rng, &mut key_events),
                     &mut sounds,
+                    chatter_playing,
                 );
                 harry_into(&h, &mut sp);
                 if h.dead {
@@ -953,7 +1007,7 @@ impl Game {
                         KeyEvent::Ripple(on) => ripple::toggle(&mut self.level, &mut self.session.ripple_phase, on),
                         KeyEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
                         KeyEvent::ChargeSound(id) => self.play(id, 0x100, None, RATE, Channel::Charge),
-                        KeyEvent::StopCharge => self.sounds.push(SoundEvent::StopCharge),
+                        KeyEvent::StopCharge => self.sound(SoundEvent::StopCharge),
                         KeyEvent::VoiceSound(id) => self.play(id, 0x100, None, RATE, Channel::Voice),
                         KeyEvent::Sound3D { snd, pitch } => self.play(snd, 0x100, Some(at), u32::from(pitch), Channel::Effect),
                         // ShowBalloon(NULL, text, 2): over Harry, no sound; if it
@@ -1054,7 +1108,7 @@ impl Game {
                     g: &mut self.g,
                     harry_speed: &mut speed,
                     magnet: &mut self.magnet,
-                    fan_sound_playing: false,
+                    fan_sound_playing: self.audio.playing.count_snd(crate::collider::snd::FAN) > 0,
                     rng: &mut self.rng,
                 };
                 let blows = handle_collider(&mut sp, &mut w, &mut events);
@@ -1138,12 +1192,14 @@ impl Game {
             Some(Task::Robot) => {
                 let (mut wall, mut obstacle) = self.robot_flags;
                 let mut s = Vec::new();
+                let mg_playing = self.audio.playing.count_snd(crate::robot::snd::MACHINE_GUN);
                 let mut w = crate::robot::RobotWorld {
                     level: &mut self.level,
                     g: &mut self.g,
                     rng: &mut self.rng,
                     wall_done: &mut wall,
                     obstacle_done: &mut obstacle,
+                    mg_playing,
                 };
                 crate::robot::handle_robot(&mut sp, &mut w, 0, &mut events, &mut s);
                 self.robot_flags = (wall, obstacle);
@@ -1188,16 +1244,19 @@ impl Game {
             }
             Some(HitTask::Plant) => {
                 let ms = PlantHitMasks { body: &assets.player.body, plant: assets.plant, barrel: assets.barrel };
-                hit_plant(&mut sp, &mut o, &ms, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, false, &mut events);
+                let bump = self.snd_playing(crate::kinds::snd::PLANT_BUMP);
+                hit_plant(&mut sp, &mut o, &ms, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, bump, &mut events);
             }
             Some(HitTask::Barrel) => {
                 let ms = FurnitureMasks { body: &assets.player.body, plant: assets.plant, barrel: assets.barrel };
                 let caffeine = self.g.caffeine > 0;
-                hit_barrel(&mut sp, &mut o, &ms, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, caffeine, false, &mut events);
+                let bump = self.snd_playing(crate::furniture::snd::BARREL_BUMP);
+                hit_barrel(&mut sp, &mut o, &ms, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, caffeine, bump, &mut events);
             }
             Some(HitTask::Chair) => {
                 let ms = FurnitureMasks { body: &assets.player.body, plant: assets.plant, barrel: assets.barrel };
-                hit_chair(&mut sp, &mut o, &ms, &self.physics, &mut self.g.tile.kick_contact, false, &mut events);
+                let bump = self.snd_playing(crate::furniture::snd::CHAIR_BUMP);
+                hit_chair(&mut sp, &mut o, &ms, &self.physics, &mut self.g.tile.kick_contact, bump, &mut events);
             }
             Some(HitTask::Message) => {
                 let (view, player) = (self.view.corner, self.g.player_pos);
@@ -1235,7 +1294,8 @@ impl Game {
             Some(HitTask::PlayerShot) => hit_player_shot(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
             Some(HitTask::Boss) => {
                 let mut boss = self.world.sprites.boss;
-                crate::boss::hit_boss(&mut sp, &mut o, &mut boss, &mut self.rng, &mut self.g.tile.kick_contact, &mut events);
+                let cry = crate::boss::snd::HURT.iter().any(|&id| self.snd_playing(id));
+                crate::boss::hit_boss(&mut sp, &mut o, &mut boss, &mut self.rng, &mut self.g.tile.kick_contact, cry, &mut events);
                 self.world.sprites.boss = boss;
             }
             Some(HitTask::Scientist) => crate::scientist::hit_scientist(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
@@ -1268,7 +1328,7 @@ impl Game {
         for (shown, mode, pos) in calls {
             if shown {
                 if mode == 5 {
-                    self.sounds.push(SoundEvent::Stop(snd::PHONE_RING));
+                    self.sound(SoundEvent::Stop(snd::PHONE_RING));
                 }
                 if matches!(mode, 1 | 3 | 5) {
                     let pitch = 56000 + self.rng.below(16000) as u32;
@@ -1283,11 +1343,12 @@ impl Game {
         }
     }
 
-    /// `Ouch`: it halts the voices, so (unless caffeine works) it always
-    /// picks one of its three with the random generator.
+    /// `Ouch`: it halts the voices, then - unless a voice or the chatter
+    /// still plays (with handle 0 before the first one: any sound) or
+    /// caffeine works - picks one of its three with the random generator.
     fn ouch(&mut self) {
-        self.sounds.push(SoundEvent::HaltVoices);
-        if self.g.caffeine == 0 {
+        self.sound(SoundEvent::HaltVoices);
+        if !self.audio.voice_playing() && self.g.caffeine == 0 {
             let r = self.rng.below(100);
             let id = snd::OUCH[if r < 43 { 0 } else if r < 86 { 1 } else { 2 }];
             self.play(id, 0x100, None, RATE, Channel::Voice);
@@ -1406,7 +1467,7 @@ impl Game {
                 physics: &self.physics,
                 body: &assets.player.body,
                 desks: assets.desks,
-                voice_playing: false,
+                voice_playing: self.audio.voice_playing(),
             };
             let mut events = Vec::new();
             touch(&mut h, &mut self.g, &mut other, &mut w, &mut events);
@@ -1415,7 +1476,7 @@ impl Game {
                     TouchEvent::Ouch => self.ouch(),
                     TouchEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
                     TouchEvent::VoiceSound(id) => self.play(id, 0x100, None, RATE, Channel::Voice),
-                    TouchEvent::HaltTalking => self.sounds.push(SoundEvent::HaltVoices),
+                    TouchEvent::HaltTalking => self.sound(SoundEvent::HaltVoices),
                     TouchEvent::Remark(id) => self.play(id, 0x100, None, RATE, Channel::Remark),
                 }
             }
@@ -1446,7 +1507,11 @@ impl Game {
                         for s in sounds {
                             match s {
                                 TileSound::Ouch => self.ouch(),
-                                TileSound::Water => self.play(snd::WATER, 0x100, Some(at), 55000, Channel::Effect),
+                                TileSound::Water => {
+                                    if !self.snd_playing(snd::WATER) {
+                                        self.play(snd::WATER, 0x100, Some(at), 55000, Channel::Effect);
+                                    }
+                                }
                             }
                         }
                     }

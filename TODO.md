@@ -45,7 +45,7 @@
 - [x] Buttons and sliding doors (30 000 runs), sliding doors in the Harry, object and shot recorders
 - [x] Co-workers (15 000 runs), as partners of Harry and the objects
 - [x] Mail guy (6000 runs), its crash with objects, Harry run over; levels 2 and 3 have all their kinds
-- [ ] `STPlayDynamicSound` / `UpdateDynamicSounds`: move the sound's stereo position with the sprite
+- [x] `STPlayDynamicSound` / `UpdateDynamicSounds`: the sound's stereo position moves with the mail guy
 - [x] Robots, small and big (8000 runs, 30 000 hits), in the partner recorders; level 4 has all its kinds
 - [x] Fire pipes and flames (30 000 runs); level 5 has all its kinds; the world recorder covers every ported kind
 - [x] Grates, fences and ghosts (75 000 cases); level 6 has all its kinds
@@ -110,7 +110,7 @@
 - [x] Sprite tints: the draw procs' blits (whole frames), the colour tables (13 812 colours), drawn in the frontend
 - [x] Meters as `UpdateMeters` draws them, with the rounded ends (cicn 10135–10137 in the pack); the fans' grilles and the dart enemies' darts
 - [x] Music: the synthesizer (tunes from the pack, a recording instead when there is one), `SetMusic` / `FadeMusic` where the game calls them, the volume in the options
-- [ ] Sound feedback into the game: "is a voice / the fan / the bump playing" (the original asks its channels; the port answers no)
+- [x] Sound feedback into the game: the frontend reports what plays, the game answers the original's "is it playing" questions from it (voices, chatter, gulp, fan, bumps, water, machine gun, boss)
 - [x] Frontend: letters by the keyboard layout (an improvement, NOTES "Port improvements"); F1–F4, F12, F13, N and P mapped
 - [x] `KeyEvent::Balloon`: the P-A-R-G-H-Z and B-E-N balloons (texts from the PowerPC data section)
 - [ ] `Hwld` 0: decode the fields before the texts (0–0x3c8)

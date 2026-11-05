@@ -76,7 +76,7 @@ pub struct Menu {
 }
 
 fn play(id: i16) -> SoundEvent {
-    SoundEvent::Play { id, left: 0x55, right: 0x55, rate: RATE, channel: Channel::Effect }
+    SoundEvent::Play { id, left: 0x55, right: 0x55, rate: RATE, channel: Channel::Effect, handle: 0 }
 }
 
 fn button_at(x: i32, y: i32, track: bool) -> Option<usize> {

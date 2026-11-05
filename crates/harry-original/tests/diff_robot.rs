@@ -100,7 +100,7 @@ fn robot_tasks_match_the_original() {
             let mut events = Vec::new();
             let mut sounds = Vec::new();
             {
-                let mut rw = RobotWorld { level: &mut level, g: &mut g, rng: &mut rng, wall_done: &mut wall, obstacle_done: &mut obst };
+                let mut rw = RobotWorld { level: &mut level, g: &mut g, rng: &mut rng, wall_done: &mut wall, obstacle_done: &mut obst, mg_playing: 0 };
                 handle_robot(&mut sp, &mut rw, unset, &mut events, &mut sounds);
             }
             let mut log: Vec<String> = events.iter().map(common::event).collect();

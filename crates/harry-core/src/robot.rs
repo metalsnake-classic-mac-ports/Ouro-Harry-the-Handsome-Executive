@@ -165,6 +165,9 @@ pub struct RobotWorld<'a> {
     /// tile pass after the tasks only the first robot to touch one bounces.
     pub wall_done: &'a mut bool,
     pub obstacle_done: &'a mut bool,
+    /// How many machine-gun sounds (606) play: from two on, a bolt is
+    /// silent (and draws no pitch).
+    pub mg_playing: usize,
 }
 
 /// `RandomRobotShot`: 1 in 60 (1801) or 1 in 35 a frame, a shot of the
@@ -183,8 +186,8 @@ fn random_shot(sp: &Sprite, rng: &mut Random, events: &mut Vec<SpriteEvent>) {
 /// frames' flight out along the direction 2 to one side (the wrap uses
 /// 35, so 36 and −1 stay and add nothing), then flies with the robot's
 /// speed and direction (now and then one off) plus 1500; sound 606 at a
-/// random pitch (the original only when fewer than two are playing).
-fn random_mg_shot(sp: &Sprite, rng: &mut Random, events: &mut Vec<SpriteEvent>) {
+/// random pitch - only when fewer than two are playing.
+fn random_mg_shot(sp: &Sprite, rng: &mut Random, mg_playing: usize, events: &mut Vec<SpriteEvent>) {
     if rng.below(100) <= 39 {
         return;
     }
@@ -210,8 +213,10 @@ fn random_mg_shot(sp: &Sprite, rng: &mut Random, events: &mut Vec<SpriteEvent>) 
     let mut speed = sp.speed;
     add_polar(&mut speed, dir, &SHOT_SPEED);
     events.push(SpriteEvent::Shot { kind: sp.kind, h, v, speed, dir, fix: Some(fix), to_fix: true, timer: None, f7c: None });
-    let pitch = rng.below(6000) as u32;
-    events.push(SpriteEvent::Sound3DPitched { id: snd::MACHINE_GUN, rate: pitch + 62000 });
+    if mg_playing < 2 {
+        let pitch = rng.below(6000) as u32;
+        events.push(SpriteEvent::Sound3DPitched { id: snd::MACHINE_GUN, rate: pitch + 62000 });
+    }
 }
 
 /// The death: frozen, an explosion (the small ones' at pos − 20 with
@@ -274,7 +279,7 @@ fn task(sp: &mut Sprite, w: &mut RobotWorld, events: &mut Vec<SpriteEvent>) {
             }
             mode::FIRE => {
                 if w.rng.below(50) < 20 && sp.f6e > 20 {
-                    random_mg_shot(sp, w.rng, events);
+                    random_mg_shot(sp, w.rng, w.mg_playing, events);
                     sp.face = BIG_FACES + sp.dir + 36;
                     firing = true;
                 } else {

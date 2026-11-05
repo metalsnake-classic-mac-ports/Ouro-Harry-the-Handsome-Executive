@@ -125,16 +125,17 @@ pub struct Harry {
 pub enum FrameSound {
     Move(MoveSound),
     Air(AirSound),
-    /// Idle chatter: one of three voice samples.
-    Chatter(i16),
+    /// Idle chatter: a playing voice stops, then one of three samples
+    /// (none when the chatter still plays).
+    Chatter(Option<i16>),
 }
 
 /// `HandlePlayerSprite`; returns what `JumpScale` asks of the view and
 /// the screen (falling into a hole). `keys` stands for `HandleKeys` (called after the
-/// position sanity check, before anything else). The original asks the
-/// sound channels whether a voice is playing before the idle chatter; the
-/// port assumes not (a frontend that knows better can veto the sound, but
-/// the random numbers are drawn as here).
+/// position sanity check, before anything else). `chatter_playing`: does
+/// the last chatter still play once a playing voice is stopped (then no
+/// sample is drawn)?
+#[allow(clippy::too_many_arguments)]
 pub fn handle_player(
     h: &mut Harry,
     g: &mut PlayerGlobals,
@@ -143,6 +144,7 @@ pub fn handle_player(
     rng: &mut Random,
     keys: impl FnOnce(&mut Harry, &mut PlayerGlobals, &mut Random),
     sounds: &mut Vec<FrameSound>,
+    chatter_playing: bool,
 ) -> JumpEffects {
     if h.frozen {
         return JumpEffects::default();
@@ -186,7 +188,7 @@ pub fn handle_player(
     if g.chatter > 0 {
         g.chatter -= 1;
         if g.chatter == 0 && rng.below(100) < 30 {
-            sounds.push(FrameSound::Chatter(rng.below(3)));
+            sounds.push(FrameSound::Chatter((!chatter_playing).then(|| rng.below(3))));
         }
     }
     // The selected item gone? (slot −1 reads the chatter timer, never −1

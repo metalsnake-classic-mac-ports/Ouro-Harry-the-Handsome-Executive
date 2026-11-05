@@ -104,7 +104,7 @@ fn the_boss_matches_the_original() {
                 }
                 o.dir = p[3].parse().unwrap();
                 o.at = (ov, oh);
-                hit_boss(&mut sp, &mut o, &mut boss, &mut rng, &mut contact, &mut events);
+                hit_boss(&mut sp, &mut o, &mut boss, &mut rng, &mut contact, false, &mut events);
                 events.push(SpriteEvent::Sound(-1 - i16::from(o.frozen)));
             }
             let mut l = Vec::new();

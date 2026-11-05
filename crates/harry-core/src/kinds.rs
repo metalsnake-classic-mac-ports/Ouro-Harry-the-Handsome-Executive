@@ -411,6 +411,12 @@ pub struct PlantHitMasks<'a> {
     pub barrel: &'a Mask,
 }
 
+/// `snd` ids of the plant.
+pub mod snd {
+    /// Bumping into something (only when it is not playing already).
+    pub const PLANT_BUMP: i16 = 1100;
+}
+
 /// `(int)(f * s)` in double, then to short.
 pub(crate) fn scaled(f: f64, s: i16) -> i16 {
     (f * f64::from(s)) as i32 as i16

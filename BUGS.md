@@ -372,6 +372,22 @@ bug was watched in the original yet; "expected" is what the code says.
   desk (along, 32 × 64) is taken as 32 × 32. Port: kept.
   **See it:** only in a world with a desk 310: walk into its lower half
   from the side; Harry bounces as off a corner.
+- **Before Harry first speaks, every sound counts as his voice.** The
+  voice and chatter handles start at 0, and the mixer's "is it playing"
+  counts every voice for 0. So until the first voice or chatter has
+  played, a bonus says nothing and `Ouch` (after halting the voices)
+  and the keys' voices are skipped while any sound plays, and the
+  chatter, finding "a voice", stops it with handle 0 - every sound that
+  plays. Port: kept (the game keeps the same handles).
+  **See it:** in level 1 right after the start, stand by the water
+  cooler's gurgle or walk on noisy floor until the idle chatter comes
+  (30 % of the timer's ends): the other sounds cut off. Not tried.
+- **The 16th dynamic sound slot is never freed.** `STPlayDynamicSound`
+  searches 16 slots, `UpdateDynamicSounds` and `InitDynamicSounds` only
+  15: a sound in the last slot neither moves nor frees it. Harmless (it
+  takes 16 moving sounds at once; only the mail guy makes them). Port:
+  kept.
+  **See it:** not in play (it needs 16 mail-guy turns within one sound).
 - **The registration check upper-cases one byte past the name.**
   `FUN_10058f9c` runs from length + 1 down to 1, so the byte after the
   licensee's name (inside the 0x100-byte field of the licence handle)

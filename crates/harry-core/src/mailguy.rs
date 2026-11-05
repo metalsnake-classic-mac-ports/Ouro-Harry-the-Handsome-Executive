@@ -92,7 +92,7 @@ pub fn handle_mail_guy(sp: &mut Sprite, level: &mut Level, rng: &mut Random, eve
             // the turn sets the old way's speed once more
             run(&mut sp.speed);
             sp.timer = -9;
-            events.push(SpriteEvent::DynamicSound { id: SOUND, volume, speed: sp.speed });
+            events.push(SpriteEvent::DynamicSound { id: SOUND, volume, at: sp.pos, speed: sp.speed });
         }
     }
     sp.pos = (sp.pos.0.wrapping_add(sp.speed.v), sp.pos.1.wrapping_add(sp.speed.h));

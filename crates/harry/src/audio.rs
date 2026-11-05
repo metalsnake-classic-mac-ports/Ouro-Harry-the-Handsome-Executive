@@ -2,7 +2,9 @@
 //! (`harry_core::sound`), stereo at the Mac's 22254 Hz. The original plays
 //! through SAT's sound channels; the port mixes up to [`VOICES`] sounds,
 //! dropping the oldest effect when they are all busy. A voice, the chatter,
-//! a remark and the charge sound each replace the one before.
+//! a remark and the charge sound each replace the one before. What still
+//! plays goes back to the game before each frame ([`Mixer::playing`]):
+//! the original's routines ask their mixer.
 //!
 //! The mixing runs in SDL's audio callback, so a sound starts within one
 //! buffer of the device (256 frames). The music (`crate::music`) is mixed
@@ -10,7 +12,7 @@
 
 use std::sync::Arc;
 
-use harry_core::sound::{Channel, RATE, SoundEvent};
+use harry_core::sound::{Channel, Playing, RATE, SoundEvent};
 use harry_data::{GameData, Sound};
 use sdl3::audio::{AudioCallback, AudioFormat, AudioSpec, AudioStream, AudioStreamWithCallback};
 
@@ -20,6 +22,8 @@ const VOICES: usize = 8;
 
 struct Voice {
     id: i16,
+    /// The game's handle (0: a menu sound).
+    handle: u32,
     samples: Arc<Vec<u8>>,
     pos: f64,
     step: f64,
@@ -113,6 +117,13 @@ impl Mixer {
         self.volume = f32::from(v.min(9)) / 9.0;
     }
 
+    /// The sounds that still play, for the game's routines that ask.
+    pub fn playing(&mut self) -> Playing {
+        let Some(mut all) = self.stream.as_mut().and_then(|s| s.lock()) else { return Playing::default() };
+        all.0.retain(|v| (v.pos as usize) < v.samples.len());
+        Playing(all.0.iter().map(|v| harry_core::sound::Voice { handle: v.handle, id: v.id, channel: v.channel }).collect())
+    }
+
     fn find(&self, id: i16, own: bool) -> Option<(Arc<Vec<u8>>, u32)> {
         let look = |t: &Table| t.iter().find(|x| x.0 == id).map(|x| (x.1.clone(), x.2));
         if own { look(&self.world).or_else(|| look(&self.sounds)) } else { look(&self.sounds) }
@@ -137,7 +148,7 @@ impl Mixer {
         let voices = &mut all.0;
         for (e, found) in events.iter().zip(new) {
             match *e {
-                SoundEvent::Play { id, left, right, rate, channel } => {
+                SoundEvent::Play { id, left, right, rate, channel, handle } => {
                     let Some((samples, sample_rate)) = found else { continue };
                     if channel != Channel::Effect {
                         voices.retain(|v| v.channel != channel);
@@ -153,6 +164,7 @@ impl Mixer {
                     let step = f64::from(sample_rate) / f64::from(OUTPUT_RATE) * f64::from(rate) / f64::from(RATE);
                     voices.push(Voice {
                         id,
+                        handle,
                         samples,
                         pos: 0.0,
                         step,
@@ -164,6 +176,13 @@ impl Mixer {
                 SoundEvent::HaltVoices => voices.retain(|v| !matches!(v.channel, Channel::Voice | Channel::Chatter)),
                 SoundEvent::StopCharge => voices.retain(|v| v.channel != Channel::Charge),
                 SoundEvent::Stop(id) => voices.retain(|v| v.id != id),
+                SoundEvent::StopHandle(h) => voices.retain(|v| h != 0 && v.handle != h),
+                SoundEvent::Pan { handle, left, right } => {
+                    for v in voices.iter_mut().filter(|v| v.handle == handle) {
+                        v.left = f32::from(left) / 256.0 * volume;
+                        v.right = f32::from(right) / 256.0 * volume;
+                    }
+                }
                 // the music fades without stopping the game (the original
                 // waits for it; NOTES.md, "Port improvements")
                 SoundEvent::FadeMusicOut(ticks) => fade = Some(ticks),

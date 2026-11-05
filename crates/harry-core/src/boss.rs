@@ -394,10 +394,19 @@ pub fn handle_boss_death(sp: &mut Sprite, boss: &mut BossState, rng: &mut Random
 
 /// `HitBossSprite`. An explosion costs 6 hit points (then not again for
 /// 30 frames). A player shot: gone, a point, the flash; every 8th point
-/// (state ≡ 1) it cries out (1000 or 1001; the original only when
-/// neither is playing). Harry's kick: sound 600, a point, layer 10, kick
+/// (state ≡ 1) it cries out (1000 or 1001; only when neither plays,
+/// `cry_playing`). Harry's kick: sound 600, a point, layer 10, kick
 /// contact 64.
-pub fn hit_boss(sp: &mut Sprite, other: &mut Sprite, boss: &mut BossState, rng: &mut Random, kick_contact: &mut i16, events: &mut Vec<SpriteEvent>) {
+#[allow(clippy::too_many_arguments)]
+pub fn hit_boss(
+    sp: &mut Sprite,
+    other: &mut Sprite,
+    boss: &mut BossState,
+    rng: &mut Random,
+    kick_contact: &mut i16,
+    cry_playing: bool,
+    events: &mut Vec<SpriteEvent>,
+) {
     if sp.frozen || other.frozen {
         return;
     }
@@ -413,7 +422,7 @@ pub fn hit_boss(sp: &mut Sprite, other: &mut Sprite, boss: &mut BossState, rng: 
             sp.state -= 1;
             sp.f6e = -1;
             sp.b8a = true;
-            if sp.state % 8 == 1 {
+            if sp.state % 8 == 1 && !cry_playing {
                 let id = if rng.below(100) < 50 { snd::HURT[0] } else { snd::HURT[1] };
                 events.push(SpriteEvent::Sound3D(id));
             }

@@ -223,6 +223,7 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
         harry: None,
         words: data.words.clone(),
         sounds: Vec::new(),
+        audio: Default::default(),
         level_start: LevelStart::default(),
         track: Default::default(),
         keep_track: false,
@@ -644,6 +645,7 @@ fn main() -> Result<()> {
                     right: 0x100,
                     rate: harry_core::sound::RATE,
                     channel: harry_core::sound::Channel::Effect,
+                    handle: 0,
                 }],
                 false,
             );
@@ -668,6 +670,7 @@ fn main() -> Result<()> {
             };
             // CopierSave's dialog is not ported: at the copier Harry saves
             let mut save = || true;
+            game.audio.playing = mixer.playing();
             let end = game.frame(&keys, &assets, &mut show, &mut save);
             frames_run += 1;
             // CheckGameLoopKeys: the map key (not again for 6 passes)

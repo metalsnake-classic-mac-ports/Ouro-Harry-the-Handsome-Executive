@@ -183,6 +183,8 @@ fn episode_1_frames_match_the_original() {
             harry: None,
             words: words.clone(),
             sounds: Vec::new(),
+            // the recorder stubs the mixer: nothing ever plays
+            audio: harry_core::sound::Audio { silent: true, ..Default::default() },
             level_start: LevelStart::default(),
             track: Default::default(),
             keep_track: false,

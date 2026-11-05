@@ -4,7 +4,7 @@ followed by CheckTileCollisions with it as the only sprite
 (HitMailGuyTileSprite) - running, stopping at walls, turning round.
 
 Each line: "<name=value ...> -> <dump> | entry=<id>:<info0>:<info1> events=<per frame, ';'>"
-  events  dyn:<snd>:<volume>:<speed v>:<speed h> (STPlayDynamicSound)
+  events  dyn:<snd>:<volume>:<at v>:<at h>:<speed v>:<speed h> (STPlayDynamicSound)
 Usage: python3 -I emu_mailguy.py [re/work]
 """
 import os
@@ -34,8 +34,8 @@ def main():
     m.call("InitTileHotRects")
     tv = tvectors(f"{work}/ppc")
     ev = []
-    m.stub_routine("STPlayDynamicSound", lambda mm: ev.append("dyn:%d:%d:%d:%d" % (
-        mm.get(3), s16(mm.get(5)), s16(mm.get(7) >> 16), s16(mm.get(7)))) or 0)
+    m.stub_routine("STPlayDynamicSound", lambda mm: ev.append("dyn:%d:%d:%d:%d:%d:%d" % (
+        mm.get(3), s16(mm.get(5)), s16(mm.get(6) >> 16), s16(mm.get(6)), s16(mm.get(7) >> 16), s16(mm.get(7)))) or 0)
     for slot, snd in SOUNDS.items():
         m.w32(m.glob(slot), snd)
     sat = m.glob(SAT)
