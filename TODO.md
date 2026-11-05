@@ -125,8 +125,8 @@
 - [ ] Harry-big Easter egg key (0x74?): short press of Shift + = + Page Up
 
 ## Release
-- [ ] First release: the repository on GitHub, GitHub Pages from `docs/`,
-      CHANGELOG cut to 0.1.0, tag `v0.1.0`
+- [x] First release 0.1.0 (2026-11-05): the repository on GitHub, GitHub Pages from `docs/`,
+      tag `v0.1.0`
 - [ ] Homebrew: formula `ouro-harry` in the tap `homebrew-games` (url of
       the tag's tarball, its sha256, `license "GPL-3.0-or-later"`, `head`
       on `main`; tested with a local tarball on 2026-11-05: builds,
