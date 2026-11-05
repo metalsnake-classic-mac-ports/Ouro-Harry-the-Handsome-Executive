@@ -2,12 +2,14 @@
 screens the game exports.
 
     for l in 1 2 7 9 11; do ouro-harry --screenshot shots/l$l.bmp $l 40; done
+    HARRY_SCENE_DUMP=shots cargo test -p harry the_credits_scroll
     re/work/venv/bin/python3 -I re/tools/site_assets.py data/ouro-harry-data.zip shots docs/site
 
 Writes: logo.png (the logo from the game screen's panel, on its granite),
 granite.png (a tile of the panel's stone), menu.png (the main menu
 picture), things.png (the instructions' "things at ScumCo"), credits.png
-(the credits list), screen-*.png (the
+(the credits list), screen-credits.png (the credits window over the main
+menu, from the menu test's dump, with the list at its start), screen-*.png (the
 port's level screens, 640 x 480) and harry.png (Harry on his chair, the
 icon). Needs Pillow.
 """
@@ -40,6 +42,11 @@ def main():
     icon = Image.new("RGBA", (48, 48))
     icon.alpha_composite(face, ((48 - face.width) // 2, (48 - face.height) // 2))
     icon.save(f"{out}/harry.png", optimize=True)
+    # the credits window (DLOG 600 centred: at (220, 97)) with PICT 4803's
+    # first 150 rows in its clip (34, 120) - (170, 270)
+    credits = Image.open(f"{shots}/menu_credits.bmp").convert("RGB")
+    credits.paste(image("pictures/4803.png").crop((0, 0, 136, 150)), (220 + 34, 97 + 120))
+    credits.save(f"{out}/screen-credits.png", optimize=True)
     for level, name in SCREENS.items():
         Image.open(f"{shots}/l{level}.bmp").convert("RGB").save(f"{out}/{name}", optimize=True)
     print("written to", out)
