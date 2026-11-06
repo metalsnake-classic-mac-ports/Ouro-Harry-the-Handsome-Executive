@@ -2041,6 +2041,19 @@ disks and the emulators' settings stay in `re/work/emu` and
     # PowerPC build, Mac OS 9.0.4 (SheepShaver)
     ../ouro-tools/sheepshaver/SheepShaver/src/Unix/SheepShaver --config "$PWD/re/work/emu-ppc/sheepshaver.prefs"
 
+Both emulators are built from the `ouro` branch since 2026-11-06 (the
+skill's `scripts/emulator/build-ouro.sh`, changes listed in
+`ouro-tools/basilisk/docs/ouro.md`). For scripts, start them with
+`SDL_VIDEODRIVER=offscreen SDL_AUDIODRIVER=dummy EMULATOR_MONITOR_PORT=19840`:
+no window, and clicks, keys and screenshots go through the emulator
+monitor straight into the emulated Mac (`tools/emumonitor.py`; skill
+`references/emulation.md`, "Automation"). Checked headless: System 7.5
+boots in Basilisk II with Harry's disks, the Apple menu opens on
+`mousedown`; Mac OS 9.0.4 boots in SheepShaver to the Finder in about
+17 s, the "did not shut down properly" dialog closes with `click 499
+262`. The monitor's `quit` ends the emulator without shutting the Mac
+down, so the next Mac OS 9 boot shows that dialog again.
+
 ### SheepShaver (PPC)
 
 `ouro-tools/sheepshaver`: SheepShaver built from kanjitalk755/macemu
@@ -2056,7 +2069,11 @@ under OS 9 (puts Harry Instruments into its System Folder),
 during my installation was the installer / first boot (or my
 automation), not the emulator in general. Once (2026-10-23) it quit
 silently during play (no crash report, no log message) - right after
-test key events (Shift + = + Page Up via Quartz); cause unknown.
+test key events (Shift + = + Page Up via Quartz). Probable cause, not
+proven: on arm64 kanjitalk755's SheepShaver had no test-and-set, so
+`spin_lock` did nothing and a lost update between two threads could end
+the PowerPC emulation (e-z-g's fix, in the `ouro` build since
+2026-11-06; boot time unchanged, A/B 17 s / 17 s).
 
 ### Basilisk II (68k)
 
