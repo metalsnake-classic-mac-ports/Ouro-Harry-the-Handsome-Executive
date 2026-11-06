@@ -1,8 +1,8 @@
 """Run routines of the PowerPC build of Harry in Unicorn.
 
-The machine is the classic-mac-port skill's (scripts/ppc/ppcmachine.py,
-found through CLASSIC_MAC_PORT, default ~/.claude/skills/classic-mac-port);
-this module adds what is Harry's: the addresses the recorders use and
+The machine is the shared one in ouro-tools (re/ppc/ppcmachine.py, found
+through OURO_TOOLS, default ../ouro-tools next to this repository); this
+module adds what is Harry's: the addresses the recorders use and
 loading a level. re/ghidra/run.sh must have run (re/work/ppc).
 
 Usage:
@@ -14,9 +14,9 @@ Usage:
 import importlib.util
 import os
 
-# the skill's module has the same name as this one: load it under another
-_skill = os.environ.get("CLASSIC_MAC_PORT", os.path.expanduser("~/.claude/skills/classic-mac-port"))
-_spec = importlib.util.spec_from_file_location("skill_ppcmachine", os.path.join(_skill, "scripts", "ppc", "ppcmachine.py"))
+# the shared module has the same name as this one: load it under another
+_tools = os.environ.get("OURO_TOOLS") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ouro-tools")
+_spec = importlib.util.spec_from_file_location("ouro_ppcmachine", os.path.join(_tools, "re", "ppc", "ppcmachine.py"))
 _skill_machine = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_skill_machine)
 STACK_TOP, BASE = _skill_machine.STACK_TOP, _skill_machine.BASE

@@ -121,10 +121,10 @@ tests against Basilisk II.
   TOC entries (`_DAT_10065b64` = pointer to the level handle, ...); name
   them as they become clear.
 - **Reproduce: `re/ghidra/run.sh`** (import, all scripts below, decompile
-  → `re/work/ppc/game.c`, 1043 functions). It calls the classic-mac-port
-  skill's `scripts/ppc/run_ghidra.sh` (skill folder: `CLASSIC_MAC_PORT`,
-  default `~/.claude/skills/classic-mac-port`; it picks the newest
-  Homebrew JDK, Ghidra 12.2 needs 25) with Harry's lists: `names.txt`
+  → `re/work/ppc/game.c`, 1043 functions). It calls the shared
+  `ouro-tools/re/ppc/run_ghidra.sh` (`OURO_TOOLS`, default `../ouro-tools`
+  next to this repository; it picks the newest Homebrew JDK, Ghidra 12.2
+  needs 25) with Harry's lists: `names.txt`
   (SAT routines without traceback), `globals.txt`, `sprite.txt` and the
   name pattern of the sprite routines. The scripts, in order:
   - `ApplyNames.java`: functions and names from `traceback.txt`.

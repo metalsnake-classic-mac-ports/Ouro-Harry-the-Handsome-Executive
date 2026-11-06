@@ -22,7 +22,8 @@ def clut8():
 
 
 if __name__ == "__main__":
-    sys.path.insert(0, os.path.expanduser("~/.claude/skills/classic-mac-port/scripts"))
+    _tools = os.environ.get("OURO_TOOLS") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ouro-tools")
+    sys.path.insert(0, os.path.join(_tools, "re"))   # the shared library (ouro-tools/re)
     from pict import decode
     C = clut8()
     S = set(C)

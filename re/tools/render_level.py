@@ -14,7 +14,8 @@ import sys
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.expanduser("~/.claude/skills/classic-mac-port/scripts"))
+_tools = os.environ.get("OURO_TOOLS") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ouro-tools")
+sys.path.insert(0, os.path.join(_tools, "re"))   # the shared library (ouro-tools/re)
 from pict import decode, unpack_bits  # noqa: E402
 
 
