@@ -2041,9 +2041,10 @@ disks and the emulators' settings stay in `re/work/emu` and
     # PowerPC build, Mac OS 9.0.4 (SheepShaver)
     ../ouro-tools/sheepshaver/SheepShaver/src/Unix/SheepShaver --config "$PWD/re/work/emu-ppc/sheepshaver.prefs"
 
-Both emulators are built from the `ouro` branch since 2026-11-06 (the
-skill's `scripts/emulator/build-ouro.sh`, changes listed in
-`ouro-tools/basilisk/docs/ouro.md`). For scripts, start them with
+Both emulators are built from
+[ouro-macemu](https://github.com/metalsnake-classic-mac-ports/ouro-macemu),
+branch `ouro`, since 2026-11-06 (`ouro-tools/build-emulators.sh`; its
+README lists the changes against kanjitalk755/macemu). For scripts, start them with
 `SDL_VIDEODRIVER=offscreen SDL_AUDIODRIVER=dummy EMULATOR_MONITOR_PORT=19840`:
 no window, and clicks, keys and screenshots go through the emulator
 monitor straight into the emulated Mac (`tools/emumonitor.py`; skill
