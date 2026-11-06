@@ -2037,9 +2037,9 @@ disks and the emulators' settings stay in `re/work/emu` and
 `re/work/emu-ppc`. Start from the repository root:
 
     # 68k build, System 7.5 (Basilisk II)
-    ../ouro-tools/basilisk/BasiliskII/src/Unix/BasiliskII --config re/work/emu/basilisk.prefs
+    ../ouro-macemu/BasiliskII/src/Unix/BasiliskII --config re/work/emu/basilisk.prefs
     # PowerPC build, Mac OS 9.0.4 (SheepShaver)
-    ../ouro-tools/sheepshaver/SheepShaver/src/Unix/SheepShaver --config "$PWD/re/work/emu-ppc/sheepshaver.prefs"
+    ../ouro-macemu/SheepShaver/src/Unix/SheepShaver --config "$PWD/re/work/emu-ppc/sheepshaver.prefs"
 
 Both emulators are built from
 [ouro-macemu](https://github.com/metalsnake-classic-mac-ports/ouro-macemu),
@@ -2057,8 +2057,8 @@ down, so the next Mac OS 9 boot shows that dialog again.
 
 ### SheepShaver (PPC)
 
-`ouro-tools/sheepshaver`: SheepShaver built from kanjitalk755/macemu
-(`--disable-jit`, SDL2), ROM `ouro-tools/roms/newworld86.rom` (user), Mac
+`ouro-macemu` (next to this repository): SheepShaver, `--disable-jit`,
+SDL2; ROM `ouro-tools/roms/newworld86.rom` (user), Mac
 OS 9.0.4 CD (user, `691-2684-A`, linked as `ouro-tools/systems/
 macos904.iso`) installed onto `ouro-tools/systems/macos9-harry.dsk` (2 GB,
 Mac OS Extended; "Update Apple Hard Disk Drivers" switched off; clean
@@ -2078,8 +2078,8 @@ the PowerPC emulation (e-z-g's fix, in the `ouro` build since
 
 ### Basilisk II (68k)
 
-`ouro-tools/basilisk` (built by S.C.Out's `re/tools/emulator/build.sh`),
-Performa ROM `ouro-tools/roms/PERFORMA.ROM`, the System 7.5 + Sound
+`ouro-macemu` (next to this repository, built by
+`ouro-tools/build-emulators.sh`), Performa ROM `ouro-tools/roms/PERFORMA.ROM`, the System 7.5 + Sound
 Manager 3.1 boot disk with `Harry Instruments` in Extensions
 (`ouro-tools/systems/system75-sound-harry.dsk`); in `re/work/emu`:
 `harry.dsk` (100 MB HFS) with the installer, `harry-installed.dsk` =
