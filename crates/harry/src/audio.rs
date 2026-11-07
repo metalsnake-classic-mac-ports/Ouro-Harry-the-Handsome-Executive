@@ -90,6 +90,12 @@ impl Mixer {
         Mixer { stream, sounds: table(&data.sounds), world: table(&data.world_sounds), volume: 1.0 }
     }
 
+    /// A mixer without an output (for tests): nothing plays.
+    #[cfg(test)]
+    pub fn silent(data: &GameData) -> Mixer {
+        Mixer { stream: None, sounds: table(&data.sounds), world: table(&data.world_sounds), volume: 1.0 }
+    }
+
     /// `SetMusic(id)`: the tune from its start (silent while faded out).
     pub fn music(&mut self, id: i16) {
         if let Some(mut v) = self.stream.as_mut().and_then(|s| s.lock()) {

@@ -19,6 +19,7 @@
 //! `cargo run -p harry --example audio_probe` shows how SDL drives the
 //! audio callback.
 
+mod app;
 mod audio;
 mod balloon;
 mod menu;
@@ -33,7 +34,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, anyhow};
 use harry_core::savegame::SaveGame;
-use harry_core::game::{Assets, Balloon, FrameEnd, Game, LevelStart, Prefs, UpLevel};
+use harry_core::game::{Assets, Balloon, Game, LevelStart, Prefs};
 use harry_core::keys::{Bindings, KeyMap};
 use harry_core::kinds::LevelCounter;
 use harry_core::player::Masks;
@@ -196,6 +197,23 @@ struct Loaded {
 }
 
 impl Loaded {
+    /// The masks as the game routines take them.
+    fn assets<'a>(&'a self, face_bounds: &'a dyn Fn(i16) -> [i16; 4]) -> Assets<'a> {
+        Assets {
+            player: &self.player,
+            plant: &self.plant,
+            barrel: &self.barrel,
+            cooler: &self.cooler,
+            shot: &self.shot,
+            ramps: [&self.ramps[0], &self.ramps[1], &self.ramps[2], &self.ramps[3]],
+            player_shot: &self.player_shot,
+            robot: &self.robot,
+            blob: &self.blob,
+            desks: [&self.desks[0], &self.desks[1]],
+            face_bounds,
+        }
+    }
+
     fn new(data: &GameData) -> Result<Loaded> {
         let cicn = |id: i16| data.masks.cicns.get(&id).cloned().with_context(|| format!("mask cicn {id} missing"));
         let face = |id: i16| data.face_mask(id).with_context(|| format!("face {id} missing"));
@@ -301,52 +319,22 @@ fn main() -> Result<()> {
     let loaded = Loaded::new(&data)?;
     // the settings (the options screen), in SDL's preference folder
     let settings_path = sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok().map(|d| d.join("settings.txt"));
-    let mut settings = settings_path.as_deref().map(options::Settings::load).unwrap_or_default();
+    let settings = settings_path.as_deref().map(options::Settings::load).unwrap_or_default();
     let face_bounds = |f: i16| data.faces.get(&f).map_or([0; 4], |x| x.bounds);
-    let assets = Assets {
-        player: &loaded.player,
-        plant: &loaded.plant,
-        barrel: &loaded.barrel,
-        cooler: &loaded.cooler,
-        shot: &loaded.shot,
-        ramps: [&loaded.ramps[0], &loaded.ramps[1], &loaded.ramps[2], &loaded.ramps[3]],
-        player_shot: &loaded.player_shot,
-        robot: &loaded.robot,
-        blob: &loaded.blob,
-        desks: [&loaded.desks[0], &loaded.desks[1]],
-        face_bounds: &face_bounds,
-    };
+    let assets = loaded.assets(&face_bounds);
     // a level on the command line starts it at once, else the main menu
     let direct = args.get(2).is_some();
-    let mut level: usize = args.get(2).and_then(|s| s.parse::<usize>().ok()).map_or(0, |n| n.clamp(1, data.levels.len()) - 1);
+    let level: usize = args.get(2).and_then(|s| s.parse::<usize>().ok()).map_or(0, |n| n.clamp(1, data.levels.len()) - 1);
     let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.subsec_nanos() | 1);
-    let start = |level: usize, g: PlayerGlobals, seed: u32| {
-        let mut game = new_game(&data, level, g, seed);
-        let (h, v) = game.level.start;
-        // HARRY_START=h,v puts Harry elsewhere (for testing)
-        let (h, v) = std::env::var("HARRY_START")
-            .ok()
-            .and_then(|s| s.split_once(',').map(|(a, b)| (a.parse().ok(), b.parse().ok())))
-            .and_then(|(a, b)| Some((a?, b?)))
-            .unwrap_or((h - 32, v - 32));
-        let missing = game.start(h, v, game.level.start_dir, &assets);
-        if !missing.is_empty() {
-            eprintln!("level {}: not ported yet: {missing:?}", level + 1);
-        }
-        game
-    };
-    let mut game = start(level, PlayerGlobals::new_game(), seed);
-    // the saved game (the record as the original keeps it in its HrSG
-    // resource); continuing needs one saved in this session
+    let game = app::start_game(&data, &assets, level, PlayerGlobals::new_game(), seed);
     let save_path = sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok().map(|d| d.join("Harry Save.hrsg"));
-    let mut have_save = false;
     let fonts = text::Fonts::load();
     if let Some((out, frames)) = screenshot {
         return write_screenshot(&data, &assets, &fonts, game, &out, frames);
     }
 
     let sdl = sdl3::init()?;
-    let mut mixer = audio::Mixer::open(&sdl, &data);
+    let mixer = audio::Mixer::open(&sdl, &data);
     let video = sdl.video()?;
     let window = video
         .window("Harry the Handsome Executive", 2 * render::SCREEN_WIDTH as u32, 2 * render::SCREEN_HEIGHT as u32)
@@ -358,448 +346,37 @@ fn main() -> Result<()> {
     let creator = canvas.texture_creator();
     let mut display = Display::new(canvas, &creator)?;
     display.apply(&settings);
-    mixer.set_volume(settings.volume);
-    mixer.set_music_volume(settings.music_volume);
-    let mut next = Instant::now();
-    // a balloon being shown and since when (the game waits meanwhile)
-    let mut shown: Option<(balloon::Shown, Instant)> = None;
-    // a sequence between frames (fades, pictures; the game waits), the next
-    // tick, and whether the screen is faded to black when none runs
-    let start_screen = |game: &Game| {
-        let mut c = render::draw(&data, game);
-        c.fill(16, 16, 448, 448, 255);
-        c
-    };
-    let menu_screen = |m: &menu::Menu| m.draw(&data, &fonts).0;
-    // the main menu (when it shows, the game waits); the question before a
-    // game is given up
-    let mut in_menu: Option<menu::Menu> = None;
-    // the options screen over the menu
-    let mut opts: Option<options::Screen> = None;
-    let mut confirm = false;
-    // Pause (the original's `Pause`): by the pause key - caps lock as in
-    // the original, paused while it is locked; another key by turns - or
-    // when the window loses focus (until a key or a click)
-    let mut pause_toggled = false;
-    let mut focus_paused = false;
-    let mut was_paused = false;
-    // Command-I (Control-I off the Mac) in the game: the options, the game
-    // waits
-    let options_mod = if cfg!(target_os = "macos") { Mod::LGUIMOD | Mod::RGUIMOD } else { Mod::LCTRLMOD | Mod::RCTRLMOD };
-    // ShowMap: open since when; frames before the key opens it again
-    let mut map: Option<Instant> = None;
-    let mut map_cooldown = 0u32;
-    let mut scene = if direct {
-        Some(scenes::Scenes::new(start_screen(&game), true, scenes::game_start(&game.level, true, &data.world)))
-    } else {
-        let m = menu::Menu::new();
-        let mut sc = scenes::Scenes::new(start_screen(&game), true, Vec::new());
-        // main: SetMusic(600), the menu
-        sc.then = Some((menu_screen(&m), vec![scenes::Step::Music(600), scenes::Step::FadeIn(8)]));
-        in_menu = Some(m);
-        Some(sc)
-    };
-    let mut tick = Instant::now();
-    let mut faded = true;
-    // the music is faded out (FadeMusic's DAT_10072711)
-    let mut music_faded = false;
-    // to the main menu from the screen shown: fade out, the menu, fade in
-    let to_menu = |screen: render::Canvas, faded: bool, steps: Vec<scenes::Step>| {
-        let m = menu::Menu::new();
-        let mut steps = steps;
-        steps.push(scenes::Step::FadeOut(8));
-        let mut sc = scenes::Scenes::new(screen, faded, steps);
-        let mut then = vec![scenes::Step::FadeIn(8)];
-        then.extend(scenes::menu_music());
-        sc.then = Some((menu_screen(&m), then));
-        (m, sc)
-    };
-    let mut score = ScoreShown::default();
+    let mut app = app::App::new(&data, &assets, &fonts, settings, settings_path, save_path, mixer, game, level, direct, Instant::now());
     // HARRY_STATS: loop timing once a second
     let stats = std::env::var_os("HARRY_STATS").is_some();
-    let (mut loops, mut frames_run, mut busy, mut stat_start) = (0u32, 0u32, Duration::ZERO, Instant::now());
-    'run: loop {
+    let (mut loops, mut busy, mut stat_start) = (0u32, Duration::ZERO, Instant::now());
+    loop {
         let loop_start = Instant::now();
-        let mut jump: Option<usize> = None;
-        // a key or mouse button pressed now (it can end a scrolled picture;
-        // one held since before cannot)
-        let mut pressed = false;
-        let mut action: Option<menu::Action> = None;
-        let mut opt_event: Option<options::Event> = None;
-        let mut give_up = false;
-        for mut e in events.poll_iter() {
-            e.convert_coords(&display.canvas);
-            let menu_live = scene.is_none() && in_menu.is_some();
-            match e {
-                Event::Quit { .. } => break 'run,
-                Event::Window { win_event: sdl3::event::WindowEvent::FocusLost, .. } => focus_paused = true,
-                // a key or a click ends the pause of a lost focus (and does
-                // nothing else)
-                Event::KeyDown { .. } | Event::MouseButtonDown { .. } if focus_paused && scene.is_none() && in_menu.is_none() => {
-                    focus_paused = false;
-                }
-                Event::MouseButtonDown { x, y, .. } => {
-                    pressed = true;
-                    if scene.is_none() && let Some(o) = opts.as_mut() {
-                        opt_event = opt_event.or(o.click(x as i32, y as i32));
-                    } else if menu_live && let Some(m) = in_menu.as_mut() {
-                        m.mouse_down(x as i32, y as i32);
-                    }
-                }
-                Event::MouseMotion { x, y, .. } => {
-                    if menu_live && let Some(m) = in_menu.as_mut() {
-                        m.mouse_move(x as i32, y as i32);
-                    }
-                }
-                Event::MouseButtonUp { x, y, .. } => {
-                    if menu_live && let Some(m) = in_menu.as_mut() {
-                        action = action.or(m.mouse_up(x as i32, y as i32));
-                    }
-                }
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if confirm => match sc {
-                    Scancode::Return | Scancode::KpEnter | Scancode::Y => {
-                        confirm = false;
-                        give_up = true;
-                    }
-                    Scancode::Escape | Scancode::N => {
-                        confirm = false;
-                        next = Instant::now();
-                    }
-                    _ => {}
-                },
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if scene.is_none() && opts.is_some() => {
-                    if let Some(o) = opts.as_mut() {
-                        opt_event = opt_event.or(o.key(sc, mac_code(sc)));
-                    }
-                }
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if menu_live && sc != settings.fullscreen_key => {
-                    let Some(m) = in_menu.as_mut() else { continue };
-                    if sc == Scancode::Escape {
-                        if m.message.is_none() && !m.credits_open() {
-                            break 'run;
-                        }
-                        m.key('\x1b');
-                    } else if let Some(c) = Keycode::from_scancode(sc, SDL_KMOD_NONE, false)
-                        .and_then(|k| char::from_u32(k as u32))
-                        .filter(char::is_ascii_lowercase)
-                    {
-                        m.key(c);
-                    } else if matches!(sc, Scancode::Return | Scancode::KpEnter) {
-                        m.key('\r');
-                    }
-                }
-                Event::KeyDown { scancode: Some(sc), keymod, repeat: false, .. } => {
-                    if let Some((_, since)) = &shown {
-                        // Return / Enter at once, any key after a second
-                        if matches!(sc, Scancode::Return | Scancode::KpEnter) || since.elapsed() >= Duration::from_secs(1) {
-                            shown = None;
-                            next = Instant::now();
-                        }
-                        continue;
-                    }
-                    match sc {
-                        _ if scene.is_some() && sc != settings.fullscreen_key => pressed = true,
-                        // CheckGameLoopKeys: Escape asks before the game is given up
-                        Scancode::Escape => confirm = true,
-                        // Command-I: the options
-                        Scancode::I if keymod.intersects(options_mod) => opts = Some(options::Screen::new(settings.clone())),
-                        _ if sc == settings.pause_key && sc != Scancode::CapsLock => pause_toggled = !pause_toggled,
-                        _ if sc == settings.fullscreen_key => {
-                            settings.fullscreen = !settings.fullscreen;
-                            display.apply(&settings);
-                            if let Some(p) = &settings_path {
-                                let _ = settings.save(p);
-                            }
-                        }
-                        Scancode::F8 => jump = Some((level + 1) % data.levels.len()),
-                        Scancode::F7 => jump = Some((level + data.levels.len() - 1) % data.levels.len()),
-                        _ => {}
-                    }
-                }
-                _ => {}
-            }
+        let polled: Vec<Event> = events
+            .poll_iter()
+            .map(|mut e| {
+                e.convert_coords(&display.canvas);
+                e
+            })
+            .collect();
+        let input = app::Input { held: keymap(&events.keyboard_state()), caps_lock: sdl.keyboard().mod_state().contains(Mod::CAPSMOD) };
+        if !app.step(polled, &input, Instant::now()) {
+            break;
         }
-        if let Some(n) = jump {
-            level = n;
-            game = start(level, PlayerGlobals::new_game(), game.rng.seed);
-            scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, false, &data.world)));
-            tick = Instant::now();
+        if std::mem::take(&mut app.display_changed) {
+            display.apply(&app.settings);
         }
-        let now = Instant::now();
-        if let Some(sc) = scene.as_mut() {
-            sc.music_faded = music_faded;
-            while tick <= now && !sc.done() {
-                sc.tick(&data, std::mem::take(&mut pressed));
-                for c in std::mem::take(&mut sc.music) {
-                    match c {
-                        scenes::MusicCommand::Play(id) => mixer.music(id),
-                        scenes::MusicCommand::Fade { out, ticks } => mixer.fade_music(out, ticks),
-                    }
-                }
-                tick += TICK;
-            }
-            music_faded = sc.music_faded;
-            if sc.done() {
-                faded = sc.dark >= 256;
-                scene = None;
-                next = Instant::now();
-            }
-        }
-        // the main menu: its ticks, sounds and what it asks for
-        if scene.is_none()
-            && let Some(m) = in_menu.as_mut()
-        {
-            while tick <= now {
-                action = action.or(m.tick(&data));
-                tick += TICK;
-            }
-            mixer.events(&std::mem::take(&mut m.sounds), false);
-        }
-        if let Some(e) = opt_event
-            && let Some(o) = &opts
-        {
-            settings = o.settings.clone();
-            display.apply(&settings);
-            mixer.set_volume(settings.volume);
-            mixer.set_music_volume(settings.music_volume);
-            if e == options::Event::Done {
-                if let Some(p) = &settings_path
-                    && let Err(err) = settings.save(p)
-                {
-                    eprintln!("{}: {err}", p.display());
-                }
-                opts = None;
-                next = Instant::now();
-            }
-        }
-        match action {
-            Some(menu::Action::Options) => opts = Some(options::Screen::new(settings.clone())),
-            Some(menu::Action::NewGame) => {
-                level = 0;
-                game = start(level, PlayerGlobals::new_game(), game.rng.seed);
-                in_menu = None;
-                scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, true, &data.world)));
-                tick = now;
-            }
-            // ContinueGame: the save list is to come; the game saved in
-            // this session goes on (a copier save without the story)
-            Some(menu::Action::Continue) => {
-                // HARRY_SAVE=<file> continues from that record instead (for
-                // testing, e.g. the saves of `ouro-harry-repro`)
-                let saved = match std::env::var_os("HARRY_SAVE") {
-                    Some(p) => std::fs::read(p).ok(),
-                    None => save_path.as_ref().filter(|_| have_save).and_then(|p| std::fs::read(p).ok()),
-                };
-                if let Some(sg) = saved.map(|b| SaveGame::from_bytes(&b))
-                    && let Some(missing) = game.continue_game(&sg, &data.levels, &assets)
-                {
-                    level = (sg.level as usize).saturating_sub(1);
-                    if !missing.is_empty() {
-                        eprintln!("level {}: not ported yet: {missing:?}", level + 1);
-                    }
-                    in_menu = None;
-                    scene = Some(scenes::Scenes::new(start_screen(&game), faded, scenes::game_start(&game.level, !sg.copier, &data.world)));
-                    tick = now;
-                }
-            }
-            Some(menu::Action::Quit) => break 'run,
-            None => {}
-        }
-        if give_up {
-            let (m, sc) = to_menu(render::draw(&data, &game), faded, Vec::new());
-            in_menu = Some(m);
-            scene = Some(sc);
-            tick = now;
-        }
-        // the map closes with its key once 12 ticks have passed
-        if let Some(since) = map
-            && since.elapsed() >= TICK * 12
-            && keymap(&events.keyboard_state()).down(settings.map_key)
-        {
-            map = None;
-            next = Instant::now();
-        }
-        // the pause: its sound (snd 198) as it starts; when it ends the
-        // game goes on from now
-        let in_game = scene.is_none() && in_menu.is_none();
-        let caps = settings.pause_key == Scancode::CapsLock && sdl.keyboard().mod_state().contains(Mod::CAPSMOD);
-        let paused = in_game && (caps || pause_toggled || focus_paused);
-        if paused && !was_paused {
-            mixer.events(
-                &[harry_core::sound::SoundEvent::Play {
-                    id: 198,
-                    left: 0x100,
-                    right: 0x100,
-                    rate: harry_core::sound::RATE,
-                    channel: harry_core::sound::Channel::Effect,
-                    handle: 0,
-                }],
-                false,
-            );
-        } else if !paused && was_paused {
-            next = Instant::now();
-        }
-        was_paused = paused;
-        if !in_game {
-            (pause_toggled, focus_paused) = (false, false);
-        }
-        // the settings the game reads
-        game.prefs.scroll = settings.camera;
-        game.prefs.autosave = settings.autosave;
-        game.prefs.bindings = settings.bindings;
-        while scene.is_none() && in_menu.is_none() && !paused && opts.is_none() && !confirm && map.is_none() && shown.is_none() && next <= now {
-            next += FRAME;
-            let keys = keymap(&events.keyboard_state());
-            let mut asked = None;
-            let mut show = |b: &Balloon| {
-                asked = balloon::place(b, &data, &fonts);
-                asked.is_some()
-            };
-            // CopierSave's dialog is not ported: at the copier Harry saves
-            let mut save = || true;
-            game.audio.playing = mixer.playing();
-            let end = game.frame(&keys, &assets, &mut show, &mut save);
-            frames_run += 1;
-            // CheckGameLoopKeys: the map key (not again for 6 passes)
-            map_cooldown = map_cooldown.saturating_sub(1);
-            if keys.down(settings.map_key) && map_cooldown == 0 {
-                map = Some(Instant::now());
-                map_cooldown = 6;
-            }
-            mixer.events(&game.sounds, game.level.own_sounds);
-            if game.sounds.iter().any(|e| matches!(e, harry_core::sound::SoundEvent::FadeMusicOut(_))) {
-                music_faded = true;
-            }
-            score.step(game.g.score);
-            if let Some(b) = asked {
-                shown = Some((b, Instant::now()));
-            }
-            match end {
-                FrameEnd::Running => {}
-                FrameEnd::LevelDone => {
-                    // the screen as the level ended, under the sequence
-                    let (screen, old) = (render::draw(&data, &game), game.level.clone());
-                    let heard = game.sounds.len();
-                    let up = game.up_level(&data.levels, &assets);
-                    // UpLevel's jingle (4800)
-                    mixer.events(&game.sounds[heard..], old.own_sounds);
-                    match up {
-                        (UpLevel::Next, missing) => {
-                            level = (game.counter.current as usize).saturating_sub(1);
-                            if !missing.is_empty() {
-                                eprintln!("level {}: not ported yet: {missing:?}", level + 1);
-                            }
-                            scene = Some(scenes::Scenes::new(screen, faded, scenes::up_level(&old, &game.level, &data.world)));
-                        }
-                        // after Win the main menu
-                        (UpLevel::Won, _) => {
-                            let (m, sc) = to_menu(screen, faded, scenes::win(&data.world));
-                            in_menu = Some(m);
-                            scene = Some(sc);
-                        }
-                    }
-                    tick = Instant::now();
-                }
-                FrameEnd::Died => {
-                    // GameLoop's end: EndLevelEffect when comfort or favor
-                    // is gone
-                    let screen = render::draw(&data, &game);
-                    let mut steps = Vec::new();
-                    if game.g.comfort < 1 || game.g.favor < 1 {
-                        steps.push(scenes::Step::EndLevel);
-                    }
-                    // then the main menu (AskToContinue is to come with the
-                    // save list; the menu's Continue goes on from the game
-                    // saved in this session)
-                    let (m, sc) = to_menu(screen, faded, steps);
-                    in_menu = Some(m);
-                    scene = Some(sc);
-                    tick = Instant::now();
-                }
-            }
-            if std::mem::take(&mut game.session.save_pending) {
-                // SaveSG: the record, dated, to the save file
-                game.session.save.date = mac_seconds();
-                if let Some(p) = &save_path {
-                    match std::fs::write(p, game.session.save.to_bytes()) {
-                        Ok(()) => have_save = true,
-                        Err(e) => eprintln!("{}: {e}", p.display()),
-                    }
-                }
-            }
-        }
-        let (mut image, mut lines) = match &in_menu {
-            Some(m) if scene.is_none() => {
-                let (mut c, mut l) = m.draw(&data, &fonts);
-                if let Some(o) = &opts {
-                    l = o.draw(&mut c, &key_name);
-                }
-                (c, l)
-            }
-            _ => {
-                let (mut c, mut l) = picture(&data, &game, &score, shown.as_ref().map(|(b, _)| b));
-                if let Some(o) = &opts {
-                    // over the game area; the panel's texts stay
-                    l.extend(o.draw(&mut c, &key_name));
-                } else if paused && let Some(p) = data.pictures.get(&4921) {
-                    // Pause: PICT 4921 at (128, 192), over the game area's middle
-                    c.draw_picture(p, 128, 192);
-                    // its "Press CAPS LOCK To Resume" (rows 64–82) when
-                    // something else goes on
-                    let hint = if focus_paused {
-                        Some("Press any key to resume".to_string())
-                    } else if settings.pause_key != Scancode::CapsLock {
-                        Some(format!("Press {} to resume", settings.pause_key.name()))
-                    } else {
-                        None
-                    };
-                    if let Some(hint) = hint {
-                        if let Some(grey) = p.get(20, 60) {
-                            c.fill(128 + 6, 192 + 62, 213, 22, grey);
-                        }
-                        let w = fonts.width(text::Face::HelveticaBold, 14.0, &hint);
-                        l.push(text::Line {
-                            x: 128.0 + (225.0 - w) / 2.0,
-                            baseline: 192.0 + 79.0,
-                            size: 14.0,
-                            face: text::Face::HelveticaBold,
-                            color: [0; 3],
-                            text: hint,
-                        });
-                    }
-                }
-                (c, l)
-            }
-        };
-        if map.is_some() && scene.is_none() && in_menu.is_none() {
-            render::draw_map(&mut image, &data, &game);
-        }
-        if confirm {
-            lines.extend(menu::message_box(
-                &mut image,
-                &fonts,
-                "Are you sure you want to abort this game?\n\nReturn: yes      Escape: no",
-            ));
-        }
-        let mut dark = if faded { 256 } else { 0 };
-        if let Some(sc) = &scene {
-            image = sc.image.clone();
-            dark = sc.dark;
-            if !sc.texts {
-                lines.clear();
-            }
-        }
-        display.present(&image, lines, dark, &fonts, settings.integer_scaling)?;
+        let (image, lines, dark) = app.compose();
+        display.present(&image, lines, dark, &fonts, app.settings.integer_scaling)?;
         if stats {
             loops += 1;
             busy += loop_start.elapsed();
             if stat_start.elapsed() >= Duration::from_secs(1) {
-                eprintln!("{loops} loops, {frames_run} frames, {:.1} ms per loop", busy.as_secs_f64() * 1000.0 / f64::from(loops));
-                (loops, frames_run, busy, stat_start) = (0, 0, Duration::ZERO, Instant::now());
+                eprintln!("{loops} loops, {} frames, {:.1} ms per loop", app.frames_run, busy.as_secs_f64() * 1000.0 / f64::from(loops));
+                (loops, app.frames_run, busy, stat_start) = (0, 0, Duration::ZERO, Instant::now());
             }
         }
-        let wake = if scene.is_some() || in_menu.is_some() { tick } else { next };
-        std::thread::sleep(wake.saturating_duration_since(Instant::now()).min(FRAME));
+        std::thread::sleep(app.wake().saturating_duration_since(Instant::now()).min(FRAME));
     }
     Ok(())
 }
