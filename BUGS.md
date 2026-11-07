@@ -282,12 +282,28 @@ bug was watched in the original yet; "expected" is what the code says.
   `emu_death.py` runs the direction after a wrap is one lower than a
   wrap with 36 would give.
 
+- **The warp dialog quits the game.** In debug mode New Game with Option
+  asks for a level (`WarpDialog`) and loads it, but `NewGame` then sets
+  the level counter to the world's start level (`Hwld` +0x1c4, 1) as for
+  any new game. `SetupLevelSprites` → `CheckWorldCorruption` compares the
+  loaded level's number (+0x12032) and name with the counter's level,
+  finds them different and reports a damaged world file, then `Quit` -
+  for every level but 1. Only the default world is checked, so a fan
+  world would warp. Port: the warp dialog is not ported yet (TODO.md);
+  it will set the counter to the level chosen (fixed).
+  **See it:** seen (2026-11-07, SheepShaver, the debug copy of
+  `re/tools/sheepshaver_debug.py`): the message, then the game ends.
+
 - **Two doors in level 12 have no key.** The locked doors 923 at
   (3311, 883) and (3310, 1170), the level's right edge, need the keys
   11397 and 11398 (item 11399 − info #0 2 and 1); level 12 holds only
   11399s, and `UpLevel` takes every key away before a level starts, so
   they never open. Behind them: a plant and a water cooler, two chairs.
-  Probably left from an earlier layout of the level. Port: keep.
+  In front of each an invisible message spot gives its sign: "Random &
+  Associates." (11397's door, world text 71) and "Associated Design
+  Conglomeration Corp." (11398's, text 67); the open door beside them
+  reads "Ambrosia Software, Inc." (73). Offices of other firms, shut on
+  purpose perhaps. Port: keep.
   **See it:** level 12, the two small rooms west of the corridor at the
   right edge; walking into either door gives only Harry's remark (sound
   205). Not seen yet.
