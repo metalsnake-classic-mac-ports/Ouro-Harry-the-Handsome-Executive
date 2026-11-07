@@ -15,7 +15,10 @@
 //! `ouro-harry --screenshot out.bmp [level] [frames]` runs the frames
 //! (`HARRY_SAVE=<file>`: from that saved game)
 //! without keys and writes the picture, without a window. With
-//! `HARRY_STATS` set the game prints its loop timing once a second;
+//! `HARRY_STATS` set the game prints its loop timing once a second.
+//! `HARRY_SCRIPT` plays keys into the window and saves pictures
+//! (`script`; `gui-test.sh` runs a whole game that way), `HARRY_SETTINGS`
+//! keeps the settings in another file;
 //! `cargo run -p harry --example audio_probe` shows how SDL drives the
 //! audio callback.
 
@@ -27,6 +30,7 @@ mod music;
 mod options;
 mod render;
 mod scenes;
+mod script;
 mod text;
 
 use std::path::{Path, PathBuf};
@@ -318,7 +322,10 @@ fn main() -> Result<()> {
     let data = load_data(args.get(1).filter(|s| !s.is_empty()))?;
     let loaded = Loaded::new(&data)?;
     // the settings (the options screen), in SDL's preference folder
-    let settings_path = sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok().map(|d| d.join("settings.txt"));
+    // (HARRY_SETTINGS=<file>: elsewhere, e.g. for the GUI test)
+    let settings_path = std::env::var_os("HARRY_SETTINGS")
+        .map(PathBuf::from)
+        .or_else(|| sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok().map(|d| d.join("settings.txt")));
     let settings = settings_path.as_deref().map(options::Settings::load).unwrap_or_default();
     let face_bounds = |f: i16| data.faces.get(&f).map_or([0; 4], |x| x.bounds);
     let assets = loaded.assets(&face_bounds);
@@ -350,23 +357,43 @@ fn main() -> Result<()> {
     // HARRY_STATS: loop timing once a second
     let stats = std::env::var_os("HARRY_STATS").is_some();
     let (mut loops, mut busy, mut stat_start) = (0u32, Duration::ZERO, Instant::now());
+    // HARRY_SCRIPT: input played into the window (GUI tests, `script`)
+    let mut script = std::env::var("HARRY_SCRIPT").ok().map(|s| script::Script::parse(&s, Instant::now())).transpose()?;
+    let shots_dir = std::env::var_os("HARRY_SHOTS").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+    let mut held = script::Held::default();
     loop {
         let loop_start = Instant::now();
-        let polled: Vec<Event> = events
+        let mut polled: Vec<Event> = events
             .poll_iter()
             .map(|mut e| {
                 e.convert_coords(&display.canvas);
                 e
             })
             .collect();
+        let (mut shots, mut quit) = (Vec::new(), false);
+        if let Some(s) = script.as_mut() {
+            for a in s.due(Instant::now()) {
+                held.apply(&a);
+                match a {
+                    script::Action::Key(sc, m) => polled.push(script::key_event(sc, m)),
+                    script::Action::FocusLost => polled.push(script::focus_lost()),
+                    script::Action::Shot(name) => shots.push(name),
+                    script::Action::Quit => quit = true,
+                    _ => {}
+                }
+            }
+        }
         let input = app::Input { held: keymap(&events.keyboard_state()), caps_lock: sdl.keyboard().mod_state().contains(Mod::CAPSMOD) };
-        if !app.step(polled, &input, Instant::now()) {
+        if !app.step(polled, &held.over(input), Instant::now()) || quit {
             break;
         }
         if std::mem::take(&mut app.display_changed) {
             display.apply(&app.settings);
         }
         let (image, lines, dark) = app.compose();
+        for name in shots {
+            write_picture(&shots_dir.join(format!("{name}.bmp")), &image, &lines, dark, &fonts)?;
+        }
         display.present(&image, lines, dark, &fonts, app.settings.integer_scaling)?;
         if stats {
             loops += 1;
@@ -504,17 +531,25 @@ fn write_screenshot(data: &GameData, assets: &Assets, fonts: &text::Fonts, mut g
         }
         render::draw_map(&mut image, data, &game);
     }
+    write_picture(Path::new(&out), &image, &lines, 0, fonts)
+}
+
+/// A picture with its texts at 1:1 as a BMP, `dark` of 256 toward black.
+fn write_picture(path: &Path, image: &render::Canvas, lines: &[text::Line], dark: i32, fonts: &text::Fonts) -> Result<()> {
     let mut rgb = vec![0u8; image.width * image.height * 3];
     image.to_rgb24(&clut8(), &mut rgb);
-    // the text at 1:1 on the picture
-    let overlay = fonts.draw(&lines, image.width, image.height);
+    let overlay = fonts.draw(lines, image.width, image.height);
     for (p, o) in rgb.as_chunks_mut::<3>().0.iter_mut().zip(overlay.as_chunks::<4>().0) {
         for k in 0..3 {
             p[k] = ((u32::from(p[k]) * (255 - u32::from(o[3])) + u32::from(o[k]) * u32::from(o[3])) / 255) as u8;
         }
     }
-    render::write_bmp(Path::new(&out), image.width, image.height, &rgb)?;
-    Ok(())
+    if dark > 0 {
+        for c in &mut rgb {
+            *c = (u32::from(*c) * (256 - dark.clamp(0, 256)) as u32 / 256) as u8;
+        }
+    }
+    Ok(render::write_bmp(path, image.width, image.height, &rgb)?)
 }
 
 /// The score as the panel shows it (`UpdateText`): it counts up 50 a

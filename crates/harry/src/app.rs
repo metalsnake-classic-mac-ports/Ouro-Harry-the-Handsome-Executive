@@ -28,6 +28,31 @@ pub struct Input {
     pub caps_lock: bool,
 }
 
+/// What shows.
+pub enum Screen {
+    /// A sequence between frames (fades, pictures); the main menu after it,
+    /// else the game.
+    Scene { scenes: scenes::Scenes, then_menu: Option<menu::Menu> },
+    /// The main menu, perhaps with the options over it.
+    Menu { menu: menu::Menu, options: Option<options::Screen> },
+    /// The game; it waits while something is over it.
+    Game(Overlay),
+}
+
+/// What can be over the game (one at a time; a new one replaces the one
+/// before).
+pub enum Overlay {
+    None,
+    /// The options (Command-I).
+    Options(options::Screen),
+    /// The question before the game is given up (Escape).
+    Confirm,
+    /// ShowMap, open since then.
+    Map(Instant),
+    /// A balloon, shown since then.
+    Balloon(balloon::Shown, Instant),
+}
+
 pub struct App<'a> {
     data: &'a GameData,
     assets: &'a Assets<'a>,
@@ -42,32 +67,24 @@ pub struct App<'a> {
     pub game: Game,
     level: usize,
     score: ScoreShown,
+    pub screen: Screen,
     /// The next game frame.
     next: Instant,
-    /// A balloon being shown and since when (the game waits meanwhile).
-    shown: Option<(balloon::Shown, Instant)>,
-    /// The main menu (when it shows, the game waits).
-    pub in_menu: Option<menu::Menu>,
-    /// The options screen, over the menu or the game.
-    pub opts: Option<options::Screen>,
-    /// The question before a game is given up.
-    pub confirm: bool,
-    /// Pause (the original's `Pause`): by the pause key - caps lock as in
-    /// the original, paused while it is locked; another key by turns - or
-    /// when the window loses focus (until a key or a click).
-    pause_toggled: bool,
-    focus_paused: bool,
-    pub paused: bool,
-    /// ShowMap: open since when; frames before the key opens it again.
-    pub map: Option<Instant>,
-    map_cooldown: u32,
-    /// A sequence between frames (fades, pictures; the game waits), the
-    /// next tick, and whether the screen is faded to black when none runs.
-    pub scene: Option<scenes::Scenes>,
+    /// The next tick of a sequence or the menu.
     tick: Instant,
+    /// The screen is faded to black when no sequence runs.
     faded: bool,
     /// The music is faded out (FadeMusic's DAT_10072711).
     music_faded: bool,
+    /// Pause (the original's `Pause`): by the pause key - caps lock as in
+    /// the original, paused while it is locked; another key by turns - or
+    /// when the window loses focus (until a key or a click). Only in the
+    /// game.
+    pause_toggled: bool,
+    focus_paused: bool,
+    pub paused: bool,
+    /// Frames before the map key opens the map again.
+    map_cooldown: u32,
     /// The window's scaling or full screen changed.
     pub display_changed: bool,
     /// Game frames run (for `HARRY_STATS`).
@@ -127,32 +144,27 @@ impl<'a> App<'a> {
             game,
             level,
             score: ScoreShown::default(),
+            screen: Screen::Game(Overlay::None),
             next: now,
-            shown: None,
-            in_menu: None,
-            opts: None,
-            confirm: false,
-            pause_toggled: false,
-            focus_paused: false,
-            paused: false,
-            map: None,
-            map_cooldown: 0,
-            scene: None,
             tick: now,
             faded: true,
             music_faded: false,
+            pause_toggled: false,
+            focus_paused: false,
+            paused: false,
+            map_cooldown: 0,
             display_changed: false,
             frames_run: 0,
         };
-        app.scene = if direct {
-            Some(scenes::Scenes::new(app.start_screen(), true, scenes::game_start(&app.game.level, true, &data.world)))
+        app.screen = if direct {
+            let scenes = scenes::Scenes::new(app.start_screen(), true, scenes::game_start(&app.game.level, true, &data.world));
+            Screen::Scene { scenes, then_menu: None }
         } else {
             let m = menu::Menu::new();
-            let mut sc = scenes::Scenes::new(app.start_screen(), true, Vec::new());
+            let mut scenes = scenes::Scenes::new(app.start_screen(), true, Vec::new());
             // main: SetMusic(600), the menu
-            sc.then = Some((app.menu_screen(&m), vec![scenes::Step::Music(600), scenes::Step::FadeIn(8)]));
-            app.in_menu = Some(m);
-            Some(sc)
+            scenes.then = Some((app.menu_screen(&m), vec![scenes::Step::Music(600), scenes::Step::FadeIn(8)]));
+            Screen::Scene { scenes, then_menu: Some(m) }
         };
         app
     }
@@ -168,17 +180,47 @@ impl<'a> App<'a> {
         m.draw(self.data, self.fonts).0
     }
 
+    /// The game's start (with the story when `intro`), then the game.
+    fn show_game_start(&mut self, intro: bool, now: Instant) {
+        let scenes = scenes::Scenes::new(self.start_screen(), self.faded, scenes::game_start(&self.game.level, intro, &self.data.world));
+        self.screen = Screen::Scene { scenes, then_menu: None };
+        self.tick = now;
+    }
+
     /// To the main menu from the screen shown: fade out, the menu, fade in.
-    fn to_menu(&mut self, screen: render::Canvas, steps: Vec<scenes::Step>) {
+    fn back_to_menu(&mut self, screen: render::Canvas, steps: Vec<scenes::Step>, now: Instant) {
         let m = menu::Menu::new();
         let mut steps = steps;
         steps.push(scenes::Step::FadeOut(8));
-        let mut sc = scenes::Scenes::new(screen, self.faded, steps);
+        let mut scenes = scenes::Scenes::new(screen, self.faded, steps);
         let mut then = vec![scenes::Step::FadeIn(8)];
         then.extend(scenes::menu_music());
-        sc.then = Some((self.menu_screen(&m), then));
-        self.in_menu = Some(m);
-        self.scene = Some(sc);
+        scenes.then = Some((self.menu_screen(&m), then));
+        self.screen = Screen::Scene { scenes, then_menu: Some(m) };
+        self.tick = now;
+    }
+
+    /// The options screen, wherever it is open.
+    fn options_mut(&mut self) -> Option<&mut options::Screen> {
+        match &mut self.screen {
+            Screen::Menu { options: Some(o), .. } | Screen::Game(Overlay::Options(o)) => Some(o),
+            _ => None,
+        }
+    }
+
+    fn options(&self) -> Option<&options::Screen> {
+        match &self.screen {
+            Screen::Menu { options: Some(o), .. } | Screen::Game(Overlay::Options(o)) => Some(o),
+            _ => None,
+        }
+    }
+
+    fn close_options(&mut self) {
+        match &mut self.screen {
+            Screen::Menu { options, .. } => *options = None,
+            Screen::Game(o @ Overlay::Options(_)) => *o = Overlay::None,
+            _ => {}
+        }
     }
 
     fn save_settings(&self) {
@@ -201,55 +243,53 @@ impl<'a> App<'a> {
         let mut opt_event: Option<options::Event> = None;
         let mut give_up = false;
         for e in events {
-            let menu_live = self.scene.is_none() && self.in_menu.is_some();
+            let in_game = matches!(self.screen, Screen::Game(_));
             match e {
                 Event::Quit { .. } => return false,
                 Event::Window { win_event: sdl3::event::WindowEvent::FocusLost, .. } => self.focus_paused = true,
                 // a key or a click ends the pause of a lost focus (and does
                 // nothing else)
-                Event::KeyDown { .. } | Event::MouseButtonDown { .. }
-                    if self.focus_paused && self.scene.is_none() && self.in_menu.is_none() =>
-                {
-                    self.focus_paused = false;
-                }
+                Event::KeyDown { .. } | Event::MouseButtonDown { .. } if self.focus_paused && in_game => self.focus_paused = false,
                 Event::MouseButtonDown { x, y, .. } => {
                     pressed = true;
-                    if self.scene.is_none()
-                        && let Some(o) = self.opts.as_mut()
-                    {
+                    if let Some(o) = self.options_mut() {
                         opt_event = opt_event.or(o.click(x as i32, y as i32));
-                    } else if menu_live && let Some(m) = self.in_menu.as_mut() {
-                        m.mouse_down(x as i32, y as i32);
+                    } else if let Screen::Menu { menu, .. } = &mut self.screen {
+                        menu.mouse_down(x as i32, y as i32);
                     }
                 }
                 Event::MouseMotion { x, y, .. } => {
-                    if menu_live && let Some(m) = self.in_menu.as_mut() {
-                        m.mouse_move(x as i32, y as i32);
+                    if let Screen::Menu { menu, .. } = &mut self.screen {
+                        menu.mouse_move(x as i32, y as i32);
                     }
                 }
                 Event::MouseButtonUp { x, y, .. } => {
-                    if menu_live && let Some(m) = self.in_menu.as_mut() {
-                        action = action.or(m.mouse_up(x as i32, y as i32));
+                    if let Screen::Menu { menu, .. } = &mut self.screen {
+                        action = action.or(menu.mouse_up(x as i32, y as i32));
                     }
                 }
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if self.confirm => match sc {
-                    Scancode::Return | Scancode::KpEnter | Scancode::Y => {
-                        self.confirm = false;
-                        give_up = true;
+                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if matches!(self.screen, Screen::Game(Overlay::Confirm)) => {
+                    match sc {
+                        Scancode::Return | Scancode::KpEnter | Scancode::Y => {
+                            self.screen = Screen::Game(Overlay::None);
+                            give_up = true;
+                        }
+                        Scancode::Escape | Scancode::N => {
+                            self.screen = Screen::Game(Overlay::None);
+                            self.next = now;
+                        }
+                        _ => {}
                     }
-                    Scancode::Escape | Scancode::N => {
-                        self.confirm = false;
-                        self.next = now;
-                    }
-                    _ => {}
-                },
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if self.scene.is_none() && self.opts.is_some() => {
-                    if let Some(o) = self.opts.as_mut() {
+                }
+                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if self.options().is_some() => {
+                    if let Some(o) = self.options_mut() {
                         opt_event = opt_event.or(o.key(sc, mac_code(sc)));
                     }
                 }
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if menu_live && sc != self.settings.fullscreen_key => {
-                    let Some(m) = self.in_menu.as_mut() else { continue };
+                Event::KeyDown { scancode: Some(sc), repeat: false, .. }
+                    if matches!(self.screen, Screen::Menu { .. }) && sc != self.settings.fullscreen_key =>
+                {
+                    let Screen::Menu { menu: m, .. } = &mut self.screen else { continue };
                     if sc == Scancode::Escape {
                         if m.message.is_none() && !m.credits_open() {
                             return false;
@@ -264,20 +304,23 @@ impl<'a> App<'a> {
                     }
                 }
                 Event::KeyDown { scancode: Some(sc), keymod, repeat: false, .. } => {
-                    if let Some((_, since)) = &self.shown {
+                    if let Screen::Game(Overlay::Balloon(_, since)) = &self.screen {
                         // Return / Enter at once, any key after a second
                         if matches!(sc, Scancode::Return | Scancode::KpEnter) || now.saturating_duration_since(*since) >= Duration::from_secs(1) {
-                            self.shown = None;
+                            self.screen = Screen::Game(Overlay::None);
                             self.next = now;
                         }
                         continue;
                     }
+                    let scene = matches!(self.screen, Screen::Scene { .. });
                     match sc {
-                        _ if self.scene.is_some() && sc != self.settings.fullscreen_key => pressed = true,
+                        _ if scene && sc != self.settings.fullscreen_key => pressed = true,
                         // CheckGameLoopKeys: Escape asks before the game is given up
-                        Scancode::Escape => self.confirm = true,
+                        Scancode::Escape if in_game => self.screen = Screen::Game(Overlay::Confirm),
                         // Command-I: the options
-                        Scancode::I if keymod.intersects(options_mod()) => self.opts = Some(options::Screen::new(self.settings.clone())),
+                        Scancode::I if in_game && keymod.intersects(options_mod()) => {
+                            self.screen = Screen::Game(Overlay::Options(options::Screen::new(self.settings.clone())));
+                        }
                         _ if sc == self.settings.pause_key && sc != Scancode::CapsLock => self.pause_toggled = !self.pause_toggled,
                         _ if sc == self.settings.fullscreen_key => {
                             self.settings.fullscreen = !self.settings.fullscreen;
@@ -286,8 +329,8 @@ impl<'a> App<'a> {
                                 let _ = self.settings.save(p);
                             }
                         }
-                        Scancode::F8 => jump = Some((self.level + 1) % data.levels.len()),
-                        Scancode::F7 => jump = Some((self.level + data.levels.len() - 1) % data.levels.len()),
+                        Scancode::F8 if in_game => jump = Some((self.level + 1) % data.levels.len()),
+                        Scancode::F7 if in_game => jump = Some((self.level + data.levels.len() - 1) % data.levels.len()),
                         _ => {}
                     }
                 }
@@ -297,10 +340,9 @@ impl<'a> App<'a> {
         if let Some(n) = jump {
             self.level = n;
             self.game = start_game(data, self.assets, self.level, PlayerGlobals::new_game(), self.game.rng.seed);
-            self.scene = Some(scenes::Scenes::new(self.start_screen(), self.faded, scenes::game_start(&self.game.level, false, &data.world)));
-            self.tick = now;
+            self.show_game_start(false, now);
         }
-        if let Some(sc) = self.scene.as_mut() {
+        if let Screen::Scene { scenes: sc, then_menu } = &mut self.screen {
             sc.music_faded = self.music_faded;
             while self.tick <= now && !sc.done() {
                 sc.tick(data, std::mem::take(&mut pressed));
@@ -315,14 +357,15 @@ impl<'a> App<'a> {
             self.music_faded = sc.music_faded;
             if sc.done() {
                 self.faded = sc.dark >= 256;
-                self.scene = None;
+                self.screen = match then_menu.take() {
+                    Some(menu) => Screen::Menu { menu, options: None },
+                    None => Screen::Game(Overlay::None),
+                };
                 self.next = now;
             }
         }
         // the main menu: its ticks, sounds and what it asks for
-        if self.scene.is_none()
-            && let Some(m) = self.in_menu.as_mut()
-        {
+        if let Screen::Menu { menu: m, .. } = &mut self.screen {
             while self.tick <= now {
                 action = action.or(m.tick(data));
                 self.tick += TICK;
@@ -330,7 +373,7 @@ impl<'a> App<'a> {
             self.mixer.events(&std::mem::take(&mut m.sounds), false);
         }
         if let Some(e) = opt_event
-            && let Some(o) = &self.opts
+            && let Some(o) = self.options()
         {
             self.settings = o.settings.clone();
             self.display_changed = true;
@@ -338,18 +381,20 @@ impl<'a> App<'a> {
             self.mixer.set_music_volume(self.settings.music_volume);
             if e == options::Event::Done {
                 self.save_settings();
-                self.opts = None;
+                self.close_options();
                 self.next = now;
             }
         }
         match action {
-            Some(menu::Action::Options) => self.opts = Some(options::Screen::new(self.settings.clone())),
+            Some(menu::Action::Options) => {
+                if let Screen::Menu { options, .. } = &mut self.screen {
+                    *options = Some(options::Screen::new(self.settings.clone()));
+                }
+            }
             Some(menu::Action::NewGame) => {
                 self.level = 0;
                 self.game = start_game(data, self.assets, self.level, PlayerGlobals::new_game(), self.game.rng.seed);
-                self.in_menu = None;
-                self.scene = Some(scenes::Scenes::new(self.start_screen(), self.faded, scenes::game_start(&self.game.level, true, &data.world)));
-                self.tick = now;
+                self.show_game_start(true, now);
             }
             // ContinueGame: the save list is to come; the game saved in
             // this session goes on (a copier save without the story)
@@ -367,29 +412,26 @@ impl<'a> App<'a> {
                     if !missing.is_empty() {
                         eprintln!("level {}: not ported yet: {missing:?}", self.level + 1);
                     }
-                    self.in_menu = None;
-                    self.scene = Some(scenes::Scenes::new(self.start_screen(), self.faded, scenes::game_start(&self.game.level, !sg.copier, &data.world)));
-                    self.tick = now;
+                    self.show_game_start(!sg.copier, now);
                 }
             }
             Some(menu::Action::Quit) => return false,
             None => {}
         }
         if give_up {
-            self.to_menu(render::draw(data, &self.game), Vec::new());
-            self.tick = now;
+            self.back_to_menu(render::draw(data, &self.game), Vec::new(), now);
         }
         // the map closes with its key once 12 ticks have passed
-        if let Some(since) = self.map
+        if let Screen::Game(Overlay::Map(since)) = self.screen
             && now.saturating_duration_since(since) >= TICK * 12
             && input.held.down(self.settings.map_key)
         {
-            self.map = None;
+            self.screen = Screen::Game(Overlay::None);
             self.next = now;
         }
         // the pause: its sound (snd 198) as it starts; when it ends the
         // game goes on from now
-        let in_game = self.scene.is_none() && self.in_menu.is_none();
+        let in_game = matches!(self.screen, Screen::Game(_));
         let caps = self.settings.pause_key == Scancode::CapsLock && input.caps_lock;
         let paused = in_game && (caps || self.pause_toggled || self.focus_paused);
         if paused && !self.paused {
@@ -415,15 +457,7 @@ impl<'a> App<'a> {
         self.game.prefs.scroll = self.settings.camera;
         self.game.prefs.autosave = self.settings.autosave;
         self.game.prefs.bindings = self.settings.bindings;
-        while self.scene.is_none()
-            && self.in_menu.is_none()
-            && !paused
-            && self.opts.is_none()
-            && !self.confirm
-            && self.map.is_none()
-            && self.shown.is_none()
-            && self.next <= now
-        {
+        while matches!(self.screen, Screen::Game(Overlay::None)) && !paused && self.next <= now {
             self.next += FRAME;
             self.game_frame(&input.held, now);
         }
@@ -446,7 +480,7 @@ impl<'a> App<'a> {
         // CheckGameLoopKeys: the map key (not again for 6 passes)
         self.map_cooldown = self.map_cooldown.saturating_sub(1);
         if keys.down(self.settings.map_key) && self.map_cooldown == 0 {
-            self.map = Some(now);
+            self.screen = Screen::Game(Overlay::Map(now));
             self.map_cooldown = 6;
         }
         self.mixer.events(&self.game.sounds, self.game.level.own_sounds);
@@ -455,7 +489,7 @@ impl<'a> App<'a> {
         }
         self.score.step(self.game.g.score);
         if let Some(b) = asked {
-            self.shown = Some((b, now));
+            self.screen = Screen::Game(Overlay::Balloon(b, now));
         }
         match end {
             FrameEnd::Running => {}
@@ -472,12 +506,13 @@ impl<'a> App<'a> {
                         if !missing.is_empty() {
                             eprintln!("level {}: not ported yet: {missing:?}", self.level + 1);
                         }
-                        self.scene = Some(scenes::Scenes::new(screen, self.faded, scenes::up_level(&old, &self.game.level, &data.world)));
+                        let scenes = scenes::Scenes::new(screen, self.faded, scenes::up_level(&old, &self.game.level, &data.world));
+                        self.screen = Screen::Scene { scenes, then_menu: None };
+                        self.tick = now;
                     }
                     // after Win the main menu
-                    (UpLevel::Won, _) => self.to_menu(screen, scenes::win(&data.world)),
+                    (UpLevel::Won, _) => self.back_to_menu(screen, scenes::win(&data.world), now),
                 }
-                self.tick = now;
             }
             FrameEnd::Died => {
                 // GameLoop's end: EndLevelEffect when comfort or favor is gone
@@ -489,8 +524,7 @@ impl<'a> App<'a> {
                 // then the main menu (AskToContinue is to come with the save
                 // list; the menu's Continue goes on from the game saved in
                 // this session)
-                self.to_menu(screen, steps);
-                self.tick = now;
+                self.back_to_menu(screen, steps, now);
             }
         }
         if std::mem::take(&mut self.game.session.save_pending) {
@@ -508,94 +542,98 @@ impl<'a> App<'a> {
     /// The picture to show, its texts and how dark (of 256) it is.
     pub fn compose(&self) -> (render::Canvas, Vec<text::Line>, i32) {
         let (data, fonts) = (self.data, self.fonts);
-        let (mut image, mut lines) = match &self.in_menu {
-            Some(m) if self.scene.is_none() => {
-                let (mut c, mut l) = m.draw(data, fonts);
-                if let Some(o) = &self.opts {
+        let dark = if self.faded { 256 } else { 0 };
+        match &self.screen {
+            Screen::Scene { scenes: sc, .. } => {
+                // the sequence's picture; the panel's texts when it shows them
+                let lines = if sc.texts { picture(data, &self.game, &self.score, None).1 } else { Vec::new() };
+                (sc.image.clone(), lines, sc.dark)
+            }
+            Screen::Menu { menu, options } => {
+                let (mut c, mut l) = menu.draw(data, fonts);
+                if let Some(o) = options {
                     l = o.draw(&mut c, &key_name);
                 }
-                (c, l)
+                (c, l, dark)
             }
-            _ => {
-                let (mut c, mut l) = picture(data, &self.game, &self.score, self.shown.as_ref().map(|(b, _)| b));
-                if let Some(o) = &self.opts {
+            Screen::Game(overlay) => {
+                let shown = match overlay {
+                    Overlay::Balloon(b, _) => Some(b),
+                    _ => None,
+                };
+                let (mut c, mut l) = picture(data, &self.game, &self.score, shown);
+                if let Overlay::Options(o) = overlay {
                     // over the game area; the panel's texts stay
                     l.extend(o.draw(&mut c, &key_name));
-                } else if self.paused && let Some(p) = data.pictures.get(&4921) {
-                    // Pause: PICT 4921 at (128, 192), over the game area's middle
-                    c.draw_picture(p, 128, 192);
-                    // its "Press CAPS LOCK To Resume" (rows 64–82) when
-                    // something else goes on
-                    let hint = if self.focus_paused {
-                        Some("Press any key to resume".to_string())
-                    } else if self.settings.pause_key != Scancode::CapsLock {
-                        Some(format!("Press {} to resume", self.settings.pause_key.name()))
-                    } else {
-                        None
-                    };
-                    if let Some(hint) = hint {
-                        if let Some(grey) = p.get(20, 60) {
-                            c.fill(128 + 6, 192 + 62, 213, 22, grey);
-                        }
-                        let w = fonts.width(text::Face::HelveticaBold, 14.0, &hint);
-                        l.push(text::Line {
-                            x: 128.0 + (225.0 - w) / 2.0,
-                            baseline: 192.0 + 79.0,
-                            size: 14.0,
-                            face: text::Face::HelveticaBold,
-                            color: [0; 3],
-                            text: hint,
-                        });
-                    }
+                } else if self.paused
+                    && let Some(p) = data.pictures.get(&4921)
+                {
+                    self.draw_pause(&mut c, &mut l, p);
                 }
-                (c, l)
-            }
-        };
-        if self.map.is_some() && self.scene.is_none() && self.in_menu.is_none() {
-            render::draw_map(&mut image, data, &self.game);
-        }
-        if self.confirm {
-            lines.extend(menu::message_box(&mut image, fonts, "Are you sure you want to abort this game?\n\nReturn: yes      Escape: no"));
-        }
-        let mut dark = if self.faded { 256 } else { 0 };
-        if let Some(sc) = &self.scene {
-            image = sc.image.clone();
-            dark = sc.dark;
-            if !sc.texts {
-                lines.clear();
+                match overlay {
+                    Overlay::Map(_) => render::draw_map(&mut c, data, &self.game),
+                    Overlay::Confirm => {
+                        l.extend(menu::message_box(&mut c, fonts, "Are you sure you want to abort this game?\n\nReturn: yes      Escape: no"))
+                    }
+                    _ => {}
+                }
+                (c, l, dark)
             }
         }
-        (image, lines, dark)
     }
 
-    /// What shows, for tests and debugging: "scene", "menu" (with
-    /// "+options") or "game" with what is over it.
-    pub fn describe(&self) -> String {
-        let mut d = if self.scene.is_some() {
-            "scene".to_string()
-        } else if self.in_menu.is_some() {
-            "menu".to_string()
+    /// Pause: PICT 4921 at (128, 192), over the game area's middle, with its
+    /// "Press CAPS LOCK To Resume" (rows 64–82) replaced when something else
+    /// goes on.
+    fn draw_pause(&self, c: &mut render::Canvas, l: &mut Vec<text::Line>, p: &harry_data::Image) {
+        c.draw_picture(p, 128, 192);
+        let hint = if self.focus_paused {
+            Some("Press any key to resume".to_string())
+        } else if self.settings.pause_key != Scancode::CapsLock {
+            Some(format!("Press {} to resume", self.settings.pause_key.name()))
         } else {
-            "game".to_string()
+            None
         };
-        for (on, what) in [
-            (self.opts.is_some(), "+options"),
-            (self.confirm, "+confirm"),
-            (self.paused, "+paused"),
-            (self.map.is_some(), "+map"),
-            (self.shown.is_some(), "+balloon"),
-        ] {
-            if on {
-                d += what;
+        if let Some(hint) = hint {
+            if let Some(grey) = p.get(20, 60) {
+                c.fill(128 + 6, 192 + 62, 213, 22, grey);
+            }
+            let w = self.fonts.width(text::Face::HelveticaBold, 14.0, &hint);
+            l.push(text::Line {
+                x: 128.0 + (225.0 - w) / 2.0,
+                baseline: 192.0 + 79.0,
+                size: 14.0,
+                face: text::Face::HelveticaBold,
+                color: [0; 3],
+                text: hint,
+            });
+        }
+    }
+
+    /// What shows, for the tests: "scene", "menu" (with "+options") or
+    /// "game" with what is over it.
+    #[cfg(test)]
+    pub fn describe(&self) -> String {
+        match &self.screen {
+            Screen::Scene { .. } => "scene".into(),
+            Screen::Menu { options, .. } => if options.is_some() { "menu+options" } else { "menu" }.into(),
+            Screen::Game(o) => {
+                let paused = if self.paused { "+paused" } else { "" };
+                match o {
+                    Overlay::None => format!("game{paused}"),
+                    Overlay::Options(_) => format!("game+options{paused}"),
+                    Overlay::Confirm => format!("game+confirm{paused}"),
+                    Overlay::Map(_) => format!("game{paused}+map"),
+                    Overlay::Balloon(..) => format!("game{paused}+balloon"),
+                }
             }
         }
-        d
     }
 
     /// When the main loop should run again: the next tick of a sequence or
     /// the menu, else the next game frame.
     pub fn wake(&self) -> Instant {
-        if self.scene.is_some() || self.in_menu.is_some() { self.tick } else { self.next }
+        if matches!(self.screen, Screen::Game(_)) { self.next } else { self.tick }
     }
 }
 

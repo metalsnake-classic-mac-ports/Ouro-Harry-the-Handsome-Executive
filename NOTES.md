@@ -2519,5 +2519,14 @@ Where the port deliberately differs from the original (the game logic in
   by turns), and the game also pauses when its window loses focus (any
   key or click goes on; the pause picture's "Press CAPS LOCK" line then
   says what to press). No menu bar or cursor is shown.
+- **One thing over the game at a time.** The options, the question
+  before giving up, the map and a balloon each replace whatever was over
+  the game (`app::Overlay`); before, Escape over the open map left the map
+  open under the question. The frontend's states are `app::Screen`
+  (sequence, menu, game); `app::App` runs them without the window, so its
+  test plays a whole game with made-up keys and time, and
+  `crates/harry/gui-test.sh` plays the same in the window
+  (`HARRY_SCRIPT`, `HARRY_SHOTS`, `HARRY_SETTINGS`) and writes a contact
+  sheet to look at.
 - **Registration.** The port plays as registered; the shareware limit
   after level 5 (`LevelLimit`) is left out.
