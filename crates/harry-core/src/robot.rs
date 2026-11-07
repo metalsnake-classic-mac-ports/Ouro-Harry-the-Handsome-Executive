@@ -11,7 +11,7 @@ use crate::frame::PlayerGlobals;
 use crate::kinds::door_open;
 use crate::level::Level;
 use crate::mask::{Mask, mask_hit};
-use crate::physics::{Physics, Speed, apply_moded_impulse, find_desired_direction, inverse_mode};
+use crate::physics::{Physics, Speed, apply_moded_impulse, find_desired_direction, inverse_mode, wrap_dir, wrap_dir_35};
 use crate::ramp::{Rider, handle_ramp_collision};
 use crate::random::Random;
 use crate::sprite::{HitTask, HitTileTask, Sprite, SpriteEvent, Task};
@@ -101,11 +101,7 @@ pub(crate) fn approach(sp: &mut Sprite, dir: i16) {
         up = !up;
     }
     sp.dir += if up { 1 } else { -1 };
-    if sp.dir >= 36 {
-        sp.dir = 0;
-    } else if sp.dir < 0 {
-        sp.dir = 35;
-    }
+    sp.dir = wrap_dir(sp.dir);
 }
 
 /// `SetupRobotSprite`: facing Harry, timer 25, layer 7, hot rect (4, 4,
@@ -192,12 +188,7 @@ fn random_mg_shot(sp: &Sprite, rng: &mut Random, mg_playing: usize, events: &mut
         return;
     }
     let (h, v) = (sp.at.1.wrapping_add(16), sp.at.0.wrapping_add(16));
-    let mut dir = sp.dir + if rng.below(100) < 50 { 2 } else { -2 };
-    if dir >= 36 {
-        dir -= 35;
-    } else if dir < 0 {
-        dir += 35;
-    }
+    let dir = wrap_dir_35(sp.dir + if rng.below(100) < 50 { 2 } else { -2 });
     let mut out = Speed::default();
     add_polar(&mut out, dir, &SHOT_SPEED);
     let fix = (
@@ -316,11 +307,7 @@ fn task(sp: &mut Sprite, w: &mut RobotWorld, events: &mut Vec<SpriteEvent>) {
             let d = toward_harry(sp, player);
             if off(d, sp.dir, 0) {
                 sp.dir += if sp.dir < d && d - sp.dir < 18 { 1 } else { -1 };
-                if sp.dir >= 36 {
-                    sp.dir = 0;
-                } else if sp.dir < 0 {
-                    sp.dir = 35;
-                }
+                sp.dir = wrap_dir(sp.dir);
                 random_shot(sp, w.rng, events);
             } else {
                 sp.f7c = mode::DRIVE;

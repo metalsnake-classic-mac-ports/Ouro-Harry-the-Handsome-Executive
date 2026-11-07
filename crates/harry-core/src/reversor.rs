@@ -5,7 +5,7 @@
 use crate::ramp::{Rider, handle_ramp_collision};
 use crate::level::Level;
 use crate::mask::{Mask, mask_hit};
-use crate::physics::Physics;
+use crate::physics::{Physics, wrap_dir};
 use crate::random::Random;
 use crate::sprite::{HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 use crate::stairs::object_on_stairs;
@@ -56,11 +56,7 @@ pub fn handle_reversor(
         return;
     }
     sp.dir += 1;
-    if sp.dir >= 36 {
-        sp.dir = 0;
-    } else if sp.dir < 0 {
-        sp.dir = 35;
-    }
+    sp.dir = wrap_dir(sp.dir);
     *obstacle_done = false;
     *wall_done = false;
     sp.face = 4201 + sp.dir;

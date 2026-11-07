@@ -215,6 +215,31 @@ pub fn handle_glide(speed: &mut Speed, fix: (i32, i32), air: i16, slide: i16, ha
 const SLOPES_UP: [f64; 9] = [0.0875, 0.2675, 0.4663, 0.7002, 1.0, 1.4281, 2.1445, 3.732, 11.43];
 const SLOPES_DOWN: [f64; 9] = [-11.43, -3.732, -2.1445, -1.4281, -1.0, -0.7002, -0.4663, -0.2679, -0.0875];
 
+/// A direction (0–35) stepped one past either end, brought back the way
+/// most routines do it: 36 and up → 0, below 0 → 35.
+pub fn wrap_dir(d: i16) -> i16 {
+    if d >= 36 {
+        0
+    } else if d < 0 {
+        35
+    } else {
+        d
+    }
+}
+
+/// The wrap a few routines use instead, by 35: 36 → 1, −1 → 34 (the
+/// machine-gun bolts, BUGS.md "Machine-gun bolts wrap their direction
+/// with 35"; Harry's death spin).
+pub fn wrap_dir_35(d: i16) -> i16 {
+    if d >= 36 {
+        d - 35
+    } else if d < 0 {
+        d + 35
+    } else {
+        d
+    }
+}
+
 /// `FindDesiredDirectionGeneric` (PPC 0x10022a44): the direction (0–35,
 /// as `apply_moded_impulse` takes it) from `from` toward `to`, both (v,
 /// h). Equal coordinates are moved apart by one (`from` + 1); the slope

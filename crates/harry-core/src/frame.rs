@@ -9,7 +9,7 @@ use crate::keys::Ammo;
 use crate::inventory::{EMPTY, current_item};
 use crate::level::Level;
 use crate::moves::{Chair, MoveInput, MoveSound, Moves, move_chair};
-use crate::physics::{Floor, Physics, Speed, enforce_max_speed, player_glide};
+use crate::physics::{Floor, Physics, Speed, enforce_max_speed, player_glide, wrap_dir};
 use crate::player::{HOT_RECT, Player, TileState};
 use crate::random::Random;
 
@@ -224,11 +224,7 @@ pub fn handle_player(
     h.air.air = p.air;
     half_pipe(&mut p.body, &mut h.air, 32, true, level, &mut air_sounds);
     g.tile.kick_contact = 0;
-    if p.dir >= 36 {
-        p.dir = 0;
-    } else if p.dir < 0 {
-        p.dir = 35;
-    }
+    p.dir = wrap_dir(p.dir);
     p.face = p.dir + g.moves.pose;
     let effects = jump_scale(&mut p.body, &mut h.air, &mut p.dir, 32, true, level, rng, &mut g.comfort, UNSET_SCALE, &mut air_sounds);
     p.air = h.air.air;

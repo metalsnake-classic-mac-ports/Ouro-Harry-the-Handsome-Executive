@@ -5,6 +5,7 @@
 
 use crate::frame::PlayerGlobals;
 use crate::game::PLAYER_FACES;
+use crate::physics::wrap_dir_35;
 use crate::sprite::Sprite;
 
 /// `snd` ids.
@@ -85,11 +86,7 @@ pub fn handle_player_death(sp: &mut Sprite, g: &mut PlayerGlobals, events: &mut 
         }
         _ => {}
     }
-    if sp.dir >= 36 {
-        sp.dir -= 35;
-    } else if sp.dir < 0 {
-        sp.dir += 35;
-    }
+    sp.dir = wrap_dir_35(sp.dir);
     sp.face = if sp.timer < 52 { PLAYER_FACES + sp.dir } else { 0 };
     sp.timer += 1;
     done

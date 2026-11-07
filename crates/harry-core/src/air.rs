@@ -39,6 +39,13 @@ pub enum AirSound {
     Return,
 }
 
+impl AirSound {
+    /// One of `JumpScale`'s bump sounds (landing, bouncing).
+    pub fn is_jump_scale(self) -> bool {
+        matches!(self, AirSound::Land | AirSound::Bounce)
+    }
+}
+
 /// `HandleHalfPipe` (PPC): half-pipe tiles (background kinds 8–15) push
 /// the sprite toward their middle; crossing the edge throws it off.
 /// `player`: Harry pushes harder than other sprites.

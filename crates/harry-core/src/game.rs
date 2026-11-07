@@ -565,7 +565,7 @@ impl Game {
     /// (`LevelLimit`) - the port plays as registered. Returns the object
     /// ids the port cannot make yet with `Next`.
     pub fn up_level(&mut self, levels: &[Level], assets: &Assets) -> (UpLevel, Vec<i16>) {
-        self.play(snd::LEVEL_DONE, 0x100, None, RATE, Channel::Effect);
+        self.effect(snd::LEVEL_DONE);
         let g = &mut self.g;
         let mut again = true;
         while again {
@@ -740,8 +740,8 @@ impl Game {
                     }
                 }
                 SpriteEvent::Sound3DPitched { id, rate } => self.play(id, 0x100, Some(at), rate, Channel::Effect),
-                SpriteEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
-                SpriteEvent::Sound3D(id) => self.play(id, 0x100, Some(at), RATE, Channel::Effect),
+                SpriteEvent::Sound(id) => self.effect(id),
+                SpriteEvent::Sound3D(id) => self.effect_at(id, at),
             }
         }
     }
@@ -752,7 +752,7 @@ impl Game {
             match e {
                 // the music is not ported yet
                 DeathEvent::FadeMusic => self.sound(SoundEvent::FadeMusicOut(1)),
-                DeathEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
+                DeathEvent::Sound(id) => self.effect(id),
                 DeathEvent::Explosion { h, v, dir, behind } => {
                     let i = self.explosion(h, v, 0, dir);
                     if behind {
@@ -777,8 +777,8 @@ impl Game {
                 WeaponEvent::Explosion { h, v, a, b } => {
                     self.explosion(h, v, a, b);
                 }
-                WeaponEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
-                WeaponEvent::Sound3D(id) => self.play(id, 0x100, Some(at), RATE, Channel::Effect),
+                WeaponEvent::Sound(id) => self.effect(id),
+                WeaponEvent::Sound3D(id) => self.effect_at(id, at),
             }
         }
     }
@@ -788,6 +788,26 @@ impl Game {
     /// routines that ask whether it still plays.
     fn play(&mut self, id: i16, volume: i16, at: Option<(i16, i16)>, rate: u32, channel: Channel) {
         self.play_handle(id, volume, at, rate, channel);
+    }
+
+    /// A sound at full volume and normal rate, in the middle.
+    fn effect(&mut self, id: i16) {
+        self.play(id, 0x100, None, RATE, Channel::Effect);
+    }
+
+    /// A sound at full volume and normal rate, placed at `at` (v, h).
+    fn effect_at(&mut self, id: i16, at: (i16, i16)) {
+        self.play(id, 0x100, Some(at), RATE, Channel::Effect);
+    }
+
+    /// The sounds a sprite's `HandleHalfPipe` / `JumpScale` asked for:
+    /// `id` gives the one each makes, none for silent.
+    fn air_sounds(&mut self, sounds: Vec<AirSound>, id: impl Fn(AirSound) -> Option<i16>) {
+        for a in sounds {
+            if let Some(id) = id(a) {
+                self.effect(id);
+            }
+        }
     }
 
     /// `play`, returning the sound's handle.
@@ -829,7 +849,7 @@ impl Game {
                         self.play(id, pitch, None, RATE, Channel::Effect);
                     }
                 }
-                FrameSound::Move(MoveSound::KickHit) => self.play(snd::KICK_HIT, 0x100, None, RATE, Channel::Effect),
+                FrameSound::Move(MoveSound::KickHit) => self.effect(snd::KICK_HIT),
                 FrameSound::Air(a) => {
                     let id = match a {
                         AirSound::HalfPipeOut => snd::HALF_PIPE_OUT,
@@ -838,7 +858,7 @@ impl Game {
                         AirSound::Fall => snd::FALL,
                         AirSound::Return => snd::RETURN,
                     };
-                    self.play(id, 0x100, None, RATE, Channel::Effect);
+                    self.effect(id);
                 }
                 FrameSound::Chatter(n) => {
                     if self.audio.playing.count(self.audio.voice) > 0 {
@@ -1005,7 +1025,7 @@ impl Game {
                             self.explosion(h, v, flag, 0);
                         }
                         KeyEvent::Ripple(on) => ripple::toggle(&mut self.level, &mut self.session.ripple_phase, on),
-                        KeyEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
+                        KeyEvent::Sound(id) => self.effect(id),
                         KeyEvent::ChargeSound(id) => self.play(id, 0x100, None, RATE, Channel::Charge),
                         KeyEvent::StopCharge => self.sound(SoundEvent::StopCharge),
                         KeyEvent::VoiceSound(id) => self.play(id, 0x100, None, RATE, Channel::Voice),
@@ -1061,34 +1081,23 @@ impl Game {
             Some(Task::Plant) => {
                 let mut s = Vec::new();
                 handle_plant(&mut sp, &self.level, &self.physics, &mut self.rng, &mut self.plant_flag, &mut s);
-                for a in s {
-                    // HandleHalfPipe / JumpScale with the bump sound (none for falling)
-                    if a != AirSound::Fall {
-                        self.play(snd::PLANT, 0x100, None, RATE, Channel::Effect);
-                    }
-                }
+                // HandleHalfPipe / JumpScale with the bump sound (none for falling)
+                self.air_sounds(s, |a| (a != AirSound::Fall).then_some(snd::PLANT));
             }
             Some(Task::Barrel) => {
                 let mut s = Vec::new();
                 handle_barrel(&mut sp, &mut self.level, &self.physics, &mut self.rng, &mut self.view.shake, 0, &mut events, &mut s);
-                for a in s {
-                    // JumpScale with the bump sound; HandleHalfPipe with none
-                    if matches!(a, AirSound::Land | AirSound::Bounce) {
-                        self.play(furniture::snd::BARREL_BUMP, 0x100, None, RATE, Channel::Effect);
-                    }
-                }
+                // JumpScale with the bump sound; HandleHalfPipe with none
+                self.air_sounds(s, |a| a.is_jump_scale().then_some(furniture::snd::BARREL_BUMP));
             }
             Some(Task::Chair) => {
                 let mut s = Vec::new();
                 handle_chair(&mut sp, &self.level, &self.physics, &mut self.rng, 0, &mut s);
-                for a in s {
-                    let id = match a {
-                        AirSound::HalfPipeOut => furniture::snd::CHAIR_BUMP,
-                        AirSound::Land | AirSound::Bounce => furniture::snd::CHAIR_KICK,
-                        _ => continue,
-                    };
-                    self.play(id, 0x100, None, RATE, Channel::Effect);
-                }
+                self.air_sounds(s, |a| match a {
+                    AirSound::HalfPipeOut => Some(furniture::snd::CHAIR_BUMP),
+                    AirSound::Land | AirSound::Bounce => Some(furniture::snd::CHAIR_KICK),
+                    _ => None,
+                });
             }
             Some(Task::Message) => {
                 let (view, player) = (self.view.corner, self.g.player_pos);
@@ -1158,22 +1167,14 @@ impl Game {
                 let mut s = Vec::new();
                 crate::blob::handle_blob(&mut sp, &self.level, self.g.player_pos, drop, &mut self.rng, &mut wall, &mut obstacle, &mut events, &mut s);
                 self.blob_flags = (wall, obstacle);
-                for a in s {
-                    if matches!(a, AirSound::HalfPipeOut | AirSound::Land | AirSound::Bounce) {
-                        self.play(crate::blob::snd::HIT, 0x100, None, RATE, Channel::Effect);
-                    }
-                }
+                self.air_sounds(s, |a| (a == AirSound::HalfPipeOut || a.is_jump_scale()).then_some(crate::blob::snd::HIT));
             }
             Some(Task::Reversor) => {
                 let (mut wall, mut obstacle) = self.reversor_flags;
                 let mut s = Vec::new();
                 crate::reversor::handle_reversor(&mut sp, &self.level, &mut self.rng, &mut wall, &mut obstacle, &mut s);
                 self.reversor_flags = (wall, obstacle);
-                for a in s {
-                    if matches!(a, AirSound::Land | AirSound::Bounce) {
-                        self.play(crate::robot::snd::HIT, 0x100, None, RATE, Channel::Effect);
-                    }
-                }
+                self.air_sounds(s, |a| a.is_jump_scale().then_some(crate::robot::snd::HIT));
             }
             Some(Task::Boulder) => crate::boulder::handle_boulder(&mut sp, &mut self.level, &mut self.rng, &mut events),
             Some(Task::Turret) => {
@@ -1203,12 +1204,8 @@ impl Game {
                 };
                 crate::robot::handle_robot(&mut sp, &mut w, 0, &mut events, &mut s);
                 self.robot_flags = (wall, obstacle);
-                for a in s {
-                    // JumpScale with the hit sound
-                    if matches!(a, AirSound::Land | AirSound::Bounce) {
-                        self.play(crate::robot::snd::HIT, 0x100, None, RATE, Channel::Effect);
-                    }
-                }
+                // JumpScale with the hit sound
+                self.air_sounds(s, |a| a.is_jump_scale().then_some(crate::robot::snd::HIT));
             }
             Some(Task::MailGuy) => crate::mailguy::handle_mail_guy(&mut sp, &mut self.level, &mut self.rng, &mut events),
             Some(Task::CoWorker) => crate::coworker::handle_coworker(&mut sp, &mut self.rng),
@@ -1474,7 +1471,7 @@ impl Game {
             for e in events {
                 match e {
                     TouchEvent::Ouch => self.ouch(),
-                    TouchEvent::Sound(id) => self.play(id, 0x100, None, RATE, Channel::Effect),
+                    TouchEvent::Sound(id) => self.effect(id),
                     TouchEvent::VoiceSound(id) => self.play(id, 0x100, None, RATE, Channel::Voice),
                     TouchEvent::HaltTalking => self.sound(SoundEvent::HaltVoices),
                     TouchEvent::Remark(id) => self.play(id, 0x100, None, RATE, Channel::Remark),
