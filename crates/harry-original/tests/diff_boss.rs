@@ -3,19 +3,11 @@
 
 mod common;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use common::dump;
+use common::{Tally, dump, installed, named_cases, recording};
 use harry_core::boss::{BossState, handle_boss, handle_boss_death, hit_boss, setup_boss};
 use harry_core::random::Random;
 use harry_core::sprite::{Sprite, SpriteEvent, Task};
 use harry_original::hlvl;
-use harry_original::resfork::{MacBinary, Resources};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 /// The recorder's form of an event (see `emu_boss.py`).
 fn event(e: &SpriteEvent) -> Option<String> {
@@ -35,19 +27,13 @@ fn event(e: &SpriteEvent) -> Option<String> {
 
 #[test]
 fn the_boss_matches_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/boss.txt")) else {
-        eprintln!("skipped: boss.txt not found (run re/tools/emu_boss.py)");
-        return;
-    };
-    let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
-    let ep = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
+    let Some(text) = recording("boss", "emu_boss.py") else { return };
+    let Some(ep) = installed("Episode 1.bin") else { return };
     let level = hlvl::read(ep.get(b"Hlvl", 15).unwrap()).unwrap();
-    let (mut bad, mut n) = (0, 0);
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let w = |k: &str| i[k].parse::<i64>().unwrap() as i16;
-        let mut rng = Random::new(i["seed"].parse().unwrap());
+    let mut tally = Tally::new("boss", 8);
+    for (a, i, b) in named_cases(&text) {
+        let w = |k: &str| i.i16(k);
+        let mut rng = Random::new(i.u32("seed"));
         let mut boss = BossState { growing: w("growing") != 0, anim: w("anim"), blast_cooldown: w("blast"), ..Default::default() };
         let mut sp = Sprite::new(2201, w("h"), w("v"));
         setup_boss(&mut sp, &mut rng, &mut boss);
@@ -76,7 +62,7 @@ fn the_boss_matches_the_original() {
         let mut view = (w("vv"), w("vh"));
         let (mut score, mut shake, mut contact, mut ghost) = (0, 0i16, 0i16, 3i16);
         let mut evs = Vec::new();
-        for step in i["steps"].split(',') {
+        for step in i.str("steps").split(',') {
             let p: Vec<&str> = step.split(':').collect();
             let (dh, dv): (i16, i16) = (p[0].parse().unwrap(), p[1].parse().unwrap());
             player = (player.0.wrapping_add(dh), player.1.wrapping_add(dv));
@@ -136,16 +122,7 @@ fn the_boss_matches_the_original() {
             boss.blast_cooldown,
             evs.join(";")
         );
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 6 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x}\n   got {y}")).collect();
-                eprintln!("{}\n  {}", &a[..a.len().min(250)], diffs.join("\n  ").chars().take(1500).collect::<String>());
-            }
-        }
+        tally.words(a, b, &got);
     }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+    tally.finish();
 }

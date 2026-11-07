@@ -3,54 +3,25 @@
 
 mod common;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use common::dump;
+use common::{Fields, check_named, dump, installed};
 use harry_core::button::{handle_button, handle_sliding_door, hit_button, setup_button, setup_sliding_door};
 use harry_core::sprite::{Sprite, Task};
 use harry_original::hlvl;
-use harry_original::resfork::{MacBinary, Resources};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 fn level() -> Option<harry_core::Level> {
-    let bytes = std::fs::read(root().join("re/work/installed/Episode 1.bin")).ok()?;
-    let ep = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
+    let ep = installed("Episode 1.bin")?;
     Some(hlvl::read(ep.get(b"Hlvl", 2).unwrap()).unwrap())
 }
 
-fn check(name: &str, run: impl Fn(&HashMap<&str, &str>) -> String) {
-    let Ok(text) = std::fs::read_to_string(root().join(format!("re/work/diff/{name}.txt"))) else {
-        eprintln!("skipped: {name}.txt not found (run re/tools/emu_button.py)");
-        return;
-    };
-    let (mut bad, mut n) = (0, 0);
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let got = run(&i);
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 8 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x} got {y}")).collect();
-                eprintln!("{a}\n  {}", diffs.join(", "));
-            }
-        }
-    }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+fn check(name: &str, run: impl FnMut(&Fields) -> String) {
+    check_named(name, "emu_button.py", run);
 }
 
 #[test]
 fn buttons_match_the_original() {
     let Some(base) = level() else { return };
     check("button", |i| {
-        let w = |k: &str| i[k].parse::<i16>().unwrap();
+        let w = |k: &str| i.i16(k);
         let mut level = base.clone();
         let index = w("index");
         level.sprites[index as usize].info[0] = w("info0");
@@ -60,7 +31,7 @@ fn buttons_match_the_original() {
         sp.level_index = index;
         sp.frozen = w("frozen") != 0;
         let mut evs = Vec::new();
-        for hit in i["hits"].split(',') {
+        for hit in i.str("hits").split(',') {
             let mut events = Vec::new();
             handle_button(&mut sp, &mut level, &mut events);
             if hit != "-" {
@@ -95,7 +66,7 @@ fn buttons_match_the_original() {
 fn sliding_doors_match_the_original() {
     let Some(base) = level() else { return };
     check("sliding", |i| {
-        let w = |k: &str| i[k].parse::<i16>().unwrap();
+        let w = |k: &str| i.i16(k);
         let mut level = base.clone();
         let (index, link) = (w("index"), w("link"));
         let mut sp = Sprite::new(w("kind"), w("h"), w("v"));
@@ -108,7 +79,7 @@ fn sliding_doors_match_the_original() {
             level.sprites[index as usize].info[0] = link;
         }
         let mut evs = Vec::new();
-        for s in i["states"].split(',') {
+        for s in i.str("states").split(',') {
             if valid {
                 level.sprites[link.unsigned_abs() as usize].info[1] = s.parse().unwrap();
             }

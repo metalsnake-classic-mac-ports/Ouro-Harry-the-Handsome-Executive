@@ -2,42 +2,14 @@
 //! Unicorn by `re/tools/emu_physics.py` (re/work/diff/*.txt, one case per
 //! line: inputs -> outputs). Without the recordings the tests are skipped.
 
-use std::path::PathBuf;
+mod common;
 
+use common::{Tally, check_numbers, recording, work};
 use harry_core::moves::{Chair, MoveInput, Moves, move_chair};
 use harry_core::physics::{Floor, Physics, Speed, apply_moded_impulse, enforce_max_speed, player_glide};
 
-fn cases(name: &str) -> Option<Vec<(Vec<i32>, Vec<i32>)>> {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff").join(format!("{name}.txt"));
-    let Ok(text) = std::fs::read_to_string(&path) else {
-        eprintln!("skipped: {} not found (run re/tools/emu_physics.py)", path.display());
-        return None;
-    };
-    let parse = |s: &str| s.split_whitespace().map(|n| n.parse().unwrap()).collect();
-    Some(
-        text.lines()
-            .filter(|l| !l.starts_with('#'))
-            .map(|l| {
-                let (a, b) = l.split_once("->").unwrap();
-                (parse(a), parse(b))
-            })
-            .collect(),
-    )
-}
-
 fn check(name: &str, f: impl Fn(&[i32]) -> Vec<i32>) {
-    let Some(cases) = cases(name) else { return };
-    let mut bad = 0;
-    for (i, (input, want)) in cases.iter().enumerate() {
-        let got = f(input);
-        if &got != want {
-            bad += 1;
-            if bad <= 10 {
-                eprintln!("{name} case {i}: in {input:?}\n  original {want:?}\n  port     {got:?}");
-            }
-        }
-    }
-    assert_eq!(bad, 0, "{bad} of {} {name} cases differ", cases.len());
+    check_numbers(name, "emu_physics.py", f);
 }
 
 fn physics(v: &[i32]) -> Physics {
@@ -170,8 +142,7 @@ fn bg_tile_bounce_matches() {
 }
 
 fn load_mask(name: &str) -> harry_core::mask::Mask {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff/masks").join(format!("{name}.txt"));
-    let text = std::fs::read_to_string(path).unwrap();
+    let text = std::fs::read_to_string(work(&format!("diff/masks/{name}.txt"))).unwrap();
     let rows: Vec<&str> = text.lines().collect();
     let bits = rows.iter().flat_map(|r| r.chars().map(|c| c == '#')).collect();
     harry_core::mask::Mask::new(rows[0].len() as i32, rows.len() as i32, bits)
@@ -179,15 +150,10 @@ fn load_mask(name: &str) -> harry_core::mask::Mask {
 
 #[test]
 fn mask_test_matches() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff/masktest.txt");
-    let Ok(text) = std::fs::read_to_string(&path) else {
-        eprintln!("skipped: {} not found (run re/tools/emu_mask.py)", path.display());
-        return;
-    };
+    let Some(text) = recording("masktest", "emu_mask.py") else { return };
     let body = load_mask("body");
     let mut cache = std::collections::HashMap::new();
-    let mut bad = 0;
-    let mut n = 0;
+    let mut tally = Tally::new("masktest", 10);
     for line in text.lines().filter(|l| !l.starts_with('#')) {
         let (a, b) = line.split_once("->").unwrap();
         let mut it = a.split_whitespace();
@@ -198,23 +164,16 @@ fn mask_test_matches() {
         let mut pos = (v[2], v[3]);
         let hit = harry_core::mask::mask_hit(&mut pos, &body, (v[0], v[1]), tile);
         let got = vec![hit as i32, pos.0.into(), pos.1.into()];
-        n += 1;
-        if got != want {
-            bad += 1;
-            if bad <= 10 {
-                eprintln!("masktest: {line}\n  port {got:?}");
-            }
-        }
+        tally.numbers(line, &want, &got);
     }
-    assert_eq!(bad, 0, "{bad} of {n} mask cases differ");
+    tally.finish();
 }
 
 #[test]
 fn wall_bounce_with_masks_matches() {
     use harry_core::bounce::{Body, wall_bounce};
     use harry_core::mask::mask_hit;
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff/masks/body.txt");
-    if !path.exists() {
+    if !work("diff/masks/body.txt").exists() {
         eprintln!("skipped: masks not found (run re/tools/emu_mask.py)");
         return;
     }
@@ -240,8 +199,7 @@ fn wall_bounce_with_masks_matches() {
 fn bg_tile_bounce_with_masks_matches() {
     use harry_core::bounce::{Body, bg_tile_bounce};
     use harry_core::mask::mask_hit;
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff/masks/obstacle.txt");
-    if !path.exists() {
+    if !work("diff/masks/obstacle.txt").exists() {
         eprintln!("skipped: masks not found (run re/tools/emu_mask.py)");
         return;
     }

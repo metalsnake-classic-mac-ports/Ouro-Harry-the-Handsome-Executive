@@ -1,8 +1,9 @@
 //! The held weapon, new shots and their flight against the original,
 //! recorded in Unicorn by `re/tools/emu_shots.py`.
 
-use std::path::PathBuf;
+mod common;
 
+use common::{Tally, installed, levels_of, recording};
 use harry_core::frame::PlayerGlobals;
 use harry_core::keys::Ammo;
 use harry_core::physics::Speed;
@@ -11,46 +12,26 @@ use harry_core::shots::{
     HeldWeapon, Holder, ShotFace, WeaponEvent, handle_held_weapon, handle_shot, hit_shot_tile, new_shot,
 };
 use harry_core::tiles::touched_tiles;
-use harry_original::hlvl;
 use harry_original::{hrsp, masks};
-use harry_original::resfork::{MacBinary, Resources};
 
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn read(name: &str) -> Option<String> {
-    let text = std::fs::read_to_string(root().join("re/work/diff").join(name));
-    if text.is_err() {
-        eprintln!("skipped: {name} not found (run re/tools/emu_shots.py)");
-    }
-    text.ok()
-}
-
-fn compare(text: &str, mut run: impl FnMut(&[i64]) -> Vec<String>) {
-    let mut bad = 0;
-    let mut n = 0;
+/// The recording `name` (a header, then numbers -> words): `run` makes the
+/// port's words from the numbers.
+fn compare(name: &str, mut run: impl FnMut(&[i64]) -> Vec<String>) {
+    let Some(text) = recording(name, "emu_shots.py") else { return };
+    let mut tally = Tally::new(name, 10);
     for line in text.lines().skip(1) {
         let (a, b) = line.split_once(" -> ").unwrap();
         let i: Vec<i64> = a.split(' ').map(|x| x.parse().unwrap()).collect();
         let want: Vec<&str> = b.split(' ').collect();
         let got = run(&i);
-        n += 1;
-        if want != got {
-            bad += 1;
-            if bad <= 10 {
-                eprintln!("{a}\n  want {}\n  got  {}", want.join(" "), got.join(" "));
-            }
-        }
+        tally.case(want == got, || format!("{a}\n  want {}\n  got  {}", want.join(" "), got.join(" ")));
     }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+    tally.finish();
 }
 
 #[test]
 fn held_weapon_matches_the_original() {
-    let Some(text) = read("weapon.txt") else { return };
-    compare(&text, |i| {
+    compare("weapon", |i| {
         let w16 = |k: usize| i[k] as i16;
         let mut g = PlayerGlobals {
             player_dir: w16(0),
@@ -98,8 +79,7 @@ fn held_weapon_matches_the_original() {
 
 #[test]
 fn shot_flight_matches_the_original() {
-    let Some(text) = read("shot.txt") else { return };
-    compare(&text, |i| {
+    compare("shot", |i| {
         let kind = i[0] as i16;
         let mut s = new_shot(kind, (i[1] as i16, i[2] as i16), Speed { v: i[3] as i16, h: i[4] as i16 }, i[5] as i16);
         let mut states = Vec::new();
@@ -137,20 +117,15 @@ fn shot_flight_matches_the_original() {
 
 #[test]
 fn shot_tile_hits_match_the_original() {
-    let Some(text) = read("shottiles.txt") else { return };
-    let installed = |name: &str| {
-        let bytes = std::fs::read(root().join("re/work/installed").join(name)).ok()?;
-        Some(Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap())
-    };
     let (Some(episode), Some(gfx), Some(app)) =
         (installed("Episode 1.bin"), installed("Harry Graphics.bin"), installed("Harry 1.0.1.bin"))
     else {
         return;
     };
-    let levels: Vec<_> = (1..=15).map(|i| hlvl::read(episode.get(b"Hlvl", i).unwrap()).unwrap()).collect();
+    let levels = levels_of(&episode);
     let walls = masks::walls(&app).unwrap();
     let shot_mask = masks::from_face(&hrsp::decode(gfx.get(b"HrSp", 4021).unwrap()).unwrap());
-    compare(&text, |i| {
+    compare("shottiles", |i| {
         let w16 = |k: usize| i[k] as i16;
         let level = &levels[i[0] as usize - 1];
         let mut s = new_shot(w16(1), (w16(2), w16(3)), Speed { v: w16(4), h: w16(5) }, 0);

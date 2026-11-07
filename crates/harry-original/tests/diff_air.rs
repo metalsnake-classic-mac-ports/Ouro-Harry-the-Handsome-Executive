@@ -2,47 +2,17 @@
 //! `JumpScale`, recorded in Unicorn by `re/tools/emu_air.py` on the real
 //! levels).
 
-use std::path::PathBuf;
+mod common;
 
+use common::{check_numbers, episode1_levels};
 use harry_core::air::{Air, UNSET_SCALE, half_pipe, jump_scale};
 use harry_core::bounce::Body;
 use harry_core::physics::Speed;
 use harry_core::random::Random;
-use harry_original::hlvl;
-use harry_original::resfork::{MacBinary, Resources};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn levels() -> Option<Vec<harry_core::Level>> {
-    let bytes = std::fs::read(root().join("re/work/installed/Episode 1.bin")).ok()?;
-    let res = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
-    Some((1..=15).map(|i| hlvl::read(res.get(b"Hlvl", i).unwrap()).unwrap()).collect())
-}
 
 fn run(name: &str, f: impl Fn(&[harry_core::Level], &[i32]) -> Vec<i32>) {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff").join(format!("{name}.txt"))) else {
-        eprintln!("skipped: {name}.txt not found (run re/tools/emu_air.py)");
-        return;
-    };
-    let Some(levels) = levels() else { return };
-    let mut bad = 0;
-    let mut n = 0;
-    for line in text.lines().filter(|l| !l.starts_with('#')) {
-        let (a, b) = line.split_once("->").unwrap();
-        let v: Vec<i32> = a.split_whitespace().map(|x| x.parse().unwrap()).collect();
-        let want: Vec<i32> = b.split_whitespace().map(|x| x.parse().unwrap()).collect();
-        let got = f(&levels, &v);
-        n += 1;
-        if got != want {
-            bad += 1;
-            if bad <= 8 {
-                eprintln!("{name}: {line}\n  port {got:?}");
-            }
-        }
-    }
-    assert_eq!(bad, 0, "{bad} of {n} {name} cases differ");
+    let Some(levels) = episode1_levels() else { return };
+    check_numbers(name, "emu_air.py", |v| f(&levels, v));
 }
 
 #[test]

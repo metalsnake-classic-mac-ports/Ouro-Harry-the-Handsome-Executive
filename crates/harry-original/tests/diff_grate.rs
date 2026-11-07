@@ -3,43 +3,15 @@
 
 mod common;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use common::dump;
+use common::{Fields, check_named, dump, installed};
 use harry_core::ghost::{handle_ghost, hit_ghost, setup_ghost};
 use harry_core::grate::{grate_bounce, handle_grate, hit_grate, setup_grate};
 use harry_core::random::Random;
 use harry_core::sprite::{Sprite, SpriteEvent, Task};
 use harry_original::hlvl;
-use harry_original::resfork::{MacBinary, Resources};
 
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn check(name: &str, run: impl Fn(&HashMap<&str, &str>) -> String) {
-    let Ok(text) = std::fs::read_to_string(root().join(format!("re/work/diff/{name}.txt"))) else {
-        eprintln!("skipped: {name}.txt not found (run re/tools/emu_grate.py)");
-        return;
-    };
-    let (mut bad, mut n) = (0, 0);
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let got = run(&i);
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 8 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x} got {y}")).collect();
-                eprintln!("{a}\n  {}", diffs.join(", "));
-            }
-        }
-    }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+fn check(name: &str, run: impl FnMut(&Fields) -> String) {
+    check_named(name, "emu_grate.py", run);
 }
 
 /// The recorder's events: explosions carry the timer of their record
@@ -61,17 +33,17 @@ fn log(events: &[SpriteEvent], score: &mut i32, forget: &mut Vec<i16>) -> String
 #[test]
 fn grates_match_the_original() {
     check("grate", |i| {
-        let w = |k: &str| i[k].parse::<i64>().unwrap() as i16;
+        let w = |k: &str| i.i16(k);
         let mut sp = Sprite::new(w("kind"), w("h"), w("v"));
         setup_grate(&mut sp);
         if w("hp") != -1 {
             sp.state = w("hp");
         }
         sp.frozen = w("frozen") != 0;
-        let mut rng = Random::new(i["seed"].parse().unwrap());
+        let mut rng = Random::new(i.u32("seed"));
         let (mut score, mut forget) = (0, Vec::new());
         let mut evs = Vec::new();
-        for h in i["hits"].split(',') {
+        for h in i.str("hits").split(',') {
             let mut events = Vec::new();
             handle_grate(&mut sp, &mut events);
             if h != "-" {
@@ -92,10 +64,10 @@ fn grates_match_the_original() {
 #[test]
 fn grate_bounces_match_the_original() {
     check("gratebounce", |i| {
-        let w = |k: &str| i[k].parse::<i64>().unwrap();
+        let w = |k: &str| i.i64(k);
         let mut g = Sprite::new(w("kind") as i16, w("gh") as i16, w("gv") as i16);
         setup_grate(&mut g);
-        let hot: Vec<i16> = i["hot"].split(':').map(|x| x.parse().unwrap()).collect();
+        let hot: Vec<i16> = i.str("hot").split(':').map(|x| x.parse().unwrap()).collect();
         let mut sp = Sprite::new(0, 0, 0);
         sp.at = (w("v") as i16, w("h") as i16);
         sp.speed.v = w("speedv") as i16;
@@ -117,11 +89,10 @@ fn grate_bounces_match_the_original() {
 
 #[test]
 fn ghosts_match_the_original() {
-    let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
-    let ep = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
+    let Some(ep) = installed("Episode 1.bin") else { return };
     let level = hlvl::read(ep.get(b"Hlvl", 6).unwrap()).unwrap();
     check("ghost", |i| {
-        let w = |k: &str| i[k].parse::<i64>().unwrap() as i16;
+        let w = |k: &str| i.i16(k);
         let mut player = (w("ph"), w("pv"));
         let mut view = (w("vv"), w("vh"));
         let mut sp = Sprite::new(w("kind"), w("h"), w("v"));
@@ -134,10 +105,10 @@ fn ghosts_match_the_original() {
             sp.f6e = i32::from(w("mode"));
         }
         sp.frozen = w("frozen") != 0;
-        let mut rng = Random::new(i["seed"].parse().unwrap());
+        let mut rng = Random::new(i.u32("seed"));
         let (mut score, mut forget) = (0, Vec::new());
         let mut evs = Vec::new();
-        for step in i["steps"].split(',') {
+        for step in i.str("steps").split(',') {
             let p: Vec<&str> = step.split(':').collect();
             let (dh, dv): (i16, i16) = (p[0].parse().unwrap(), p[1].parse().unwrap());
             player = (player.0.wrapping_add(dh), player.1.wrapping_add(dv));

@@ -3,19 +3,11 @@
 //! the original's data unchanged; it is checked when the original's files
 //! are in `re/work/installed`.
 
-use std::path::PathBuf;
+mod common;
 
-use harry_original::resfork::{MacBinary, Resources};
+use common::{installed, root, work};
+use harry_original::resfork::MacBinary;
 use harry_original::{hlvl, hrsp, masks};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn installed(name: &str) -> Option<Resources> {
-    let bytes = std::fs::read(root().join("re/work/installed").join(name)).ok()?;
-    Some(Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap())
-}
 
 #[test]
 fn pack_holds_the_original_data() {
@@ -70,7 +62,7 @@ fn pack_holds_the_original_data() {
         assert_eq!(data.texts.get(&(n as i16)).map_or(&[][..], |v| v.as_slice()), t, "text {n}");
     }
     assert_eq!(data.words, harry_original::words::words(&app).unwrap());
-    let app_bin = std::fs::read(root().join("re/work/installed/Harry 1.0.1.bin")).unwrap();
+    let app_bin = std::fs::read(work("installed/Harry 1.0.1.bin")).unwrap();
     let section = harry_original::pef::data_section(&MacBinary::parse(&app_bin).unwrap().data).unwrap();
     assert_eq!(data.messages.len(), 53);
     for (n, t) in harry_original::pef::strings(&section, 0x3818, 52).into_iter().enumerate() {

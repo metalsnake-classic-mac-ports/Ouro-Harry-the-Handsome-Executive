@@ -3,10 +3,7 @@
 
 mod common;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use common::dump;
+use common::{Fields, check_named, dump, installed, levels_of};
 use harry_core::Physics;
 use harry_core::bounce::Body;
 use harry_core::physics::Speed;
@@ -14,48 +11,20 @@ use harry_core::ramp::{RampMasks, Rider, handle_ramp, handle_ramp_collision, hit
 use harry_core::sprite::{Sprite, Task};
 use harry_core::tiles::touched_tiles;
 use harry_original::{hlvl, masks};
-use harry_original::resfork::{MacBinary, Resources};
 
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-type Fields<'a> = HashMap<&'a str, &'a str>;
-
-fn compare(name: &str, mut run: impl FnMut(&Fields) -> String) {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff").join(name)) else {
-        eprintln!("skipped: {name} not found (run re/tools/emu_ramp.py)");
-        return;
-    };
-    let mut bad = 0;
-    let mut n = 0;
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: Fields = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let got = run(&i);
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 8 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x} got {y}")).collect();
-                eprintln!("{a}\n  {}", diffs.join(", "));
-            }
-        }
-    }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+fn compare(name: &str, run: impl FnMut(&Fields) -> String) {
+    check_named(name, "emu_ramp.py", run);
 }
 
 #[test]
 fn ramp_collisions_match_the_original() {
-    compare("rampcollide.txt", |i| {
-        let w = |k: &str| i[k].parse::<i32>().unwrap();
+    compare("rampcollide", |i| {
+        let w = |k: &str| i.i32(k);
         let mut ramp = Sprite::new(w("kind") as i16, w("rh") as i16, w("rv") as i16);
         setup_ramp(&mut ramp);
         ramp.fix = (w("rfixh"), w("rfixv"));
         ramp.speed = Speed { v: w("rspeedv") as i16, h: w("rspeedh") as i16 };
-        let hot: Vec<i16> = i["hot"].split(':').map(|x| x.parse().unwrap()).collect();
+        let hot: Vec<i16> = i.str("hot").split(':').map(|x| x.parse().unwrap()).collect();
         let mut body = Body {
             pos: (w("spv") as i16, w("sph") as i16),
             at: (0, 0),
@@ -81,12 +50,11 @@ fn ramp_collisions_match_the_original() {
 
 #[test]
 fn ramp_task_matches_the_original() {
-    let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
-    let ep = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
+    let Some(ep) = installed("Episode 1.bin") else { return };
     let level1 = hlvl::read(ep.get(b"Hlvl", 1).unwrap()).unwrap();
     let physics = Physics::default();
-    compare("ramptask.txt", |i| {
-        let w = |k: &str| i[k].parse::<i32>().unwrap() as i16;
+    compare("ramptask", |i| {
+        let w = |k: &str| i.i16(k);
         let mut level = level1.clone();
         let li = w("levelindex");
         if li >= 0 {
@@ -105,15 +73,10 @@ fn ramp_task_matches_the_original() {
     });
 }
 
-fn installed(name: &str) -> Option<Resources> {
-    let bytes = std::fs::read(root().join("re/work/installed").join(name)).ok()?;
-    Some(Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap())
-}
-
 #[test]
 fn ramps_meeting_match_the_original() {
-    compare("ramphit.txt", |i| {
-        let w = |k: &str| i[k].parse::<i32>().unwrap();
+    compare("ramphit", |i| {
+        let w = |k: &str| i.i32(k);
         let make = |kind: i32, v: i32, h: i32| {
             let mut s = Sprite::new(kind as i16, h as i16, v as i16);
             if kind != 0 {
@@ -141,14 +104,14 @@ fn pushed_ramps_move_like_the_original() {
     else {
         return;
     };
-    let levels: Vec<_> = (1..=15).map(|i| hlvl::read(ep.get(b"Hlvl", i).unwrap()).unwrap()).collect();
+    let levels = levels_of(&ep);
     let ramps: Vec<_> = (571..=574).map(|id| masks::from_cicn(&gfx, id).unwrap()).collect();
     let obstacle = masks::from_cicn(&gfx, 290).unwrap();
     let walls = masks::walls(&app).unwrap();
     let ms = RampMasks { ramps: [&ramps[0], &ramps[1], &ramps[2], &ramps[3]], walls: &walls, obstacle: &obstacle };
     let physics = Physics::default();
-    compare("rampflight.txt", |i| {
-        let w = |k: &str| i[k].parse::<i32>().unwrap() as i16;
+    compare("rampflight", |i| {
+        let w = |k: &str| i.i16(k);
         let mut level = levels[w("level") as usize - 1].clone();
         let li = w("levelindex");
         level.sprites[li as usize].info[1] = 1;

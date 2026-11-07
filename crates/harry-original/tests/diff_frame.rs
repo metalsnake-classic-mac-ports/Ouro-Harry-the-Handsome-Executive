@@ -1,8 +1,11 @@
 //! Harry's frame (`HandlePlayerSprite`, keys stubbed) against the original,
 //! recorded in Unicorn by `re/tools/emu_frame.py` on the real levels.
 
+mod common;
+
 use std::collections::HashMap;
-use std::path::PathBuf;
+
+use common::{Tally, episode1_levels, recording};
 
 use harry_core::air::Air;
 use harry_core::bounce::Body;
@@ -11,28 +14,16 @@ use harry_core::physics::Speed;
 use harry_core::player::Player;
 use harry_core::random::Random;
 use harry_core::{Physics, moves::Moves, player::TileState};
-use harry_original::hlvl;
-use harry_original::resfork::{MacBinary, Resources};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 #[test]
 fn player_frame_matches_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/frame.txt")) else {
-        eprintln!("skipped: frame.txt not found (run re/tools/emu_frame.py)");
-        return;
-    };
-    let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
-    let res = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
-    let levels: Vec<_> = (1..=15).map(|i| hlvl::read(res.get(b"Hlvl", i).unwrap()).unwrap()).collect();
+    let Some(text) = recording("frame", "emu_frame.py") else { return };
+    let Some(levels) = episode1_levels() else { return };
     let header = text.lines().next().unwrap();
     let (hin, hout) = header.split_once(": ").unwrap().1.split_once(" -> ").unwrap();
     let names_in: Vec<&str> = hin.split(' ').collect();
     let names_out: Vec<String> = hout.split(' ').map(|s| s.to_string()).collect();
-    let mut bad = 0;
-    let mut n = 0;
+    let mut tally = Tally::new("frame", 6);
     for line in text.lines().skip(1) {
         let (a, b) = line.split_once("->").unwrap();
         let vals: Vec<i64> = a.split_whitespace().map(|x| x.parse().unwrap()).collect();
@@ -131,20 +122,17 @@ fn player_frame_matches_the_original() {
         got.extend([i64::from(p.body.fix.0), i64::from(p.body.fix.1), i64::from(p.face)]);
         got.extend(p.hot_rect.iter().map(|&x| i64::from(x)));
         got.extend([i64::from(h.dead), i64::from(g.player_speed.0), i64::from(g.player_speed.1), keys, sounds.len() as i64]);
-        n += 1;
-        if got != want {
-            bad += 1;
-            if bad <= 6 {
-                let diffs: Vec<String> = names_out
-                    .iter()
-                    .flat_map(|s| if s == "hotRect(t" { vec!["hot.t".into()] } else { vec![s.clone()] })
-                    .zip(got.iter().zip(&want))
-                    .filter(|(_, (a, b))| a != b)
-                    .map(|(name, (a, b))| format!("{name}: port {a} original {b}"))
-                    .collect();
-                eprintln!("frame case {n}: {}", diffs.join(", "));
-            }
-        }
+        let n = tally.count() + 1;
+        tally.case(got == want, || {
+            let diffs: Vec<String> = names_out
+                .iter()
+                .flat_map(|s| if s == "hotRect(t" { vec!["hot.t".into()] } else { vec![s.clone()] })
+                .zip(got.iter().zip(&want))
+                .filter(|(_, (a, b))| a != b)
+                .map(|(name, (a, b))| format!("{name}: port {a} original {b}"))
+                .collect();
+            format!("case {n}: {}", diffs.join(", "))
+        });
     }
-    assert_eq!(bad, 0, "{bad} of {n} frame cases differ");
+    tally.finish();
 }

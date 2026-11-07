@@ -1,35 +1,23 @@
 //! Simple sprite kinds (setup, frames of the task, the hit task) against
 //! the original, recorded in Unicorn by `re/tools/emu_kinds.py`.
 
-use std::path::PathBuf;
-
 use harry_core::kinds::{
     LevelCounter, handle_bonus, handle_door, handle_item, hit_door, hit_exit, setup_bonus, setup_door, setup_exit,
     setup_item,
 };
 mod common;
 
-use common::dump;
+use common::{Tally, dump, installed, recording, word_diff};
 use harry_core::sprite::{Sprite, Task};
 use harry_original::hlvl;
-use harry_original::resfork::{MacBinary, Resources};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 #[test]
 fn simple_kinds_match_the_original() {
-    let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
-    let res = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
+    let Some(res) = installed("Episode 1.bin") else { return };
     let level1 = hlvl::read(res.get(b"Hlvl", 1).unwrap()).unwrap();
     for kind in ["bonus", "item", "exit", "door"] {
-        let Ok(text) = std::fs::read_to_string(root().join(format!("re/work/diff/kinds/{kind}.txt"))) else {
-            eprintln!("skipped: kinds/{kind}.txt not found (run re/tools/emu_kinds.py)");
-            return;
-        };
-        let mut bad = 0;
-        let mut n = 0;
+        let Some(text) = recording(&format!("kinds/{kind}"), "emu_kinds.py") else { return };
+        let mut tally = Tally::new(kind, 5);
         for line in text.lines().skip(1) {
             let (a, b) = line.split_once(" -> ").unwrap();
             let (want, want_globals) = b.split_once(" | ").unwrap();
@@ -103,21 +91,10 @@ fn simple_kinds_match_the_original() {
                 }
                 _ => true,
             };
-            n += 1;
-            if got != want || !globals_ok {
-                bad += 1;
-                if bad <= 5 {
-                    let diffs: Vec<String> = want
-                        .split(' ')
-                        .zip(got.split(' '))
-                        .filter(|(w, g)| w != g)
-                        .map(|(w, g)| format!("want {w} got {g}"))
-                        .collect();
-                    eprintln!("{kind}: {a}\n  {} | globals want {want_globals} got {} {}", diffs.join(", "), counter.current, counter.previous);
-                }
-            }
+            tally.case(got == want && globals_ok, || {
+                format!("{a}\n  {} | globals want {want_globals} got {} {}", word_diff(want, &got), counter.current, counter.previous)
+            });
         }
-        assert_eq!(bad, 0, "{kind}: {bad} of {n} cases differ");
-        eprintln!("{kind}: {n} cases");
+        tally.finish();
     }
 }

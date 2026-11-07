@@ -3,31 +3,19 @@
 //! `re/tools/emu_tiles.py`), on the real levels with the real masks read
 //! from the original files.
 
-use std::path::PathBuf;
+mod common;
 
+use common::{Tally, installed, levels_of, numeric_cases, recording, work_text};
 use harry_core::Physics;
 use harry_core::bounce::Body;
 use harry_core::player::{HOT_RECT, KICK_HOT_RECT, Masks, Player, TileState, hit_player_tile};
 use harry_core::physics::Speed;
 use harry_core::tiles::touched_tiles;
-use harry_original::resfork::{MacBinary, Resources};
-use harry_original::{hlvl, hrsp, masks};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn installed(name: &str) -> Option<Resources> {
-    let bytes = std::fs::read(root().join("re/work/installed").join(name)).ok()?;
-    Some(Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap())
-}
+use harry_original::{hrsp, masks};
 
 #[test]
 fn tile_collisions_match_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/tiles.txt")) else {
-        eprintln!("skipped: re/work/diff/tiles.txt not found (run re/tools/emu_tiles.py)");
-        return;
-    };
+    let Some(text) = recording("tiles", "emu_tiles.py") else { return };
     let (Some(app), Some(gfx), Some(ep)) = (installed("Harry 1.0.1.bin"), installed("Harry Graphics.bin"), installed("Episode 1.bin")) else {
         return;
     };
@@ -40,14 +28,10 @@ fn tile_collisions_match_the_original() {
         walls: masks::walls(&app).unwrap(),
         faces,
     };
-    let levels: Vec<_> = (1..=15).map(|i| hlvl::read(ep.get(b"Hlvl", i).unwrap()).unwrap()).collect();
+    let levels = levels_of(&ep);
     let physics = Physics::default();
-    let mut bad = 0;
-    let mut n = 0;
-    for line in text.lines().filter(|l| !l.starts_with('#')) {
-        let (a, b) = line.split_once("->").unwrap();
-        let v: Vec<i32> = a.split_whitespace().map(|x| x.parse().unwrap()).collect();
-        let want: Vec<i32> = b.split_whitespace().map(|x| x.parse().unwrap()).collect();
+    let mut tally = Tally::new("tiles", 8);
+    for (line, v, want) in numeric_cases(&text) {
         let level = &levels[v[0] as usize - 1];
         let at = (v[1] as i16, v[2] as i16);
         let kicking = v[6] == 108;
@@ -79,15 +63,9 @@ fn tile_collisions_match_the_original() {
             st.ouch_cooldown.into(), st.comfort_delta.into(), st.wet.into(), st.floor_kind.into(), st.kick_contact.into(),
             ouches, sounds.len() as i32 - ouches,
         ];
-        n += 1;
-        if got != want {
-            bad += 1;
-            if bad <= 8 {
-                eprintln!("tiles: {line}\n  port {got:?}");
-            }
-        }
+        tally.numbers(line, &want, &got);
     }
-    assert_eq!(bad, 0, "{bad} of {n} tile collision cases differ");
+    tally.finish();
 }
 
 /// The shape tables against the ones the original computes
@@ -95,7 +73,7 @@ fn tile_collisions_match_the_original() {
 #[test]
 fn tables_match_the_original() {
     use harry_core::tiles::{KICK_RECTS, bg_rect, fg_rect};
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/tables/tile_rects.txt")) else { return };
+    let Some(text) = work_text("tables/tile_rects.txt", "emu_tables.py") else { return };
     let rect = |s: &str| -> [i16; 4] {
         let v: Vec<i16> = s.trim_matches(|c| c == '(' || c == ')').split(", ").map(|x| x.parse().unwrap()).collect();
         [v[0], v[1], v[2], v[3]]

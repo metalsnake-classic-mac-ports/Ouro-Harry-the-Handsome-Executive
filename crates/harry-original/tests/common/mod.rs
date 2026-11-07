@@ -1,6 +1,11 @@
-//! Shared helpers of the sprite tests: the recorder's dump of a sprite
-//! (`re/tools/sprites.py`).
+//! Shared helpers of the differential tests: the recordings and how they
+//! are compared (`recording`), the recorder's dump of a sprite and its
+//! events (`re/tools/sprites.py`).
 #![allow(dead_code)]
+
+mod recording;
+
+pub use recording::*;
 
 use harry_core::sprite::{HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 

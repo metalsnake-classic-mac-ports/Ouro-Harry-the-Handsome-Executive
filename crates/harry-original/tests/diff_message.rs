@@ -3,39 +3,23 @@
 
 mod common;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
 use harry_core::random::Random;
 
-use common::dump;
+use common::{Tally, dump, installed, named_cases, recording};
 use harry_core::kinds::{BalloonText, handle_message, hit_message, setup_message};
 use harry_core::sprite::{Sprite, Task};
 use harry_original::hlvl;
-use harry_original::resfork::{MacBinary, Resources};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 #[test]
 fn message_matches_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/message.txt")) else {
-        eprintln!("skipped: message.txt not found (run re/tools/emu_message.py)");
-        return;
-    };
-    let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
-    let res = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
+    let Some(text) = recording("message", "emu_message.py") else { return };
+    let Some(res) = installed("Episode 1.bin") else { return };
     let mut level = hlvl::read(res.get(b"Hlvl", 1).unwrap()).unwrap();
-    let Ok(app) = std::fs::read(root().join("re/work/installed/Harry 1.0.1.bin")) else { return };
-    let app = Resources::parse(&MacBinary::parse(&app).unwrap().rsrc).unwrap();
+    let Some(app) = installed("Harry 1.0.1.bin") else { return };
     let base = harry_original::words::words(&app).unwrap();
-    let mut bad = 0;
-    let mut n = 0;
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let w = |k: &str| i[k].parse::<i64>().unwrap() as i16;
+    let mut tally = Tally::new("message", 8);
+    for (a, i, b) in named_cases(&text) {
+        let w = |k: &str| i.i16(k);
         let mut sp = Sprite::new(w("kind"), w("h"), w("v"));
         setup_message(&mut sp);
         let li = w("levelindex");
@@ -48,11 +32,11 @@ fn message_matches_the_original() {
         other.task = Some(if w("other") == 2 { Task::Bonus } else { Task::Player });
         other.frozen = w("other") == 3;
         other.hot_rect = [22, if w("kicking") != 0 { 0 } else { 22 }, 42, 42];
-        let mut answers: Vec<bool> = i["answers"].chars().map(|c| c == '1').collect();
+        let mut answers: Vec<bool> = i.str("answers").chars().map(|c| c == '1').collect();
         answers.reverse();
         let mut calls = Vec::new();
         let mut words = base.clone();
-        let mut rng = Random::new(i["seed"].parse().unwrap());
+        let mut rng = Random::new(i.u32("seed"));
         let mut show = |_: &Sprite, t: BalloonText, mode: i16| {
             let ans = answers.pop().unwrap_or(false);
             let name = match t {
@@ -83,16 +67,7 @@ fn message_matches_the_original() {
             if calls.is_empty() { "-".into() } else { calls.join(",") },
             rng.seed
         );
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 8 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x} got {y}")).collect();
-                eprintln!("{a}\n  {}", diffs.join(", "));
-            }
-        }
+        tally.words(a, b, &got);
     }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+    tally.finish();
 }

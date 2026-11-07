@@ -3,31 +3,22 @@
 
 mod common;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use common::dump;
+use common::{Tally, dump, named_cases, recording};
 use harry_core::random::Random;
 use harry_core::shots::{hit_player_shot, setup_player_shot};
 use harry_core::sprite::Sprite;
 
 #[test]
 fn player_shot_hits_match_the_original() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff/playershot.txt");
-    let Ok(text) = std::fs::read_to_string(path) else {
-        eprintln!("skipped: playershot.txt not found (run re/tools/emu_playershot.py)");
-        return;
-    };
-    let (mut bad, mut n) = (0, 0);
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let w = |k: &str| i[k].parse::<i64>().unwrap() as i16;
-        let mut rng = Random::new(i["seed"].parse().unwrap());
+    let Some(text) = recording("playershot", "emu_playershot.py") else { return };
+    let mut tally = Tally::new("playershot", 8);
+    for (a, i, b) in named_cases(&text) {
+        let w = |k: &str| i.i16(k);
+        let mut rng = Random::new(i.u32("seed"));
         let mut sp = Sprite::new(w("shot"), w("h"), w("v"));
         setup_player_shot(&mut sp);
         let mut o = Sprite::new(w("okind"), w("oh"), w("ov"));
-        match i["other"] {
+        match i.str("other") {
             "collider" => harry_core::collider::setup_collider(&mut o, &mut rng),
             "sliding" => harry_core::button::setup_sliding_door(&mut o),
             "dart" => harry_core::dart_enemy::setup_dart_enemy(&mut o),
@@ -45,13 +36,13 @@ fn player_shot_hits_match_the_original() {
         sp.frozen = w("frozen") != 0;
         o.frozen = w("ofrozen") != 0;
         let mut favor = 100;
-        let mut rng = Random::new(i["seed2"].parse().unwrap());
+        let mut rng = Random::new(i.str("seed2").parse().unwrap());
         let mut events = Vec::new();
         hit_player_shot(&mut sp, &mut o, &mut favor, &mut rng, &mut events);
         let got = format!("{} || {} | favor={favor} events={}", dump(&sp), dump(&o), common::events(&events));
         // a blob set up facing 24 or more takes its face from past its
         // table in the original (BUGS.md); the port has none
-        let b = if i["other"] == "blob" && o.face == 0 && o.dir >= 24 {
+        let b = if i.str("other") == "blob" && o.face == 0 && o.dir >= 24 {
             let (left, right) = b.split_once(" || ").unwrap();
             let right: Vec<String> =
                 right.split(' ').map(|f| if f.starts_with("face=") { "face=0".to_string() } else { f.to_string() }).collect();
@@ -60,16 +51,7 @@ fn player_shot_hits_match_the_original() {
             b.to_string()
         };
         let b = b.as_str();
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 8 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x} got {y}")).collect();
-                eprintln!("{a}\n  {}", diffs.join(", "));
-            }
-        }
+        tally.words(a, b, &got);
     }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+    tally.finish();
 }

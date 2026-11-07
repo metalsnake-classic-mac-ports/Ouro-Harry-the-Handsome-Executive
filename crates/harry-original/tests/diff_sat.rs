@@ -1,14 +1,11 @@
 //! SAT's sprite list handling (`HandleSprites`) against the original,
 //! recorded in Unicorn by `re/tools/emu_sat.py` with dummy sprites.
 
-use std::path::PathBuf;
+mod common;
 
+use common::{Tally, recording};
 use harry_core::sat::{absolute, collisions, sort_pass};
 use harry_core::tiles::sect;
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 struct Dummy {
     kind: i16,
@@ -27,12 +24,8 @@ fn join(v: &[String]) -> String {
 
 #[test]
 fn sprite_list_matches_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/sat.txt")) else {
-        eprintln!("skipped: sat.txt not found (run re/tools/emu_sat.py)");
-        return;
-    };
-    let mut bad = 0;
-    let mut n = 0;
+    let Some(text) = recording("sat", "emu_sat.py") else { return };
+    let mut tally = Tally::new("sat", 8);
     for line in text.lines().skip(1) {
         let (a, b) = line.split_once(" -> ").unwrap();
         let mut s: Vec<Dummy> = a
@@ -103,14 +96,7 @@ fn sprite_list_matches_the_original() {
             join(&phits),
             join(&s.iter().map(|d| d.kind.to_string()).collect::<Vec<_>>())
         );
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 10 {
-                eprintln!("{a}\n  want {b}\n  got  {got}");
-            }
-        }
+        tally.case(got == b, || format!("{a}\n  want {b}\n  got  {got}"));
     }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+    tally.finish();
 }

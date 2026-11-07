@@ -3,36 +3,19 @@
 
 mod common;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use common::dump;
+use common::{check_named, dump, installed};
 use harry_core::dart_enemy::{handle_dart_enemy, hit_dart_enemy, setup_dart_enemy};
 use harry_core::frame::PlayerGlobals;
 use harry_core::random::Random;
 use harry_core::sprite::{Sprite, Task};
 use harry_original::hlvl;
-use harry_original::resfork::{MacBinary, Resources};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 #[test]
 fn dart_enemy_matches_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/dart.txt")) else {
-        eprintln!("skipped: dart.txt not found (run re/tools/emu_dart.py)");
-        return;
-    };
-    let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
-    let ep = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
+    let Some(ep) = installed("Episode 1.bin") else { return };
     let level1 = hlvl::read(ep.get(b"Hlvl", 1).unwrap()).unwrap();
-    let mut bad = 0;
-    let mut n = 0;
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let w = |k: &str| i[k].parse::<i32>().unwrap();
+    check_named("dart", "emu_dart.py", |i| {
+        let w = |k: &str| i.i32(k);
         let mut level = level1.clone();
         let li = w("levelindex") as i16;
         if li >= 0 {
@@ -53,8 +36,8 @@ fn dart_enemy_matches_the_original() {
             sp.layer = w("setlayer") as i16;
         }
         let mut other = Sprite::new(0, 0, 0);
-        other.task = Some(if i["other"] == "bonus" { Task::Bonus } else { Task::PlayerShot });
-        other.frozen = i["other"] == "frozenshot";
+        other.task = Some(if i.str("other") == "bonus" { Task::Bonus } else { Task::PlayerShot });
+        other.frozen = i.str("other") == "frozenshot";
         let view = (w("viewv") as i16, w("viewh") as i16);
         let mut events = Vec::new();
         let frames = w("frames");
@@ -69,17 +52,6 @@ fn dart_enemy_matches_the_original() {
                 handle_dart_enemy(&mut sp, view, &level, &mut rng, &mut events);
             }
         }
-        let got = format!("{} | favor={} ofrozen={} events={}", dump(&sp), g.favor, u8::from(other.frozen), common::events(&events));
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 8 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x} got {y}")).collect();
-                eprintln!("{a}\n  {}", diffs.join(", "));
-            }
-        }
-    }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+        format!("{} | favor={} ofrozen={} events={}", dump(&sp), g.favor, u8::from(other.frozen), common::events(&events))
+    });
 }

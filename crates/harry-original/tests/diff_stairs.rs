@@ -3,33 +3,23 @@
 
 mod common;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use common::dump;
+use common::{Fields, Tally, dump, recording};
 use harry_core::bounce::Body;
 use harry_core::physics::Speed;
 use harry_core::sprite::Sprite;
 use harry_core::stairs::{setup_stairs, stairs_collision};
 
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
 #[test]
 fn stairs_match_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/stairs.txt")) else {
-        eprintln!("skipped: stairs.txt not found (run re/tools/emu_stairs.py)");
-        return;
-    };
-    let (mut bad, mut n) = (0, 0);
+    let Some(text) = recording("stairs", "emu_stairs.py") else { return };
+    let mut tally = Tally::new("stairs", 8);
     for line in text.lines().skip(1) {
         let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let w = |k: &str| i[k].parse::<i64>().unwrap();
+        let i = Fields::parse(a);
+        let w = |k: &str| i.i64(k);
         let mut stairs = Sprite::new(w("kind") as i16, w("sh") as i16, w("sv") as i16);
         setup_stairs(&mut stairs);
-        let hot: Vec<i16> = i["hot"].split(':').map(|x| x.parse().unwrap()).collect();
+        let hot: Vec<i16> = i.str("hot").split(':').map(|x| x.parse().unwrap()).collect();
         let mut body = Body {
             pos: (w("pv") as i16, w("ph") as i16),
             at: (w("v") as i16, w("h") as i16),
@@ -51,16 +41,7 @@ fn stairs_match_the_original() {
             body.fix.0,
             body.fix.1
         );
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 8 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x} got {y}")).collect();
-                eprintln!("{a}\n  {}", diffs.join(", "));
-            }
-        }
+        tally.words(a, b, &got);
     }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+    tally.finish();
 }

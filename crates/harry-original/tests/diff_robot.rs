@@ -3,10 +3,7 @@
 
 mod common;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use common::dump;
+use common::{check_named, dump, installed, levels_of};
 use harry_core::Physics;
 use harry_core::air::AirSound;
 use harry_core::button::setup_sliding_door;
@@ -23,28 +20,7 @@ use harry_core::robot::{RobotWorld, handle_robot, hit_robot, hit_robot_tile, set
 use harry_core::sprite::{Sprite, Task};
 use harry_core::stairs::setup_stairs;
 use harry_core::tiles::touched_tiles;
-use harry_original::resfork::{MacBinary, Resources};
-use harry_original::{hlvl, masks};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn installed(name: &str) -> Option<Resources> {
-    let bytes = std::fs::read(root().join("re/work/installed").join(name)).ok()?;
-    Some(Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap())
-}
-
-fn report(a: &str, want: &str, got: &str, bad: &mut usize) {
-    if want != got {
-        *bad += 1;
-        if *bad <= 8 {
-            let diffs: Vec<String> =
-                want.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x} got {y}")).collect();
-            eprintln!("{a}\n  {}", diffs.join(", "));
-        }
-    }
-}
+use harry_original::masks;
 
 /// The robots' face bounds (HrSp 4201… 32 × 32, 4701… 40 × 40).
 fn bounds(face: i16) -> [i16; 4] {
@@ -53,24 +29,17 @@ fn bounds(face: i16) -> [i16; 4] {
 
 #[test]
 fn robot_tasks_match_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/robottask.txt")) else {
-        eprintln!("skipped: robottask.txt not found (run re/tools/emu_robot.py)");
-        return;
-    };
     let (Some(app), Some(gfx), Some(ep)) = (installed("Harry 1.0.1.bin"), installed("Harry Graphics.bin"), installed("Episode 1.bin"))
     else {
         return;
     };
-    let levels: Vec<_> = (1..=15).map(|i| hlvl::read(ep.get(b"Hlvl", i).unwrap()).unwrap()).collect();
+    let levels = levels_of(&ep);
     // cicn 598 encoded as face 4251: the faces' mirrored bits
     let mask = masks::from_face(&harry_original::hrsp::decode(gfx.get(b"HrSp", 4251).unwrap()).unwrap());
     let obstacle = masks::from_cicn(&gfx, 290).unwrap();
     let walls = masks::walls(&app).unwrap();
-    let (mut bad, mut n) = (0, 0);
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let w = |k: &str| i[k].parse::<i64>().unwrap() as i16;
+    check_named("robottask", "emu_robot.py", |i| {
+        let w = |k: &str| i.i16(k);
         let mut level = levels[w("level") as usize - 1].clone();
         let index = w("index");
         level.sprites[index as usize].info[3] = w("info3");
@@ -89,11 +58,11 @@ fn robot_tasks_match_the_original() {
         sp.speed.v = w("speedv");
         sp.air = w("air");
         sp.frozen = w("frozen") != 0;
-        let mut rng = Random::new(i["seed"].parse::<u32>().unwrap());
+        let mut rng = Random::new(i.u32("seed"));
         let unset = 0; // the port's value (see BUGS.md)
         let (mut wall, mut obst) = (false, false);
         let mut evs = Vec::new();
-        for step in i["steps"].split(',') {
+        for step in i.str("steps").split(',') {
             let (dh, dv) = step.split_once(':').unwrap();
             g.player_pos.0 = g.player_pos.0.wrapping_add(dh.parse().unwrap());
             g.player_pos.1 = g.player_pos.1.wrapping_add(dv.parse().unwrap());
@@ -112,38 +81,27 @@ fn robot_tasks_match_the_original() {
             }
             evs.push(if log.is_empty() { "-".to_string() } else { log.join(",") });
         }
-        let got = format!(
+        format!(
             "{} | entry={} score={} chatter={} events={}",
             dump(&sp),
             u8::from(level.sprites[index as usize].present),
             g.score,
             g.chatter,
             evs.join(";")
-        );
-        n += 1;
-        report(a, b, &got, &mut bad);
-    }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+        )
+    });
 }
 
 #[test]
 fn robot_hits_match_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/robothit.txt")) else {
-        eprintln!("skipped: robothit.txt not found (run re/tools/emu_robot.py)");
-        return;
-    };
     let physics = Physics::default();
-    let (mut bad, mut n) = (0, 0);
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let w = |k: &str| i[k].parse::<i64>().unwrap() as i16;
-        let mut rng = Random::new(i["seed"].parse::<u32>().unwrap());
+    check_named("robothit", "emu_robot.py", |i| {
+        let w = |k: &str| i.i16(k);
+        let mut rng = Random::new(i.u32("seed"));
         let mut sp = Sprite::new(w("kind"), w("h"), w("v"));
         setup_robot(&mut sp, (w("harryh"), w("harryv")));
         let okind = w("okind");
-        let p = i["other"];
+        let p = i.str("other");
         let mut o = Sprite::new(if p == "effect" { 0 } else { okind }, w("oh"), w("ov"));
         match p {
             "harry" => {
@@ -170,13 +128,13 @@ fn robot_hits_match_the_original() {
         o.at = (w("ov"), w("oh"));
         o.dir = w("odir");
         for (s, pre) in [(&mut sp, ""), (&mut o, "o")] {
-            let k = |n: &str| i[format!("{pre}{n}").as_str()].parse::<i64>().unwrap();
+            let k = |n: &str| i.i64(&format!("{pre}{n}"));
             s.pos = (k("pv") as i16, k("ph") as i16);
             s.fix = (k("fixh") as i32, k("fixv") as i32);
             s.speed.h = k("speedh") as i16;
             s.speed.v = k("speedv") as i16;
             s.frozen = k("frozen") != 0;
-            let hot: Vec<i16> = i[format!("{pre}hot").as_str()].split(':').map(|x| x.parse().unwrap()).collect();
+            let hot: Vec<i16> = i.str(&format!("{pre}hot")).split(':').map(|x| x.parse().unwrap()).collect();
             s.hot_rect = [hot[0], hot[1], hot[2], hot[3]];
         }
         sp.f7c = w("mode");
@@ -184,13 +142,9 @@ fn robot_hits_match_the_original() {
         sp.blast_cooldown = w("blast");
         sp.f94 = w("f94");
         let mut contact = w("contact");
-        let mut rng = Random::new(i["seed2"].parse::<u32>().unwrap());
+        let mut rng = Random::new(i.u32("seed2"));
         let mut events = Vec::new();
         hit_robot(&mut sp, &mut o, &physics, &mut rng, &mut contact, w("caffeine") > 0, &mut events);
-        let got = format!("{} || {} | contact={contact} events={}", dump(&sp), dump(&o), common::events(&events));
-        n += 1;
-        report(a, b, &got, &mut bad);
-    }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+        format!("{} || {} | contact={contact} events={}", dump(&sp), dump(&o), common::events(&events))
+    });
 }

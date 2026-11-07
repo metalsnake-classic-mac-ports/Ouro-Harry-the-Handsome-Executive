@@ -3,18 +3,10 @@
 
 mod common;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use common::{dump, hit_name, task_name, tile_name};
+use common::{Tally, dump, hit_name, installed, named_cases, recording, task_name, tile_name};
 use harry_core::random::Random;
 use harry_core::world::World;
 use harry_original::hlvl;
-use harry_original::resfork::{MacBinary, Resources};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 /// The object ids whose kinds the port has (as the recorder's filter).
 fn ported(k: i16) -> bool {
@@ -130,12 +122,8 @@ fn state(w: &World, before: &harry_core::Level, level: &harry_core::Level) -> St
 
 #[test]
 fn level_start_and_idle_sprites_match_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/world.txt")) else {
-        eprintln!("skipped: world.txt not found (run re/tools/emu_world.py)");
-        return;
-    };
-    let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
-    let ep = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
+    let Some(text) = recording("world", "emu_world.py") else { return };
+    let Some(ep) = installed("Episode 1.bin") else { return };
     let levels: Vec<_> = (1..=15)
         .map(|n| {
             let mut l = hlvl::read(ep.get(b"Hlvl", n).unwrap()).unwrap();
@@ -147,19 +135,16 @@ fn level_start_and_idle_sprites_match_the_original() {
             l
         })
         .collect();
-    let mut bad = 0;
-    let mut n = 0;
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let mut level = levels[i["level"].parse::<usize>().unwrap() - 1].clone();
-        let mut rng = Random::new(i["seed"].parse().unwrap());
+    let mut tally = Tally::new("world", 8);
+    for (a, i, b) in named_cases(&text) {
+        let mut level = levels[i.str("level").parse::<usize>().unwrap() - 1].clone();
+        let mut rng = Random::new(i.u32("seed"));
         let mut w = World::default();
         let missing = w.setup_level_sprites(&level, &mut rng);
         assert!(missing.is_empty(), "{missing:?}");
         let before = level.clone();
-        if i["steps"] != "-" {
-            for step in i["steps"].split(',') {
+        if i.str("steps") != "-" {
+            for step in i.str("steps").split(',') {
                 let p: Vec<&str> = step.splitn(3, ':').collect();
                 w.handle_idle_sprites((p[0].parse().unwrap(), p[1].parse().unwrap()));
                 if p[2] != "-" {
@@ -178,21 +163,7 @@ fn level_start_and_idle_sprites_match_the_original() {
         let got = state(&w, &before, &level);
         let b = blob_faces(b);
         let b = b.as_str();
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 4 {
-                let diffs: Vec<String> = b
-                    .split([' ', ';', ','])
-                    .zip(got.split([' ', ';', ',']))
-                    .filter(|(x, y)| x != y)
-                    .take(6)
-                    .map(|(x, y)| format!("want {x}\n   got {y}"))
-                    .collect();
-                eprintln!("{a}\n  {}", diffs.join("\n  "));
-            }
-        }
+        tally.words(a, b, &got);
     }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+    tally.finish();
 }

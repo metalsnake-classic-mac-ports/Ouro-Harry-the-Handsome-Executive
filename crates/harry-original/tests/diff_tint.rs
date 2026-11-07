@@ -2,21 +2,15 @@
 //! Unicorn by `re/tools/emu_tint.py`: every colour `Color2Index` is asked
 //! for, in order, and the tables built from the answers.
 
-use std::path::PathBuf;
+mod common;
 
+use common::recording;
 use harry_core::tint::Tables;
 use harry_data::clut8;
 
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
 #[test]
 fn the_tint_tables_match_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/tint.txt")) else {
-        eprintln!("skipped: tint.txt not found (run re/tools/emu_tint.py)");
-        return;
-    };
+    let Some(text) = recording("tint", "emu_tint.py") else { return };
     let mut asked = Vec::new();
     let mut calls = 0u32;
     let t = Tables::build(

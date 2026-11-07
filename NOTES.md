@@ -2159,6 +2159,17 @@ the game's TOC (it may stop in a library).
   and the tests against the original), `crates/harry` (the game with
   SDL3, `ouro-harry`). `cargo test` runs the tests; those that need
   recordings or the original's files skip when `re/work/` lacks them.
+- **Test helpers** (`crates/harry-original/tests/common/`): `recording.rs`
+  reads `re/work/` (`recording(name, tool)` for `re/work/diff/<name>.txt`,
+  `installed(file)`, `episode1_levels()`; each prints a "skipped" note
+  when the file is missing), parses the two recording formats (numbers
+  `in -> out` with `#` comments: `numeric_cases`; a header, then
+  `k=v … -> expected`: `named_cases`, `Fields`) and compares through
+  `Tally` (counts, reports the first differing cases word by word, fails
+  at the end, prints `<name>: <n> cases`). Most tests are one
+  `check_named` / `check_numbers` call with a closure that runs the port
+  on one case; `mod.rs` holds the recorders' sprite dump and event
+  notation (`re/tools/sprites.py`).
 - **Data pack** (`harry-data`; `data/ouro-harry-data.zip` in the
   repository, built into the game, made by `cargo run --release -p
   harry-original --bin ouro-harry-extract -- re/work/installed

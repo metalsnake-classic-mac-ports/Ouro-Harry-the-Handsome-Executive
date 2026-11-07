@@ -1,9 +1,9 @@
 //! Harry touching other sprites (`HitPlayerSprite`) against the original,
 //! recorded in Unicorn by `re/tools/emu_playerhit.py`.
 
-use std::collections::HashMap;
-use std::path::PathBuf;
+mod common;
 
+use common::{Tally, installed, named_cases, recording};
 use harry_core::Physics;
 use harry_core::air::Air;
 use harry_core::bounce::Body;
@@ -27,11 +27,6 @@ use harry_core::random::Random;
 use harry_core::sprite::Sprite;
 use harry_core::touch::{TouchEvent, TouchWorld, touch};
 use harry_original::{hlvl, hrsp, masks};
-use harry_original::resfork::{MacBinary, Resources};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 fn inventory(s: &str) -> [(i16, i16); 12] {
     let mut inv = [(0, 0); 12];
@@ -42,37 +37,25 @@ fn inventory(s: &str) -> [(i16, i16); 12] {
     inv
 }
 
-fn fields(s: &str) -> HashMap<&str, &str> {
-    s.split(' ').map(|kv| kv.split_once('=').unwrap()).collect()
-}
-
 #[test]
 fn touching_matches_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/playerhit.txt")) else {
-        eprintln!("skipped: playerhit.txt not found (run re/tools/emu_playerhit.py)");
-        return;
-    };
-    let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
-    let res = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
+    let Some(text) = recording("playerhit", "emu_playerhit.py") else { return };
+    let Some(res) = installed("Episode 1.bin") else { return };
     let mut level = hlvl::read(res.get(b"Hlvl", 1).unwrap()).unwrap();
-    let Ok(gfx_bytes) = std::fs::read(root().join("re/work/installed/Harry Graphics.bin")) else { return };
-    let gfx = Resources::parse(&MacBinary::parse(&gfx_bytes).unwrap().rsrc).unwrap();
+    let Some(gfx) = installed("Harry Graphics.bin") else { return };
     let body = masks::from_cicn(&gfx, 299).unwrap();
     let face_mask = |id: i16| masks::from_face(&hrsp::decode(gfx.get(b"HrSp", id).unwrap()).unwrap());
     let desks = [face_mask(6021), face_mask(6022)];
-    let mut bad = 0;
-    let mut n = 0;
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i = fields(a);
-        let w = |k: &str| i[k].parse::<i32>().unwrap() as i16;
+    let mut tally = Tally::new("playerhit", 8);
+    for (a, i, b) in named_cases(&text) {
+        let w = |k: &str| i.i16(k);
         let kind = w("kind");
         let mut h = Harry {
             player: Player {
                 body: Body {
                     pos: (w("pv"), w("ph")),
                     at: (w("pav"), w("pah")),
-                    fix: (i["fixh"].parse().unwrap(), i["fixv"].parse().unwrap()),
+                    fix: (i.str("fixh").parse().unwrap(), i.str("fixv").parse().unwrap()),
                     speed: Speed { h: w("speedh"), v: w("speedv") },
                 },
                 dir: w("dir"),
@@ -95,7 +78,7 @@ fn touching_matches_the_original() {
             t28: w("t28"),
             ammo: Ammo { staple: w("staple"), badass: w("badass"), shrapnel: w("shrapnel") },
             cur_slot: w("curslot"),
-            inventory: inventory(i["inv"]),
+            inventory: inventory(i.str("inv")),
             tile: TileState {
                 kick_contact: w("contact"),
                 ouch_cooldown: w("ouchcd"),
@@ -105,7 +88,7 @@ fn touching_matches_the_original() {
             kick_reset: w("kickreset") != 0,
             player_pos: (w("playerh"), w("playerv")),
             flag50: w("bounced") != 0,
-            score: i["score"].parse().unwrap(),
+            score: i.str("score").parse().unwrap(),
             ..Default::default()
         };
         let mut other = Sprite::new(kind, w("oh"), w("ov"));
@@ -135,8 +118,8 @@ fn touching_matches_the_original() {
         other.timer = w("otimer");
         other.dir = w("omdir");
         other.hot_rect2 = harry_core::sat::absolute(other.hot_rect, other.pos);
-        if i["setospeed"] != "-" {
-            let (v, h) = i["setospeed"].split_once(':').unwrap();
+        if i.str("setospeed") != "-" {
+            let (v, h) = i.str("setospeed").split_once(':').unwrap();
             other.speed = Speed { v: v.parse().unwrap(), h: h.parse().unwrap() };
         }
         let li = w("levelindex");
@@ -213,16 +196,7 @@ fn touching_matches_the_original() {
         .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
         .join(" ");
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 10 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x} got {y}")).collect();
-                eprintln!("{a}\n  {}", diffs.join(", "));
-            }
-        }
+        tally.words(a, b, &got);
     }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+    tally.finish();
 }

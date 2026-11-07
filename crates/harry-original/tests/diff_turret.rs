@@ -4,9 +4,8 @@
 mod common;
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 
-use common::dump;
+use common::{Tally, dump, installed, levels_of, named_cases, recording, work};
 use harry_core::Physics;
 use harry_core::air::AirSound;
 use harry_core::boulder::{handle_boulder, hit_boulder, hit_boulder_tile, setup_boulder};
@@ -17,21 +16,11 @@ use harry_core::reversor::{handle_reversor, hit_reversor, hit_reversor_tile, set
 use harry_core::sprite::{Sprite, SpriteEvent, Task};
 use harry_core::tiles::touched_tiles;
 use harry_core::turret::{handle_turret, hit_turret, setup_turret};
-use harry_original::resfork::{MacBinary, Resources};
-use harry_original::{hlvl, masks};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn installed(name: &str) -> Option<Resources> {
-    let bytes = std::fs::read(root().join("re/work/installed").join(name)).ok()?;
-    Some(Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap())
-}
+use harry_original::masks;
 
 /// A face's bounds from its `HrSp` header.
 fn bounds(face: i16) -> [i16; 4] {
-    let Ok(b) = std::fs::read(root().join(format!("re/work/res/Harry_Graphics/HrSp_{face}.bin"))) else { return [0; 4] };
+    let Ok(b) = std::fs::read(work(&format!("res/Harry_Graphics/HrSp_{face}.bin"))) else { return [0; 4] };
     let s = |i: usize| i16::from_be_bytes([b[2 * i], b[2 * i + 1]]);
     [s(0), s(1), s(2), s(3)]
 }
@@ -91,26 +80,21 @@ fn log(events: &[SpriteEvent], score: &mut i32) -> Vec<String> {
 }
 
 fn run(group: &str) {
-    let Ok(text) = std::fs::read_to_string(root().join(format!("re/work/diff/{group}.txt"))) else {
-        eprintln!("skipped: {group}.txt not found (run re/tools/emu_turret.py)");
-        return;
-    };
+    let Some(text) = recording(group, "emu_turret.py") else { return };
     let (Some(app), Some(gfx), Some(ep)) = (installed("Harry 1.0.1.bin"), installed("Harry Graphics.bin"), installed("Episode 1.bin"))
     else {
         return;
     };
-    let levels: Vec<_> = (1..=15).map(|i| hlvl::read(ep.get(b"Hlvl", i).unwrap()).unwrap()).collect();
+    let levels = levels_of(&ep);
     // cicn 598 encoded as face 4251: the faces' mirrored bits
     let mask = masks::from_face(&harry_original::hrsp::decode(gfx.get(b"HrSp", 4251).unwrap()).unwrap());
     let obstacle = masks::from_cicn(&gfx, 290).unwrap();
     let walls = masks::walls(&app).unwrap();
     let physics = Physics::default();
     let mut face_bounds: HashMap<i16, [i16; 4]> = HashMap::new();
-    let (mut bad, mut n) = (0, 0);
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let w = |k: &str| i[k].parse::<i64>().unwrap() as i16;
+    let mut tally = Tally::new(group, 8);
+    for (a, i, b) in named_cases(&text) {
+        let w = |k: &str| i.i16(k);
         let mut level = levels[w("level") as usize - 1].clone();
         let index = w("index");
         let mut sp = Sprite::new(w("kind"), w("h"), w("v"));
@@ -135,11 +119,11 @@ fn run(group: &str) {
         }
         sp.level_index = index;
         let mut player = (w("ph"), w("pv"));
-        let mut rng = Random::new(i["seed"].parse().unwrap());
+        let mut rng = Random::new(i.u32("seed"));
         let (mut wall, mut obst) = (false, false);
         let mut score = 0;
         let mut evs = Vec::new();
-        for step in i["steps"].split(',') {
+        for step in i.str("steps").split(',') {
             let p: Vec<&str> = step.split(':').collect();
             player.0 = player.0.wrapping_add(p[0].parse().unwrap());
             player.1 = player.1.wrapping_add(p[1].parse().unwrap());
@@ -195,18 +179,9 @@ fn run(group: &str) {
             e.info[2],
             evs.join(";")
         );
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 6 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x}\n   got {y}")).collect();
-                eprintln!("{}\n  {}", &a[..a.len().min(200)], diffs.join("\n  "));
-            }
-        }
+        tally.words(a, b, &got);
     }
-    assert_eq!(bad, 0, "{group}: {bad} of {n} cases differ");
-    eprintln!("{group}: {n} cases");
+    tally.finish();
 }
 
 #[test]

@@ -1,20 +1,10 @@
 //! Reading the original files (re/work/installed/*.bin, MacBinary). Without
 //! them the tests are skipped.
 
-use std::path::PathBuf;
+mod common;
 
+use common::{installed, work};
 use harry_original::hlvl;
-use harry_original::resfork::{MacBinary, Resources};
-
-fn installed(name: &str) -> Option<Resources> {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/installed").join(name);
-    let Ok(bytes) = std::fs::read(&path) else {
-        eprintln!("skipped: {} not found", path.display());
-        return None;
-    };
-    let mb = MacBinary::parse(&bytes).expect("MacBinary");
-    Some(Resources::parse(&mb.rsrc).expect("resource fork"))
-}
 
 #[test]
 fn levels_read_and_write_back_exactly() {
@@ -52,15 +42,11 @@ fn level_rest_is_mostly_empty() {
     }
 }
 
-fn app() -> Option<Resources> {
-    installed("Harry 1.0.1.bin")
-}
-
 #[test]
 fn masks_match_the_recorded_ones() {
     use harry_original::masks;
-    let (Some(app), Some(gfx)) = (app(), installed("Harry Graphics.bin")) else { return };
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff/masks");
+    let (Some(app), Some(gfx)) = (installed("Harry 1.0.1.bin"), installed("Harry Graphics.bin")) else { return };
+    let dir = work("diff/masks");
     let text = |name: &str| std::fs::read_to_string(dir.join(format!("{name}.txt"))).ok();
     let as_text = |m: &harry_core::mask::Mask| {
         let mut s = String::new();
@@ -107,7 +93,7 @@ fn all_pictures_decode() {
 fn all_faces_decode_like_the_python_decoder() {
     use harry_original::hrsp;
     let Some(gfx) = installed("Harry Graphics.bin") else { return };
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff/hrsp_counts.txt");
+    let path = work("diff/hrsp_counts.txt");
     let Ok(counts) = std::fs::read_to_string(path) else { return };
     let mut n = 0;
     for line in counts.lines().filter(|l| !l.starts_with('#')) {
@@ -132,7 +118,7 @@ fn all_faces_decode_like_the_python_decoder() {
 fn face_masks_match_the_original() {
     use harry_original::{hrsp, masks};
     let Some(gfx) = installed("Harry Graphics.bin") else { return };
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../re/work/diff/facemasks.txt");
+    let path = work("diff/facemasks.txt");
     let Ok(text) = std::fs::read_to_string(path) else { return };
     // the first line is a comment ("# ..."); mask rows may start with '#'
     let mut lines = text.lines().filter(|l| !l.starts_with("# "));

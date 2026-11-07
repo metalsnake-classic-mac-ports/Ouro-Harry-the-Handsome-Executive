@@ -3,30 +3,16 @@
 
 mod common;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
-use common::dump;
+use common::{check_named, dump};
 use harry_core::death::{DeathEvent, handle_player_death};
 use harry_core::frame::PlayerGlobals;
 use harry_core::game::setup_player;
 use harry_core::sprite::{Sprite, Task};
 
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
 #[test]
 fn the_death_matches_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/death.txt")) else {
-        eprintln!("skipped: death.txt not found (run re/tools/emu_death.py)");
-        return;
-    };
-    let (mut bad, mut n) = (0, 0);
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let w = |k: &str| i[k].parse::<i16>().unwrap();
+    check_named("death", "emu_death.py", |i| {
+        let w = |k: &str| i.i16(k);
         let mut g = PlayerGlobals {
             comfort_shown: w("comfort"),
             favor_shown: w("favor"),
@@ -58,7 +44,7 @@ fn the_death_matches_the_original() {
             }
             evs.push(if l.is_empty() { "-".to_string() } else { l.join(",") });
         }
-        let got = format!(
+        format!(
             "{} | slot={} shot={} recoil={} shake={shake} done={} events={}",
             dump(&sp),
             g.cur_slot,
@@ -66,17 +52,6 @@ fn the_death_matches_the_original() {
             g.recoil,
             u8::from(done),
             evs.join(";")
-        );
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 6 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x}\n   got {y}")).collect();
-                eprintln!("{a}\n  {}", diffs.join("\n  ").chars().take(1500).collect::<String>());
-            }
-        }
-    }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+        )
+    });
 }

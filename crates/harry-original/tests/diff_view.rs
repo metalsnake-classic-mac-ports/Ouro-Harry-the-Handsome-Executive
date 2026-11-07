@@ -1,27 +1,17 @@
 //! The view (`FindUpperLeftCorner`) against the original, recorded in
 //! Unicorn by `re/tools/emu_view.py`.
 
-use std::collections::HashMap;
-use std::path::PathBuf;
+mod common;
 
+use common::{Tally, named_cases, recording};
 use harry_core::view::{View, find_upper_left_corner};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 #[test]
 fn view_matches_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/view.txt")) else {
-        eprintln!("skipped: view.txt not found (run re/tools/emu_view.py)");
-        return;
-    };
-    let mut bad = 0;
-    let mut n = 0;
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let w = |k: &str| i[k].parse::<i16>().unwrap();
+    let Some(text) = recording("view", "emu_view.py") else { return };
+    let mut tally = Tally::new("view", 8);
+    for (a, i, b) in named_cases(&text) {
+        let w = |k: &str| i.i16(k);
         let mut view = View {
             corner: (w("vv"), w("vh")),
             target: (w("tv"), w("th")),
@@ -30,7 +20,7 @@ fn view_matches_the_original() {
             page_dir: w("dir"),
             shake: w("shake"),
         };
-        let frames: Vec<String> = i["path"]
+        let frames: Vec<String> = i.str("path")
             .split(',')
             .map(|p| {
                 let (h, v) = p.split_once(':').unwrap();
@@ -52,15 +42,7 @@ fn view_matches_the_original() {
             })
             .collect();
         let got = frames.join(";");
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 6 {
-                let d: Vec<String> = b.split(';').zip(got.split(';')).filter(|(x, y)| x != y).take(2).map(|(x, y)| format!("want {x} got {y}")).collect();
-                eprintln!("{a}\n  {}", d.join(", "));
-            }
-        }
+        tally.words(a, b, &got);
     }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+    tally.finish();
 }

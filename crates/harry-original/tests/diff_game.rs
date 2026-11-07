@@ -9,9 +9,8 @@
 mod common;
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 
-use common::{crc32, dump};
+use common::{Fields, crc32, dump, installed, levels_of, recording};
 use harry_core::frame::PlayerGlobals;
 use harry_core::savegame::SaveGame;
 use harry_core::game::{Assets, FrameEnd, Game, LevelStart, Prefs, UpLevel};
@@ -21,22 +20,12 @@ use harry_core::player::Masks;
 use harry_core::random::Random;
 use harry_core::view::View;
 use harry_core::world::World;
-use harry_original::resfork::{MacBinary, Resources};
-use harry_original::{hlvl, hrsp, masks};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn installed(name: &str) -> Option<Resources> {
-    let bytes = std::fs::read(root().join("re/work/installed").join(name)).ok()?;
-    Some(Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap())
-}
+use harry_original::{hrsp, masks};
 
 /// The saved game a run continues from, as `emu_game.py`'s `record`
 /// builds it.
-fn record(i: &HashMap<&str, &str>, level: &harry_core::Level) -> SaveGame {
-    let w = |k: &str| i[k].parse::<i64>().unwrap();
+fn record(i: &Fields, level: &harry_core::Level) -> SaveGame {
+    let w = |k: &str| i.i64(k);
     let mut s = SaveGame {
         world: harry_core::savegame::DEFAULT_WORLD,
         copier: w("cont") == 1,
@@ -54,14 +43,14 @@ fn record(i: &HashMap<&str, &str>, level: &harry_core::Level) -> SaveGame {
         ..SaveGame::default()
     };
     s.inventory = [(-1, 0); 12];
-    if i["inv"] != "-" {
-        for (slot, e) in s.inventory.iter_mut().zip(i["inv"].split(',')) {
+    if i.str("inv") != "-" {
+        for (slot, e) in s.inventory.iter_mut().zip(i.str("inv").split(',')) {
             let (a, b) = e.split_once(':').unwrap();
             *slot = (a.parse().unwrap(), b.parse().unwrap());
         }
     }
-    if i["seen"] != "-" {
-        for spot in i["seen"].split(',') {
+    if i.str("seen") != "-" {
+        for spot in i.str("seen").split(',') {
             let (th, tv) = spot.split_once(':').unwrap();
             let (th, tv): (usize, usize) = (th.parse().unwrap(), tv.parse().unwrap());
             for x in th.saturating_sub(7)..(th + 7).min(128) {
@@ -71,8 +60,8 @@ fn record(i: &HashMap<&str, &str>, level: &harry_core::Level) -> SaveGame {
             }
         }
     }
-    if i["gone"] != "-" {
-        for k in i["gone"].split(',') {
+    if i.str("gone") != "-" {
+        for k in i.str("gone").split(',') {
             s.entries[k.parse::<usize>().unwrap()].present = false;
         }
     }
@@ -81,10 +70,7 @@ fn record(i: &HashMap<&str, &str>, level: &harry_core::Level) -> SaveGame {
 
 #[test]
 fn episode_1_frames_match_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/game.txt")) else {
-        eprintln!("skipped: game.txt not found (run re/tools/emu_game.py)");
-        return;
-    };
+    let Some(text) = recording("game", "emu_game.py") else { return };
     let (Some(app), Some(gfx), Some(ep)) = (installed("Harry 1.0.1.bin"), installed("Harry Graphics.bin"), installed("Episode 1.bin"))
     else {
         return;
@@ -121,7 +107,7 @@ fn episode_1_frames_match_the_original() {
         desks: [&desks[0], &desks[1]],
         face_bounds: &face_bounds,
     };
-    let levels: Vec<_> = (1..=15).map(|i| hlvl::read(ep.get(b"Hlvl", i).unwrap()).unwrap()).collect();
+    let levels = levels_of(&ep);
     let words = harry_original::words::words(&app).unwrap();
     let bindings = Bindings { left: 0x7B, right: 0x7C, scoot: 0x7D, inch: 0x7E, kick: 0x31, select_item: 0x3B, use_item: 0x3A };
     let mut bad = 0;
@@ -137,8 +123,8 @@ fn episode_1_frames_match_the_original() {
         }
         let b = b.replace(" staledoor=0", "");
         let b = b.as_str();
-        let i: HashMap<&str, &str> = a.split(' ').map(|kv| kv.split_once('=').unwrap()).collect();
-        let w = |k: &str| i[k].parse::<i64>().unwrap();
+        let i = Fields::parse(a);
+        let w = |k: &str| i.i64(k);
         let mut g = PlayerGlobals {
             comfort: w("comfort") as i16,
             comfort_shown: w("comfort") as i16,
@@ -150,8 +136,8 @@ fn episode_1_frames_match_the_original() {
             ..Default::default()
         };
         g.inventory = [(-1, 0); 12];
-        if i["inv"] != "-" {
-            for (slot, e) in g.inventory.iter_mut().zip(i["inv"].split(',')) {
+        if i.str("inv") != "-" {
+            for (slot, e) in g.inventory.iter_mut().zip(i.str("inv").split(',')) {
                 let (a, b) = e.split_once(':').unwrap();
                 *slot = (a.parse().unwrap(), b.parse().unwrap());
             }
@@ -199,7 +185,7 @@ fn episode_1_frames_match_the_original() {
             game.start(w("h") as i16, w("v") as i16, w("dir") as i16, &assets)
         };
         assert!(missing.is_empty(), "level {number}: {missing:?}");
-        let debug = std::env::var("GAME_DUMP").is_ok_and(|s| s == i["seed"]);
+        let debug = std::env::var("GAME_DUMP").is_ok_and(|s| s == i.str("seed"));
         let kind = std::env::var("KIND").ok();
         if debug {
             eprintln!("start {} rand {}", dump(game.world.rec(game.harry.unwrap())), game.rng.seed);
@@ -207,10 +193,10 @@ fn episode_1_frames_match_the_original() {
         let mut log = Vec::new();
         let mut harry = Vec::new();
         let (mut nblits, mut blit_crc) = (0, 0);
-        let mut answers: Vec<bool> = i["balloons"].chars().rev().map(|c| c == '1').collect();
-        let mut copier: Vec<bool> = i["copier"].chars().rev().map(|c| c == '1').collect();
+        let mut answers: Vec<bool> = i.str("balloons").chars().rev().map(|c| c == '1').collect();
+        let mut copier: Vec<bool> = i.str("copier").chars().rev().map(|c| c == '1').collect();
         game.prefs.autosave = w("autosave") != 0;
-        for keys in i["keys"].split(',') {
+        for keys in i.str("keys").split(',') {
             let mut km = KeyMap::default();
             for c in keys.chars() {
                 match c {
@@ -366,7 +352,7 @@ fn episode_1_frames_match_the_original() {
                 format!("{} {}", wf[0], d.join(","))
             });
             let o: Vec<String> = other(b).split(' ').zip(other(&got).split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("{x}/{y}")).collect();
-            eprintln!("TRIAGE level={} seed={} len={}/{} {:?} {}", i["level"], i["seed"], we.len(), ge.len(), fields, o.join(" "));
+            eprintln!("TRIAGE level={} seed={} len={}/{} {:?} {}", i.str("level"), i.str("seed"), we.len(), ge.len(), fields, o.join(" "));
         }
         if got != b {
             bad += 1;
@@ -389,7 +375,7 @@ fn episode_1_frames_match_the_original() {
                     let gs: Vec<&str> = gh.split(',').collect();
                     let lo = f.saturating_sub(4);
                     eprintln!("  want {:?}\n  got  {:?}", &ws[lo..(f + 3).min(ws.len())], &gs[lo..(f + 3).min(gs.len())]);
-                    let ks: Vec<&str> = i["keys"].split(',').collect();
+                    let ks: Vec<&str> = i.str("keys").split(',').collect();
                     eprintln!("  keys {:?}", &ks[lo..(f + 3).min(ks.len())]);
                 }
             }

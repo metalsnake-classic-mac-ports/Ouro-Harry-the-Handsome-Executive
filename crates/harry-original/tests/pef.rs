@@ -1,19 +1,16 @@
 //! The PEF data section unpacked by `harry_original::pef` equals the one
 //! Ghidra unpacked (`re/work/ppc/data.bin`, from `re/ghidra/run.sh`).
 
-use std::path::PathBuf;
+mod common;
 
+use common::work;
 use harry_original::pef;
 use harry_original::resfork::MacBinary;
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 #[test]
 fn the_data_section_unpacks_as_ghidra_does() {
     let (Ok(app), Ok(ghidra)) =
-        (std::fs::read(root().join("re/work/installed/Harry 1.0.1.bin")), std::fs::read(root().join("re/work/ppc/data.bin")))
+        (std::fs::read(work("installed/Harry 1.0.1.bin")), std::fs::read(work("ppc/data.bin")))
     else {
         eprintln!("skipped: the application or data.bin not found");
         return;

@@ -1,9 +1,9 @@
 //! `HandleKeys` with the inventory routines against the original,
 //! recorded in Unicorn by `re/tools/emu_keys.py`.
 
-use std::collections::HashMap;
-use std::path::PathBuf;
+mod common;
 
+use common::{Fields, Tally, recording};
 use harry_core::air::Air;
 use harry_core::bounce::Body;
 use harry_core::frame::{Harry, PlayerGlobals};
@@ -12,10 +12,6 @@ use harry_core::moves::Moves;
 use harry_core::physics::Speed;
 use harry_core::player::{Player, TileState};
 use harry_core::random::Random;
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
 
 fn list(s: &str) -> Vec<i16> {
     if s == "-" { Vec::new() } else { s.split(',').map(|x| x.parse().unwrap()).collect() }
@@ -49,20 +45,16 @@ fn notation(e: &KeyEvent) -> Option<String> {
 
 #[test]
 fn keys_match_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/keys.txt")) else {
-        eprintln!("skipped: keys.txt not found (run re/tools/emu_keys.py)");
-        return;
-    };
+    let Some(text) = recording("keys", "emu_keys.py") else { return };
     let header = text.lines().next().unwrap();
     let (hin, hout) = header.split_once(": ").unwrap().1.split_once(" -> ").unwrap();
     let names_in: Vec<&str> = hin.split(' ').collect();
     let names_out: Vec<&str> = hout.split(' ').collect();
-    let mut bad = 0;
-    let mut n = 0;
+    let mut tally = Tally::new("keys", 10);
     for line in text.lines().skip(1) {
         let (a, b) = line.split_once(" -> ").unwrap();
-        let i: HashMap<&str, &str> = names_in.iter().copied().zip(a.split(' ')).collect();
-        let w = |k: &str| i[k].parse::<i64>().unwrap() as i16;
+        let i = Fields::zip(&names_in, a);
+        let w = |k: &str| i.i16(k);
         let mut g = PlayerGlobals {
             moves: Moves { scoot: w("scoot"), kick: w("kick"), inch: w("inch"), ..Default::default() },
             tile: TileState { comfort_delta: w("comfortdelta"), ..Default::default() },
@@ -77,7 +69,7 @@ fn keys_match_the_original() {
             chatter: w("chatter"),
             comfort: w("comfort"),
             cur_slot: w("curslot"),
-            inventory: inventory(i["inv"]),
+            inventory: inventory(i.str("inv")),
             ammo: Ammo { staple: w("staple"), badass: w("badass"), shrapnel: w("shrapnel") },
             fire_hold: w("hold"),
             shot_kind: w("shotkind"),
@@ -101,7 +93,7 @@ fn keys_match_the_original() {
             blast_cooldown: w("blast"),
             ramp_cooldown: 0,
         };
-        let kb = list(i["bindings"]);
+        let kb = list(i.str("bindings"));
         let bindings = Bindings {
             left: kb[0],
             right: kb[1],
@@ -112,7 +104,7 @@ fn keys_match_the_original() {
             use_item: kb[6],
         };
         let mut keys = KeyMap::default();
-        for c in list(i["keys"]) {
+        for c in list(i.str("keys")) {
             keys.press(c);
         }
         let input = KeyInput {
@@ -122,7 +114,7 @@ fn keys_match_the_original() {
             gulp_playing: w("gulpbusy") != 0,
             voice_playing: w("voicebusy") != 0,
         };
-        let mut rng = Random::new(i["seed"].parse().unwrap());
+        let mut rng = Random::new(i.u32("seed"));
         let mut events = Vec::new();
         handle_keys(&mut h, &mut g, &input, &mut rng, &mut events);
         // the ripple fields and phase as the toggle leaves them
@@ -148,20 +140,13 @@ fn keys_match_the_original() {
         let ev: Vec<String> = events.iter().filter_map(notation).collect();
         got.push(if ev.is_empty() { "-".into() } else { ev.join(",") });
         let want: Vec<&str> = b.split(' ').collect();
-        n += 1;
         let diffs: Vec<String> = names_out
             .iter()
             .zip(want.iter().zip(&got))
             .filter(|(_, (w, g))| *w != g)
             .map(|(name, (w, g))| format!("{name}: want {w} got {g}"))
             .collect();
-        if !diffs.is_empty() {
-            bad += 1;
-            if bad <= 10 {
-                eprintln!("{a}\n  {}", diffs.join("\n  "));
-            }
-        }
+        tally.case(diffs.is_empty(), || format!("{a}\n  {}", diffs.join("\n  ")));
     }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+    tally.finish();
 }

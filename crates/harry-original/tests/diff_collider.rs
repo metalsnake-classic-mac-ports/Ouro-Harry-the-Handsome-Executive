@@ -4,10 +4,8 @@
 mod common;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::path::PathBuf;
 
-use common::dump;
+use common::{Tally, dump, installed, named_cases, recording};
 use harry_core::Speed;
 use harry_core::collider::{ColliderWorld, centre, handle_collider, hit_collider, is_repelled, repel, setup_collider};
 use harry_core::frame::PlayerGlobals;
@@ -15,15 +13,6 @@ use harry_core::kinds::BalloonText;
 use harry_core::random::Random;
 use harry_core::sprite::{Sprite, Task};
 use harry_original::hlvl;
-use harry_original::resfork::{MacBinary, Resources};
-
-fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn fields(s: &str) -> HashMap<&str, &str> {
-    s.split(' ').map(|kv| kv.split_once('=').unwrap()).collect()
-}
 
 fn task(name: &str) -> Task {
     match name {
@@ -44,22 +33,14 @@ fn task(name: &str) -> Task {
 
 #[test]
 fn colliders_match_the_original() {
-    let Ok(text) = std::fs::read_to_string(root().join("re/work/diff/collider.txt")) else {
-        eprintln!("skipped: collider.txt not found (run re/tools/emu_collider.py)");
-        return;
-    };
-    let Ok(bytes) = std::fs::read(root().join("re/work/installed/Episode 1.bin")) else { return };
-    let ep = Resources::parse(&MacBinary::parse(&bytes).unwrap().rsrc).unwrap();
+    let Some(text) = recording("collider", "emu_collider.py") else { return };
+    let Some(ep) = installed("Episode 1.bin") else { return };
     let level1 = hlvl::read(ep.get(b"Hlvl", 1).unwrap()).unwrap();
-    let Ok(app) = std::fs::read(root().join("re/work/installed/Harry 1.0.1.bin")) else { return };
-    let app = Resources::parse(&MacBinary::parse(&app).unwrap().rsrc).unwrap();
+    let Some(app) = installed("Harry 1.0.1.bin") else { return };
     let base_words = harry_original::words::words(&app).unwrap();
-    let mut bad = 0;
-    let mut n = 0;
-    for line in text.lines().skip(1) {
-        let (a, b) = line.split_once(" -> ").unwrap();
-        let i = fields(a);
-        let w = |k: &str| i[k].parse::<i32>().unwrap();
+    let mut tally = Tally::new("collider", 8);
+    for (a, i, b) in named_cases(&text) {
+        let w = |k: &str| i.i32(k);
         let mut level = level1.clone();
         let index = w("levelindex") as i16;
         if index >= 0 {
@@ -99,7 +80,7 @@ fn colliders_match_the_original() {
         }
         let mut targets: Vec<Sprite> = (0..w("ntargets"))
             .map(|t| {
-                let p: Vec<&str> = i[format!("t{t}").as_str()].split(':').collect();
+                let p: Vec<&str> = i.str(&format!("t{t}")).split(':').collect();
                 let x = |k: usize| p[k].parse::<i16>().unwrap();
                 let mut s = Sprite::new(0, 0, 0);
                 s.task = Some(task(p[0]));
@@ -163,16 +144,7 @@ fn colliders_match_the_original() {
         let log = log.into_inner();
         outs.push(format!("events={}", if log.is_empty() { "-".into() } else { log.join(",") }));
         let got = format!("{} | {}", dump(&sp), outs.join(" "));
-        n += 1;
-        if got != b {
-            bad += 1;
-            if bad <= 8 {
-                let diffs: Vec<String> =
-                    b.split(' ').zip(got.split(' ')).filter(|(x, y)| x != y).map(|(x, y)| format!("want {x} got {y}")).collect();
-                eprintln!("{a}\n  {}", diffs.join(", "));
-            }
-        }
+        tally.words(a, b, &got);
     }
-    assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases");
+    tally.finish();
 }
