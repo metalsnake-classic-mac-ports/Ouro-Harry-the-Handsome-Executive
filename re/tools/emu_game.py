@@ -7,7 +7,8 @@ and CheckGameEvents, with Harry's keys held at random (turning, scoot,
 inch, kick, items, weapons). A run ends when the level is done or the
 game loop would end (Harry's death over).
 
-Everything is real except sounds, the pixels (the SAT blit FUN_1006536c is
+Everything is real except the mixer (sounds are recorded where they reach
+it, nothing ever plays), the pixels (the SAT blit FUN_1006536c is
 caught and the face's draw proc called for each of its calls, the rest of
 drawing stubbed), ShowBalloon / CopierSave (answers per run), the phone /
 buzzword texts, UpLevel's pictures, saving and music.
@@ -17,12 +18,16 @@ Each line: "<name=value ...> -> <name=value ...>"
   list    per sprite in SAT order: "<record>/<dump with ':'>", ";"-joined
   harry   per frame Harry's at "v:h", ","-joined
   meterdraw  per meter what UpdateMeters drew last: "<strip length>:<end>"
+  sounds  what reaches the mixer (FUN_1005692c) from STPlayRegSound,
+          STPlay3DSound(Pitched) and STPlayDynamicSound, at full master
+          volume: "<snd>:<left>:<right>:<rate>;", each frame ended by "|":
+          their number and CRC-32
   blits   the draw procs' BlitEncFace calls "<face>:<mode>:<arg>;", each
           frame ended by "|": their number and CRC-32
 Usage: python3 -I emu_game.py [re/work]
 Debugging: SEED=<seed> runs only that case (writing nothing) and prints
 Harry per frame; with KIND=<kind> also the sprites of that kind, ADDR=<hex>
-the record there, BLITS=1 the draw procs' blits, RAND=1 /
+the record there, BLITS=1 the draw procs' blits, SOUNDS=1 the sounds, RAND=1 /
 TRACE=<routine,...> see trace_hooks.
 """
 import math
@@ -52,6 +57,7 @@ SCORE = 0x10065AF8
 # inventory copy
 START_SHORTS, START_SCORE, START_AMMO, START_INV = (0x10065B1C, 0x10065B04, 0x10065B10), 0x10065AF0, (0x10065AE0, 0x10065ADC, 0x10065AD8), 0x10065AC0
 TRACK, TRACK_LAST = 0x10072730, 0x1007272C       # the map; Harry's last tile v, h
+MASTER_VOLUME = 0x10068564                          # the sound volume (prefs +0xc × 0x1c), 0x100 full
 LOOP_DONE = 0x10068560                              # GameLoop ends (CheckGameEvents: Harry's death over)
 INITS = ("InitPlayerSprite", "InitHeldWeaponSprite", "InitBonusSprite", "InitItemSprite", "InitExitSprite", "InitDoorSprite",
          "InitCoolerSprite", "InitPlantSprite", "InitMessageSprite", "InitColliderSprite", "InitDartEnemySprite",
@@ -186,7 +192,7 @@ def main():
     m.w32(obstacle + 0x1A, m.make_region(ms["obstacle"]))
     tv = tvectors(f"{work}/ppc")
     log = []
-    for f in ("STPlayRegSound", "STPlay3DSound", "STPlay3DSoundPitched", "HaltTalkingSounds", 0x10056C0C,
+    for f in ("HaltTalkingSounds", 0x10056C0C, 0x10056F94,
               "GammaFadeOut", "GammaFadeIn", 0x1002549C, "AddFGRedraw", "CheckWorldCorruption", "LoadLevelTilesets",
               "LoadLevelSounds", 0x1005F7EC, "IsPressed", "AddRectToUpdate",
               0x10024DE8, "RedrawGrid", "RedrawFGTiles", "GetScalePort", "CopyToScalePort", "CopyScalePortBack",
@@ -194,6 +200,20 @@ def main():
               "PlotEncFace", "DrawNumItems", "FindInvItemFace", "UpdateInventory", 0x1005F738, "DrawBlackLines"):
         m.stub_routine(f, 0)
     m.stub_routine(0x10056DE8, 0)                   # nothing is playing
+    # the sounds: the loader FUN_10056e50(id) gives the id as the handle, so
+    # the mixer's FUN_1005692c(params) sees the snd id at +0; +8 the rate,
+    # +0x16 / +0x18 the left / right volume. It plays nothing and answers 0,
+    # as the mixer does when all its voices are taken (the sprites that keep
+    # their sound's handle, the fans in f78, keep 0 as the port does).
+    m.stub_routine(0x10056E50, lambda mm: mm.get(3))
+    sounds = []
+
+    def mixer(mm):
+        a = mm.get(3)
+        sounds.append("%d:%d:%d:%d;" % (struct.unpack(">i", mm.read(a, 4))[0], mm.r16(a + 0x16), mm.r16(a + 0x18),
+                                        struct.unpack(">i", mm.read(a + 8, 4))[0]))
+        return 0
+    m.stub_routine(0x1005692C, mixer)
     # BlitEncFace(face, port, ..., mode, arg): the draw procs' tints, but not
     # the fans' grilles and the dart enemies' darts (other faces than the
     # one the draw proc was called with through __ptr_glue)
@@ -376,6 +396,14 @@ def main():
     # a new game (the level-start state: 72 / 72 / 72, nothing else)
     m.stub_routine("InitDynamicSounds", 0)
     m.call("InitGameGlobals")
+    m.write(0x1006749C, b"\1")                      # sound available
+    m.call("InitNonLevelSounds")
+    m.call("InitSounds")
+    # InitAppGlobals' sounds (the routine itself is not run): the level's
+    # end, the death
+    for slot, snd in ((0x10065B54, 4800), (0x10065B50, 4801), (0x10065B4C, 4803), (0x10065B48, 4804),
+                      (0x10065B44, 4900), (0x10065B40, 4901)):
+        m.w32(m.glob(slot), snd)
     # every case starts from the globals as they are now
     data_start = 0x10065800
     globals_after_init = m.read(data_start, DATA_END - data_start)
@@ -451,6 +479,8 @@ def main():
         m.w32(sat + 0x110, 0)
         m.write(prefs, bytes(0x20))
         m.w16(prefs + 8, st["scroll"])
+        m.write(prefs + 10, b"\1")                  # sound on
+        m.write(MASTER_VOLUME, struct.pack(">i", 0x100))
         for i, b in enumerate(BINDINGS):
             m.w16(prefs + 0x10 + 2 * i, b)
         slots = [tuple(map(int, x.split(":"))) for x in st["inv"].split(",")] if st["inv"] != "-" else []
@@ -498,6 +528,8 @@ def main():
         m.write(LOOP_DONE, b"\0")                    # GameLoop clears it before the loop
         harry = []
         crc, nblits = 0, 0
+        scrc, nsounds = 0, 0
+        sounds.clear()
         if debug_seed:
             print("start", dump(m, p, faces, tv), "rand", m.rand_seed)
         for f in range(st["frames"]):
@@ -532,6 +564,12 @@ def main():
             m.call("CheckGameEvents")
             if log.count("uplevel") > ups and "won" not in log:
                 m.call("BuildSineTable")                # UpLevel's IntroLevel (stubbed) builds it
+            m.call("UpdateDynamicSounds")
+            nsounds += len(sounds)
+            scrc = zlib.crc32(("".join(sounds) + "|").encode(), scrc)
+            if debug_seed == st["seed"] and os.environ.get("SOUNDS"):
+                print("  sounds", "".join(sounds))
+            sounds.clear()
             m.call("UpdateTrackMap")
             p = m.r32(m.glob(PLAYER_SPRITE))                # UpLevel makes him anew
             harry.append("%d:%d" % (m.r16(p + 0x5A), m.r16(p + 0x5C)))
@@ -563,7 +601,7 @@ def main():
              "log": ",".join(log) or "-", "staledoor": int(stale[0]),
              "inv": ",".join("%d:%d" % (m.r16(inv + 4 * i), m.r16(inv + 4 * i + 2)) for i in range(12)),
              "curslot": m.r16(CUR_SLOT), "ammo": ":".join(str(m.r16(m.glob(a))) for a in AMMO.values()),
-             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "track": track(), "save": saved(), "ripple": ripple(), "blits": "%d:%d" % (nblits, crc),
+             "score": struct.unpack(">i", m.read(m.glob(SCORE), 4))[0], "start": level_start(), "track": track(), "save": saved(), "ripple": ripple(), "blits": "%d:%d" % (nblits, crc), "sounds": "%d:%d" % (nsounds, scrc),
              "meterdraw": ",".join("%d:%d" % tuple(d) for d in meters_drawn), "harry": ",".join(harry),
              "list": ";".join(f"{ids[a]}/{dump(m, a, faces, tv).replace(' ', ':')}" for a in lst),
              "free": ",".join(str(ids[a]) for a in free) or "-"}

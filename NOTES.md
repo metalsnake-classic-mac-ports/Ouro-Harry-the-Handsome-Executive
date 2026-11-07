@@ -1453,6 +1453,24 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   match. `SEED=<seed>` reruns one case with per-frame dumps, `TRACE` /
   `RAND` print routine calls and the callers of `Random`; the test's
   `GAME_DUMP=<seed>` prints the same for the port.
+  **Sounds** (2026-11-07): the recorder lets `STPlayRegSound`,
+  `STPlay3DSound(Pitched)` and `STPlayDynamicSound` run (sound on, master
+  volume 0x100, the `snd` loader `FUN_10056e50` giving the id as the
+  handle; `InitSounds`, `InitNonLevelSounds` and `InitAppGlobals`' six
+  sounds loaded) and records what reaches the mixer `FUN_1005692c` - `snd`,
+  left / right volume, rate - per frame (`sounds=<n>:<crc>`, `SOUNDS=1`
+  prints them). The mixer stub plays nothing and answers 0 (as with all
+  voices taken), so the fans keep `f78` = 0 like the port; the game loop's
+  `UpdateDynamicSounds` runs after `CheckGameEvents`. Everything else in
+  the recording stayed the same. The port's `SoundEvent::Play` events are
+  compared with it apart from the rest: 352 of 1494 runs still differ
+  (TODO.md) - the port gives a sprite's 3-D sounds one position (the
+  original passes each call its own point), plays every sound at 0x100
+  (the fan 1303 is 0x55; the 602 of barrel, chair, plant and robot hits
+  and the chair's sounds 0xab), the mail guy's 402 differs, and sound 217
+  plays where the original's does not. The staple's rate was cut to 16
+  bits (`62000 + SATRand(6000)` up to 67999): fixed, `emu_keys.py` now
+  records the whole rate.
 - **Harry's death** (`harry_core::death`): `HandlePlayerSprite` hands
   Harry to `HandlePlayerSpriteDeath` (timer 0) once comfort or favor
   *shown* is below 1 and he is on the ground. Each frame clears the shot

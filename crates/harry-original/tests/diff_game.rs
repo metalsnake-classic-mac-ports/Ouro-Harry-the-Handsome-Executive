@@ -4,7 +4,7 @@
 //! Debugging: `GAME_TRIAGE=1` prints, per differing case, the first list
 //! entry that differs; `GAME_DUMP=<seed>` prints that case's frames as
 //! `emu_game.py` does with `SEED=<seed>` (and `KIND=<kind>` its sprites of
-//! that kind), so the two can be diffed.
+//! that kind, `SOUNDS=1` the sounds), so the two can be diffed.
 
 mod common;
 
@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use common::{Fields, crc32, dump, installed, levels_of, recording};
 use harry_core::frame::PlayerGlobals;
 use harry_core::savegame::SaveGame;
+use harry_core::sound::SoundEvent;
 use harry_core::game::{Assets, FrameEnd, Game, LevelStart, Prefs, UpLevel};
 use harry_core::keys::{Bindings, KeyMap};
 use harry_core::kinds::LevelCounter;
@@ -113,6 +114,9 @@ fn episode_1_frames_match_the_original() {
     let mut bad = 0;
     let mut n = 0;
     let mut stale = 0;
+    // runs whose sounds differ; counted apart while the port's sound
+    // positions and volumes are not all the original's (TODO.md)
+    let mut sound_bad = 0;
     for line in text.lines().skip(1) {
         let (a, b) = line.split_once(" -> ").unwrap();
         // kicking a locked door reads stale stack values in the original
@@ -169,7 +173,8 @@ fn episode_1_frames_match_the_original() {
             harry: None,
             words: words.clone(),
             sounds: Vec::new(),
-            // the recorder stubs the mixer: nothing ever plays
+            // the recorder stubs the mixer: nothing ever plays (sounds are
+            // compared where they reach it)
             audio: harry_core::sound::Audio { silent: true, ..Default::default() },
             level_start: LevelStart::default(),
             track: Default::default(),
@@ -193,6 +198,7 @@ fn episode_1_frames_match_the_original() {
         let mut log = Vec::new();
         let mut harry = Vec::new();
         let (mut nblits, mut blit_crc) = (0, 0);
+        let (mut nsounds, mut sound_crc) = (0, 0);
         let mut answers: Vec<bool> = i.str("balloons").chars().rev().map(|c| c == '1').collect();
         let mut copier: Vec<bool> = i.str("copier").chars().rev().map(|c| c == '1').collect();
         game.prefs.autosave = w("autosave") != 0;
@@ -253,6 +259,19 @@ fn episode_1_frames_match_the_original() {
                 assert!(missing.is_empty(), "level {}: {missing:?}", game.counter.current);
                 up == UpLevel::Won
             };
+            // the sounds that reached the mixer this frame (UpLevel's too)
+            let mut s = String::new();
+            for e in &game.sounds {
+                if let SoundEvent::Play { id, left, right, rate, .. } = e {
+                    s += &format!("{id}:{left}:{right}:{rate};");
+                    nsounds += 1;
+                }
+            }
+            if debug && std::env::var("SOUNDS").is_ok() {
+                eprintln!("  sounds {s}");
+            }
+            s.push('|');
+            sound_crc = crc32(sound_crc, s.as_bytes());
             // his record, as the recorder reads it (after the death he may have left the list)
             let p = game.harry.unwrap();
             let at = game.world.rec(p).at;
@@ -280,7 +299,7 @@ fn episode_1_frames_match_the_original() {
             game.world.sprites.list.iter().map(|&r| format!("{r}/{}", dump(game.world.rec(r)).replace(' ', ":"))).collect();
         let free: Vec<String> = game.world.sprites.free.iter().rev().map(|r| r.to_string()).collect();
         let got = format!(
-            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} track={} save={} ripple={} blits={}:{} meterdraw={} harry={} list={} free={}",
+            "frames={} seed={} view={}:{} target={}:{} meters={}:{}:{}:{}:{}:{} contact={} counter={} log={} inv={} curslot={} ammo={}:{}:{} score={} start={} track={} save={} ripple={} blits={}:{} sounds={}:{} meterdraw={} harry={} list={} free={}",
             harry.len(),
             game.rng.seed,
             game.view.corner.0,
@@ -328,12 +347,22 @@ fn episode_1_frames_match_the_original() {
             },
             nblits,
             blit_crc,
+            nsounds,
+            sound_crc,
             game.meters.iter().map(|d| format!("{}:{}", d.len, u8::from(d.end))).collect::<Vec<_>>().join(","),
             harry.join(","),
             list.join(";"),
             if free.is_empty() { "-".to_string() } else { free.join(",") }
         );
         n += 1;
+        let sounds = |s: &str| s.split(' ').find(|x| x.starts_with("sounds=")).unwrap_or("").to_string();
+        let (want_sounds, got_sounds) = (sounds(b), sounds(&got));
+        if want_sounds != got_sounds {
+            sound_bad += 1;
+        }
+        let rest_want = b.replace(&format!(" {want_sounds}"), "");
+        let b = rest_want.as_str();
+        let got = got.replace(&format!(" {got_sounds}"), "");
         if debug {
             eprintln!("WANT {b}\nGOT  {got}");
         }
@@ -382,5 +411,5 @@ fn episode_1_frames_match_the_original() {
         }
     }
     assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases ({stale} more kick a locked door)");
+    eprintln!("{n} cases ({stale} more kick a locked door); sounds differ in {sound_bad} (known, TODO.md)");
 }

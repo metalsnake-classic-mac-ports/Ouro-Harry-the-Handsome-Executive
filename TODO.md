@@ -11,6 +11,15 @@ git history.
       save files
 - [ ] `IntroLevel`'s text card for levels without a title picture (needed for fan worlds)
 
+## Sounds against the original (the whole-frame test counts them apart)
+- [ ] 3-D sounds at the point each call of the original passes (the port takes one position per
+      routine; stereo off by a few steps in ~200 of the 1494 runs)
+- [ ] Volumes other than 0x100: the fan 1303 at 0x55; 602 of barrel / chair / plant / robot hits
+      and the chair's sounds at 0xab
+- [ ] The mail guy's dynamic sound 402 (volumes differ widely); sound 217 played where the
+      original plays none
+- [ ] Then compare the sounds in `diff_game` like the rest (fail on a difference)
+
 ## The original's bugs
 - [ ] Watch them with the `ouro-harry-repro` saves (systemless: `re/tools/sl_repro.py`, values
       with `re/tools/sl_peek.py`; then SheepShaver for what systemless may draw wrong) and note
