@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The stapler's shot sound no longer jumps to a very low pitch now and
+  then (its random rate above 65535 was cut to 16 bits).
+
 ## [0.1.0] - 2026-11-05
 
 ### Added

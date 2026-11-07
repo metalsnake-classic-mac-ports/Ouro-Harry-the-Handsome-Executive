@@ -1029,7 +1029,7 @@ impl Game {
                         KeyEvent::ChargeSound(id) => self.play(id, 0x100, None, RATE, Channel::Charge),
                         KeyEvent::StopCharge => self.sound(SoundEvent::StopCharge),
                         KeyEvent::VoiceSound(id) => self.play(id, 0x100, None, RATE, Channel::Voice),
-                        KeyEvent::Sound3D { snd, pitch } => self.play(snd, 0x100, Some(at), u32::from(pitch), Channel::Effect),
+                        KeyEvent::Sound3D { snd, pitch } => self.play(snd, 0x100, Some(at), pitch, Channel::Effect),
                         // ShowBalloon(NULL, text, 2): over Harry, no sound; if it
                         // does not fit (and the view pages), the view is nudged
                         // by the null sprite's position - low memory, 0 here

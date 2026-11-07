@@ -130,7 +130,7 @@ pub enum KeyEvent {
     /// A sound that becomes the voice (`_DAT_10068aa0`).
     VoiceSound(i16),
     /// `STPlay3DSoundPitched` at Harry's position.
-    Sound3D { snd: i16, pitch: u16 },
+    Sound3D { snd: i16, pitch: u32 },
     /// `EasyExplosion` at (h, v); `flag` is its fifth parameter.
     Explosion { h: i16, v: i16, flag: i16 },
     /// `ShowBalloon`: one of the 52 random messages, or −1 for the
@@ -261,7 +261,7 @@ fn use_item(h: &mut Harry, g: &mut PlayerGlobals, input: &KeyInput, rng: &mut Ra
                 events.push(KeyEvent::Sound(snd::EMPTY));
             } else {
                 g.ammo.staple -= 1;
-                let pitch = (i32::from(rng.below(6000)) + 62000) as u16;
+                let pitch = rng.below(6000) as u32 + 62000;
                 events.push(KeyEvent::Sound3D { snd: snd::STAPLE, pitch });
                 g.recoil = 3;
                 g.shot_kind = 0;

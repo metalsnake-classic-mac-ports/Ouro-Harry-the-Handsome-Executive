@@ -59,7 +59,7 @@ def main():
             return 0x1000 + channel[0]
         return f
     m.stub_routine("STPlayRegSound", play("p"))
-    m.stub_routine("STPlay3DSoundPitched", lambda mm: ev.append(("3d", mm.get(3), mm.get(7) & 0xFFFF)) or 0)
+    m.stub_routine("STPlay3DSoundPitched", lambda mm: ev.append(("3d", mm.get(3), mm.get(7))) or 0)
     busy = {}
     m.stub_routine(0x10056DE8, lambda mm: busy[mm.get(3)])
     m.stub_routine(0x10056C0C, lambda mm: ev.append(("stop", mm.get(3))) or 0)
