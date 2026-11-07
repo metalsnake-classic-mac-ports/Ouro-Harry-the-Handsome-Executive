@@ -270,6 +270,18 @@ bug was watched in the original yet; "expected" is what the code says.
   one step up from left), some bolts get no speed of their own and
   only drift along with the robot. Not seen yet.
 
+- **Harry's death spin wraps its direction with 35.**
+  `HandlePlayerSpriteDeath` turns Harry 2–5 steps a frame toward lower
+  directions and wraps them like `RandomMGShot`, with 35 instead of 36
+  (−1 becomes 34, −3 becomes 32). Each lap is one step short, so the
+  spin jumps by one extra 10° step each time it passes direction 0.
+  Probably meant 36. Port: keep (`physics::wrap_dir_35`; invisible at
+  that speed). The diff test (`emu_death.py`) covers it: wrapping with
+  36 instead makes 717 of its 3000 runs differ.
+  **See it:** nothing to see in play (the spin is too fast); in
+  `emu_death.py` runs the direction after a wrap is one lower than a
+  wrap with 36 would give.
+
 - **Only one robot a frame bounces off walls.** The flags that keep a
   robot from bouncing twice off walls / obstacles are globals cleared by
   every robot's task, but the tile pass runs after all tasks: only the
