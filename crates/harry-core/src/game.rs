@@ -1404,6 +1404,34 @@ impl Game {
         }
     }
 
+    /// For a picture of the whole level (`ouro-harry --level-map`; not a
+    /// routine of the original): every parked sprite back in the list; each
+    /// of the level's sprites without a face runs its task until it has
+    /// one, at most twice (most choose their face
+    /// there, as they would when the view reaches them), then each sprite's
+    /// draw proc called
+    /// once, for its colours (`blits`).
+    pub fn whole_level(&mut self, assets: &Assets) {
+        self.world.wake_all();
+        let level_sprites: Vec<usize> = self.world.sprites.list.iter().copied().filter(|&i| self.world.sprites.recs[i].level_index >= 0).collect();
+        for i in level_sprites {
+            // a second run for those that read their state first (boulders)
+            for _ in 0..2 {
+                if self.world.sprites.recs[i].face == 0 {
+                    self.task(i, &KeyMap::default(), assets, &mut |_| false);
+                }
+            }
+        }
+        self.blits.clear();
+        for k in 0..self.world.sprites.list.len() {
+            let i = self.world.sprites.list[k];
+            let sp = &self.world.sprites.recs[i];
+            if sp.task.is_some() && sp.face != 0 {
+                self.drawn(i);
+            }
+        }
+    }
+
     /// The props of one table in the view, each through its face's draw
     /// proc without a sprite.
     fn draw_props(&mut self, fg: bool, in_view: &dyn Fn((i16, i16)) -> bool, origin: (i32, i32), assets: &Assets) {

@@ -14,7 +14,9 @@
 //!
 //! `ouro-harry --screenshot out.bmp [level] [frames]` runs the frames
 //! (`HARRY_SAVE=<file>`: from that saved game)
-//! without keys and writes the picture, without a window. With
+//! without keys and writes the picture, without a window;
+//! `--level-map out.png [level] [frames]` then writes the whole level
+//! (4096 × 4096) with every sprite as the game draws it. With
 //! `HARRY_STATS` set the game prints its loop timing once a second.
 //! `HARRY_SCRIPT` plays keys into the window and saves pictures
 //! (`script`; `gui-test.sh` runs a whole game that way), `HARRY_SETTINGS`
@@ -284,6 +286,7 @@ Ouro Harry: Harry the Handsome Executive (Ben Spees / Ambrosia Software,
 
 usage: ouro-harry [DATA] [LEVEL]
        ouro-harry --screenshot OUT.bmp [LEVEL] [FRAMES]
+       ouro-harry --level-map OUT.png [LEVEL] [FRAMES]
        ouro-harry --version | --help
 
 The game data is built in; DATA, a data pack made by ouro-harry-extract,
@@ -305,8 +308,9 @@ fn main() -> Result<()> {
         println!("{HELP}");
         return Ok(());
     }
-    let screenshot = (args.get(1).map(String::as_str) == Some("--screenshot")).then(|| {
-        let out = args.get(2).cloned().unwrap_or_else(|| "harry.bmp".into());
+    let level_map = args.get(1).map(String::as_str) == Some("--level-map");
+    let screenshot = (args.get(1).map(String::as_str) == Some("--screenshot") || level_map).then(|| {
+        let out = args.get(2).cloned().unwrap_or_else(|| if level_map { "level.png" } else { "harry.bmp" }.into());
         let frames = args.get(4).and_then(|s| s.parse::<usize>().ok()).unwrap_or(1);
         let level = args.get(3).cloned();
         args = vec![args[0].clone(), String::new()];
@@ -337,6 +341,9 @@ fn main() -> Result<()> {
     let save_path = sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok().map(|d| d.join("Harry Save.hrsg"));
     let fonts = text::Fonts::load();
     if let Some((out, frames)) = screenshot {
+        if level_map {
+            return write_level_map(&data, &assets, game, &out, frames);
+        }
         return write_screenshot(&data, &assets, &fonts, game, &out, frames);
     }
 
@@ -532,6 +539,23 @@ fn write_screenshot(data: &GameData, assets: &Assets, fonts: &text::Fonts, mut g
         render::draw_map(&mut image, data, &game);
     }
     write_picture(Path::new(&out), &image, &lines, 0, fonts)
+}
+
+/// `--level-map`: the frames run without keys, then the whole level with
+/// every sprite as the game draws it (4096 × 4096) as a PNG.
+fn write_level_map(data: &GameData, assets: &Assets, mut game: Game, out: &str, frames: usize) -> Result<()> {
+    for _ in 0..frames {
+        game.frame(&KeyMap::default(), assets, &mut |_| false, &mut || false);
+    }
+    game.whole_level(assets);
+    let w = &game.world;
+    let live: Vec<_> = w.sprites.list.iter().map(|&i| w.rec(i)).filter(|r| r.task.is_some()).collect();
+    let faceless: Vec<i16> = live.iter().filter(|r| r.face == 0).map(|r| r.kind).collect();
+    eprintln!("{out}: {} sprites, {} without a face (drawn by nothing): {faceless:?}", live.len(), faceless.len());
+    let image = render::draw_level(data, &game).context("the level's tile sets")?;
+    let mut rgb = vec![0u8; image.width * image.height * 3];
+    image.to_rgb24(&clut8(), &mut rgb);
+    Ok(render::write_png(Path::new(out), image.width, image.height, &rgb)?)
 }
 
 /// A picture with its texts at 1:1 as a BMP, `dark` of 256 toward black.

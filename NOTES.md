@@ -1777,7 +1777,16 @@ turret. Each kind has `Init…` (once), `SETUP…` (per sprite), `HANDLE…`
   to the Teeth (149, 151), 15 Confrontation (152, 154).
 - `re/tools/render_level.py res <id> out.png [scale]` renders a level
   (both grids, tile sets with mask, sprite list as marked ids, start
-  position); all 16 render plausibly (`re/work/png/levels/`). Object ids
+  position); all 16 render plausibly (`re/work/png/levels/`). The port
+  draws a level whole as the game would (4096 × 4096 PNG, every sprite
+  with its real face and colours, props, both tile layers):
+  `ouro-harry --level-map out.png <level> [frames]` - after the frames
+  (default 1) every parked sprite is woken, each of the level's sprites
+  without a face runs its task until it has one (at most twice; most
+  choose their face there, boulders on their second run), each draw proc
+  runs once for its colours; it lists the sprites drawn by nothing
+  (invisible message spots, the exit 9995, the empty held weapon).
+  All 15 in `re/work/png/levels-full/`. Object ids
   ≥ 21000 are memos (`21000` on the desk in level 1 = the first memo).
 
 ### World `Hwld` 0 (70 668 bytes) - to be decoded.

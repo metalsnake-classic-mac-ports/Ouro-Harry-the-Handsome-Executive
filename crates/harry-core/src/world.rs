@@ -391,6 +391,16 @@ impl World {
         missing
     }
 
+    /// Every parked sprite back in the list (`IdleToActiveSprite`), for a
+    /// picture of the whole level - not a routine of the original.
+    pub fn wake_all(&mut self) {
+        for slot in 0..IDLE_SLOTS {
+            if self.idle[slot].used && self.idle[slot].active.is_none() {
+                self.idle_to_active(slot);
+            }
+        }
+    }
+
     /// `HandleIdleSprites`: with the view's top-left (v, h), each used
     /// slot in order - a parked sprite comes back when its `at` is within
     /// 348 px of the view's corner − 200 on both axes, an active one is

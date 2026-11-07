@@ -145,6 +145,7 @@ dependencies = [
  "fontdb",
  "harry-core",
  "harry-data",
+ "png",
  "sdl3",
 ]
 

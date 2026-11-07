@@ -800,4 +800,25 @@ mod tests {
         // Escape in the menu quits
         assert!(!d.press(Scancode::Escape, Mod::NOMOD));
     }
+
+    #[test]
+    fn the_whole_level_shows_every_sprite_with_a_face() {
+        let Ok(data) = harry_data::pack::read(crate::BUNDLED) else { return };
+        let loaded = crate::Loaded::new(&data).unwrap();
+        let face_bounds = |f: i16| data.faces.get(&f).map_or([0; 4], |x| x.bounds);
+        let assets = loaded.assets(&face_bounds);
+        let mut game = start_game(&data, &assets, 7, PlayerGlobals::new_game(), 1);
+        let near = game.world.sprites.list.len();
+        game.whole_level(&assets);
+        let w = &game.world;
+        let live: Vec<_> = w.sprites.list.iter().map(|&i| w.rec(i)).filter(|r| r.task.is_some()).collect();
+        assert!(live.len() > near, "the parked sprites come back ({near} near the start, {} in all)", live.len());
+        // of the level's sprites only what the game shows by nothing:
+        // invisible message spots (sprites made just now get their face
+        // in the next frame)
+        let faceless: Vec<i16> = live.iter().filter(|r| r.face == 0 && r.level_index >= 0).map(|r| r.kind).collect();
+        assert!(faceless.iter().all(|&k| k == 21000), "{faceless:?}");
+        let c = crate::render::draw_level(&data, &game).unwrap();
+        assert_eq!((c.width, c.height), (4096, 4096));
+    }
 }

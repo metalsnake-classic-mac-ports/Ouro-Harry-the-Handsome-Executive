@@ -400,13 +400,28 @@ pub fn draw_map(c: &mut Canvas, data: &GameData, game: &Game) {
 /// The game area as the ring buffer holds it: tiles, props and sprites,
 /// 480 px wide from the view's corner. None without the level's tile set.
 fn draw_area(data: &GameData, game: &Game) -> Option<Canvas> {
-    let view = game.view.corner;
+    draw_region(data, game, game.view.corner, (RING, AREA_SIZE))
+}
+
+/// The whole level (4096 × 4096) as the frame would draw it, every sprite
+/// included (after `Game::whole_level`).
+pub fn draw_level(data: &GameData, game: &Game) -> Option<Canvas> {
+    let side = SIZE as i32 * 32;
+    draw_region(data, game, (0, 0), (side, side))
+}
+
+/// The level from `view` (v, h), `size` (w, h) pixels: the tiles, props and
+/// sprites in the original's order.
+fn draw_region(data: &GameData, game: &Game, view: (i16, i16), size: (i32, i32)) -> Option<Canvas> {
     let level = &game.level;
     let tiles = data.tile_set(level)?;
-    let mut c = Canvas::new(RING as usize, AREA_SIZE as usize, BLACK);
-    c.area = (0, 0, RING, AREA_SIZE);
+    let mut c = Canvas::new(size.0 as usize, size.1 as usize, BLACK);
+    c.area = (0, 0, size.0, size.1);
     let (x0, y0) = ((i32::from(view.1) >> 5).max(0), (i32::from(view.0) >> 5).max(0));
-    let (x1, y1) = ((x0 + AREA_SIZE / 32 + 1).min(SIZE as i32 - 1), (y0 + AREA_SIZE / 32 + 1).min(SIZE as i32 - 1));
+    // the tiles of the shorter side's length plus one each way (the ring
+    // buffer, 480 wide, gets 15 columns as in the original)
+    let n = size.0.min(size.1) / 32 + 1;
+    let (x1, y1) = ((x0 + n).min(SIZE as i32 - 1), (y0 + n).min(SIZE as i32 - 1));
     for x in x0..=x1 {
         for y in y0..=y1 {
             let b = level.bg_tile(x, y) as usize;
@@ -455,6 +470,18 @@ fn draw_area(data: &GameData, game: &Game) -> Option<Canvas> {
 }
 
 /// A 24-bit BMP of RGB pixels (for screenshots).
+/// An RGB picture as a PNG.
+pub fn write_png(path: &std::path::Path, width: usize, height: usize, rgb: &[u8]) -> std::io::Result<()> {
+    let file = std::io::BufWriter::new(std::fs::File::create(path)?);
+    let mut enc = png::Encoder::new(file, width as u32, height as u32);
+    enc.set_color(png::ColorType::Rgb);
+    enc.set_depth(png::BitDepth::Eight);
+    enc.set_compression(png::Compression::Best);
+    enc.set_filter(png::FilterType::Paeth);
+    let mut w = enc.write_header().map_err(std::io::Error::other)?;
+    w.write_image_data(rgb).map_err(std::io::Error::other)
+}
+
 pub fn write_bmp(path: &std::path::Path, width: usize, height: usize, rgb: &[u8]) -> std::io::Result<()> {
     let row = (width * 3).div_ceil(4) * 4;
     let size = 54 + row * height;
