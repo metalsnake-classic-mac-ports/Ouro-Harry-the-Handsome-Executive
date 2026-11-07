@@ -81,6 +81,8 @@ fn reflect_v(s: &mut Speed, b: i16) {
 ///
 /// Returns the original's result: 1 when the sprite was moved, 0 when not,
 /// and for kinds below 0 or above 55 the kind itself (low byte).
+// the parameters of the original routine, in its order
+#[allow(clippy::too_many_arguments)]
 pub fn wall_bounce(
     body: &mut Body,
     kind: i16,
@@ -346,6 +348,8 @@ pub fn rect_bounce_fake(body: &mut Body, tile: (i16, i16), rect: Rect, half: Hal
 /// The speed is damped twice: once when the side is chosen, and again
 /// (with the sign forced away from the tile) on the frame's first contact.
 /// The position is only clamped to 14 px from the tile's centre.
+// the parameters of the original routine, in its order
+#[allow(clippy::too_many_arguments)]
 pub fn bg_tile_bounce(
     body: &mut Body,
     tile: (i16, i16),
