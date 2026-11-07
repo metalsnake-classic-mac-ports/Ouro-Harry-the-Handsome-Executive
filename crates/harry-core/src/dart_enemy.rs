@@ -110,11 +110,11 @@ fn throw(sp: &Sprite, level: &Level, rng: &mut Random, events: &mut Vec<SpriteEv
     let (oh, ov) = dart_offset(sp.kind, sp.dir);
     let (h, v) = (sp.pos.1.wrapping_add(oh), sp.pos.0.wrapping_add(ov));
     let dart = SpriteEvent::Spawn { kind: sp.kind + 7, h, v, speed: None };
-    if !(0..256).contains(&sp.level_index) {
+    let Some(e) = level.entry(sp.level_index) else {
         events.push(dart);
         return;
-    }
-    match level.sprites[sp.level_index as usize].info[0] {
+    };
+    match e.info[0] {
         0 => events.push(dart),
         1 => {
             let speed = match sp.kind {

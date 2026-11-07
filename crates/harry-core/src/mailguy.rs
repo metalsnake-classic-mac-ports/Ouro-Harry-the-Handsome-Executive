@@ -39,10 +39,6 @@ pub fn setup_mail_guy(sp: &mut Sprite) {
     sp.b8b = false;
 }
 
-fn entry_mut(level: &mut Level, index: i16) -> Option<&mut crate::level::LevelSprite> {
-    usize::try_from(index).ok().and_then(|i| level.sprites.get_mut(i))
-}
-
 /// `HandleMailGuySprite`. On its first frame it takes `timer` and `dir`
 /// from its level entry's info #0 / #1. `timer` counts toward 0 (from
 /// above it then stops the cart: dir + 1). `dir` 0: running its way (only
@@ -57,7 +53,7 @@ pub fn handle_mail_guy(sp: &mut Sprite, level: &mut Level, rng: &mut Random, eve
         return;
     }
     if !sp.b8b {
-        if let Some(e) = entry_mut(level, sp.level_index) {
+        if let Some(e) = level.entry_mut(sp.level_index) {
             sp.timer = e.info[0];
             sp.dir = e.info[1];
         }
@@ -98,7 +94,7 @@ pub fn handle_mail_guy(sp: &mut Sprite, level: &mut Level, rng: &mut Random, eve
     sp.pos = (sp.pos.0.wrapping_add(sp.speed.v), sp.pos.1.wrapping_add(sp.speed.h));
     sp.at = sp.pos;
     sp.face = face(sp.kind);
-    if let Some(e) = entry_mut(level, sp.level_index) {
+    if let Some(e) = level.entry_mut(sp.level_index) {
         e.info[0] = sp.timer;
         e.info[1] = sp.dir;
         e.id = sp.kind;

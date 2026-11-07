@@ -28,7 +28,7 @@ pub fn setup_reversor(sp: &mut Sprite) {
     sp.layer = 7;
     sp.speed = Default::default();
     sp.at_from_pos();
-    sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+    sp.fix_from_pos();
     match sp.kind {
         1861 => sp.speed.h = 1500,
         1852 => sp.speed.v = 1000,

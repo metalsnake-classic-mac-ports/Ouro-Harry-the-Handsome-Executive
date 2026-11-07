@@ -125,7 +125,7 @@ pub fn setup_robot(sp: &mut Sprite, player: (i16, i16)) {
     sp.layer = 7;
     sp.speed = Speed::default();
     sp.at_from_pos();
-    sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+    sp.fix_from_pos();
     let mut hp = 3;
     if sp.kind < BIG {
         sp.face = SMALL_FACES + sp.dir;
@@ -233,7 +233,7 @@ fn explode(sp: &mut Sprite, w: &mut RobotWorld, events: &mut Vec<SpriteEvent>) {
     events.push(SpriteEvent::MovingExplosion { h: sp.pos.1.wrapping_sub(d), v: sp.pos.0.wrapping_sub(d), speed, a: 0, b: 0 });
     events.push(SpriteEvent::Sound3D(snd::EXPLODE));
     w.g.chatter = 20;
-    let drop = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map_or(0, |i| w.level.sprites[i].info[3]);
+    let drop = w.level.entry(sp.level_index).map_or(0, |e| e.info[3]);
     if drop != 0 {
         events.push(SpriteEvent::Generate { kind: drop, h: sp.at.1, v: sp.at.0 });
     }
@@ -242,7 +242,7 @@ fn explode(sp: &mut Sprite, w: &mut RobotWorld, events: &mut Vec<SpriteEvent>) {
 /// Out of hit points: dying mode, the level entry cleared, the points.
 fn die(sp: &mut Sprite, w: &mut RobotWorld, points: i32) {
     sp.f7c = mode::DEAD;
-    if let Some(e) = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map(|i| &mut w.level.sprites[i]) {
+    if let Some(e) = w.level.entry_mut(sp.level_index) {
         e.present = false;
     }
     w.g.score = w.g.score.wrapping_add(points);

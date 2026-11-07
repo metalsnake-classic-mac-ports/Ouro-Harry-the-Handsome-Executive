@@ -74,6 +74,17 @@ pub struct Level {
 }
 
 impl Level {
+    /// The sprite list entry `index` (a sprite's `level_index`); none for
+    /// −1 or an index past the list. (The original reads some entries
+    /// without a range check; the port gives none then.)
+    pub fn entry(&self, index: i16) -> Option<&LevelSprite> {
+        usize::try_from(index).ok().and_then(|i| self.sprites.get(i))
+    }
+
+    pub fn entry_mut(&mut self, index: i16) -> Option<&mut LevelSprite> {
+        usize::try_from(index).ok().and_then(|i| self.sprites.get_mut(i))
+    }
+
     /// The two custom sprite tables (`savegame::CUSTOM` of the `Hlvl`);
     /// zeros when the level does not keep them (the data pack's levels).
     pub fn custom(&self) -> Vec<u8> {

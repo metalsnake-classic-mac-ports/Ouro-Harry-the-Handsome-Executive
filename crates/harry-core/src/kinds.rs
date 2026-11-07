@@ -134,7 +134,7 @@ pub fn hit_exit(sp: &mut Sprite, other: &Sprite, level: &Level, counter: &mut Le
         return;
     }
     counter.previous = counter.current;
-    let dest = level.sprites.get(sp.level_index as usize).map_or(0, |s| s.info[0]);
+    let dest = level.entry(sp.level_index).map_or(0, |s| s.info[0]);
     counter.current = if dest == 0 { counter.current.wrapping_add(1) } else { dest };
     sp.timer = 69;
 }
@@ -197,7 +197,7 @@ pub fn handle_door(sp: &mut Sprite, level: &mut Level) {
         if let Some(g) = door_group(sp.kind).filter(|_| !door_open(sp.kind)) {
             sp.kind = 902 + 10 * g;
         }
-        if let Some(e) = usize::try_from(sp.level_index).ok().and_then(|i| level.sprites.get_mut(i)) {
+        if let Some(e) = level.entry_mut(sp.level_index) {
             e.id = sp.kind;
         }
     }
@@ -238,15 +238,14 @@ pub fn handle_cooler(sp: &mut Sprite, level: &mut Level, events: &mut Vec<Sprite
     if sp.frozen {
         return;
     }
-    let entry = usize::try_from(sp.level_index).ok().filter(|&i| i < 256);
     match sp.dir {
         10 => sp.frozen = true,
         4 => {
-            let kind = entry.map(|i| level.sprites[i].info[1]).filter(|&k| k != 0).unwrap_or(5);
+            let kind = level.entry(sp.level_index).map(|e| e.info[1]).filter(|&k| k != 0).unwrap_or(5);
             events.push(SpriteEvent::Explosion { h: sp.pos.1.wrapping_sub(20), v: sp.pos.0.wrapping_sub(20), a: kind, b: 0 });
             sp.dir += 1;
-            if let Some(i) = entry {
-                level.sprites[i].present = false;
+            if let Some(e) = level.entry_mut(sp.level_index) {
+                e.present = false;
             }
         }
         5..=9 => sp.dir += 1,
@@ -503,7 +502,7 @@ pub fn hit_plant(
             // a desk: no mask test, always a hit (the step back it takes
             // first is overwritten by the hit's fix from pos)
             if other.task == Some(Task::Desk) || mask_hit(&mut sp.pos, masks.plant, other.at, other_mask) {
-                sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+                sp.fix_from_pos();
                 if !bump_playing {
                     events.push(SpriteEvent::Sound(1100));
                 }
@@ -598,7 +597,7 @@ pub fn setup_message(sp: &mut Sprite) {
 }
 
 fn balloon(sp: &Sprite, level: &Level, words: &mut Words, rng: &mut Random) -> (BalloonText, i16) {
-    let text = usize::try_from(sp.level_index).ok().and_then(|i| level.sprites.get(i)).map_or(0, |e| e.info[0]);
+    let text = level.entry(sp.level_index).map_or(0, |e| e.info[0]);
     let mode = sp.f6e as i16;
     (if sp.f6e == 3 { BalloonText::Buzzwords(words.buzzwords(rng)) } else { BalloonText::World(text) }, mode)
 }
@@ -614,7 +613,7 @@ pub fn handle_message(sp: &mut Sprite, level: &Level, words: &mut Words, rng: &m
     }
     sp.dir += 1;
     sp.kind = 21000;
-    if let Some(e) = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map(|i| &level.sprites[i]) {
+    if let Some(e) = level.entry(sp.level_index) {
         sp.f6e = i32::from(e.info[1]);
     }
     if sp.f6e == 0 {

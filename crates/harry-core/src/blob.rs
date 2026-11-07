@@ -68,7 +68,7 @@ pub fn setup_blob(sp: &mut Sprite, rng: &mut Random) {
     sp.layer = 7;
     sp.speed = Speed::default();
     sp.at_from_pos();
-    sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+    sp.fix_from_pos();
     sp.f6e = mode::REST;
     sp.timer = rng.below(90);
     match sp.kind {

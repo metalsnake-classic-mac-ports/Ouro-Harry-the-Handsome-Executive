@@ -61,7 +61,7 @@ pub fn setup_ghost(sp: &mut Sprite, player: (i16, i16)) {
     sp.hot_rect = [0, 0, 40, 40];
     sp.layer = 20;
     sp.speed = Speed::default();
-    sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+    sp.fix_from_pos();
     sp.f6e = mode::DRIFT;
     sp.state = if sp.kind == 5001 { 3 } else { 5 };
     sp.face = FACES + sp.dir;
@@ -108,7 +108,7 @@ pub fn handle_ghost(sp: &mut Sprite, view: (i16, i16), player: (i16, i16), rng: 
                         break;
                     }
                 }
-                sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+                sp.fix_from_pos();
             } else if sp.timer < 1 {
                 sp.f6e = mode::DRIFT;
             } else if sp.timer & 1 == 1 {

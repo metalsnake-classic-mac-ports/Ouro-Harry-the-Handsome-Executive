@@ -33,12 +33,6 @@ fn faces(kind: i16) -> Option<i16> {
     }
 }
 
-/// The level entry at `index` - the original reads it without a range
-/// check where the comments say so; the port gives none then.
-fn entry(level: &Level, index: i16) -> Option<&crate::level::LevelSprite> {
-    usize::try_from(index).ok().and_then(|i| level.sprites.get(i))
-}
-
 /// `SetupButtonSprite`: layer 1, up (dir 0), not yet started (+0x8b
 /// clear). Hot rects: 9501 / 9511 (−8, 0, 8, 24), 9521 / 9531 (0, −8, 24,
 /// 8), the plate (0, 0, 18, 18).
@@ -69,14 +63,14 @@ pub fn setup_button(sp: &mut Sprite) {
 pub fn handle_button(sp: &mut Sprite, level: &mut Level, events: &mut Vec<SpriteEvent>) {
     if !sp.b8b {
         sp.b8b = true;
-        if entry(level, sp.level_index).is_some_and(|e| e.info[1] != 0) {
+        if level.entry(sp.level_index).is_some_and(|e| e.info[1] != 0) {
             sp.dir = 9;
         }
     }
     if sp.frozen {
         return;
     }
-    if sp.dir < 8 || entry(level, sp.level_index).map_or(0, |e| e.info[0]) != 1 {
+    if sp.dir < 8 || level.entry(sp.level_index).map_or(0, |e| e.info[0]) != 1 {
         sp.dir -= 1;
     }
     sp.dir = sp.dir.clamp(0, 9);
@@ -90,7 +84,7 @@ pub fn handle_button(sp: &mut Sprite, level: &mut Level, events: &mut Vec<Sprite
             first + if sp.dir < 8 { sp.dir >> 1 } else { 3 }
         };
     }
-    if let Some(e) = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).and_then(|i| level.sprites.get_mut(i)) {
+    if let Some(e) = level.entry_mut(sp.level_index) {
         e.info[1] = i16::from(sp.dir < 7);
     }
     sp.f6e = i32::from(sp.dir);
@@ -158,8 +152,8 @@ pub fn handle_sliding_door(sp: &mut Sprite, level: &Level, events: &mut Vec<Spri
     if sp.frozen || !(0..256).contains(&sp.level_index) {
         return;
     }
-    let link = entry(level, sp.level_index).map_or(0, |e| e.info[0]);
-    let state = |i: i16| entry(level, i).map_or(0, |e| e.info[1]);
+    let link = level.entry(sp.level_index).map_or(0, |e| e.info[0]);
+    let state = |i: i16| level.entry(i).map_or(0, |e| e.info[1]);
     let closed = if link < 0 { i16::from(state(link.wrapping_neg()) == 0) } else { state(link) };
     if closed == 0 {
         if sp.dir < 14 {

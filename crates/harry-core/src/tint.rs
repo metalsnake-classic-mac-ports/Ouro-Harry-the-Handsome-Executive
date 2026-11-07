@@ -136,7 +136,7 @@ pub fn second_face(sp: &Sprite, level: &Level) -> Option<SecondFace> {
         Proc::Dart => {
             let loaded = sp.dir != 0
                 && sp.level_index != -1
-                && usize::try_from(sp.level_index).ok().and_then(|i| level.sprites.get(i)).is_some_and(|e| e.info[0] == 1);
+                && level.entry(sp.level_index).is_some_and(|e| e.info[0] == 1);
             if !loaded {
                 return None;
             }
@@ -174,7 +174,7 @@ fn scaled(scale: i16) -> i32 {
 /// A level sprite entry's info `k` as a tint: none (`None`) for no entry
 /// or 0, else 0 outside −1 … 15.
 fn entry_tint(level: &Level, index: i16, k: usize) -> Option<i32> {
-    let e = level.sprites.get(usize::try_from(index).ok()?)?;
+    let e = level.entry(index)?;
     match e.info[k] {
         0 => None,
         t @ -1..=15 => Some(i32::from(t)),
@@ -369,7 +369,7 @@ pub fn draw_proc(sp: &mut Sprite, w: &mut DrawWorld) -> Option<Blit> {
                 if sp.level_index == -1 {
                     (1, 4)
                 } else {
-                    let e = usize::try_from(sp.level_index).ok().and_then(|i| w.level.sprites.get(i));
+                    let e = w.level.entry(sp.level_index);
                     match e.map_or(0, |e| e.info[0]) {
                         0 => (1, 4),
                         1 => (1, 2),
@@ -395,10 +395,7 @@ pub fn draw_proc(sp: &mut Sprite, w: &mut DrawWorld) -> Option<Blit> {
             }
         }
         Proc::Vending => {
-            let empty = usize::try_from(sp.level_index)
-                .ok()
-                .and_then(|x| w.level.sprites.get(x))
-                .is_some_and(|e| e.info[1] < 1);
+            let empty = w.level.entry(sp.level_index).is_some_and(|e| e.info[1] < 1);
             let lit = sp.f78 == 1 && empty;
             sp.f78 = 1;
             if lit {

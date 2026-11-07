@@ -151,7 +151,7 @@ pub fn handle_player(
     }
     let b = &mut h.player.body;
     if b.fix.0 < 1 || b.fix.1 < 1 || b.fix.0 > 0x100000 || b.fix.1 > 0x100000 {
-        b.fix = (i32::from(b.pos.1) << 8, i32::from(b.pos.0) << 8);
+        b.fix_from_pos();
     }
     keys(h, g, rng);
     g.flag5c = 0;

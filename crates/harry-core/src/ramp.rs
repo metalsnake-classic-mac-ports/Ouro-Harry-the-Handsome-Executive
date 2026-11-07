@@ -53,7 +53,7 @@ pub fn handle_ramp(sp: &mut Sprite, level: &Level, physics: &Physics) {
     if sp.frozen {
         return;
     }
-    let pushable = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).is_some_and(|i| level.sprites[i].info[1] != 0);
+    let pushable = level.entry(sp.level_index).is_some_and(|e| e.info[1] != 0);
     if pushable {
         sp.integrate();
         if let Some(r) = hot_rect(sp.kind) {

@@ -97,7 +97,7 @@ fn desk(h: &mut Harry, g: &mut PlayerGlobals, other: &Sprite, w: &TouchWorld) {
     };
     s.h = scaled(fh, s.h);
     s.v = scaled(fv, s.v);
-    b.fix = (i32::from(b.pos.1) << 8, i32::from(b.pos.0) << 8);
+    b.fix_from_pos();
 }
 
 /// `HitPlayerSprite`.
@@ -412,7 +412,7 @@ fn collider(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, physics: &
 
 /// The key that opens a locked door: item 11399 − the door's info #0.
 fn door_key(level: &Level, door: &Sprite) -> i16 {
-    let info = usize::try_from(door.level_index).ok().and_then(|i| level.sprites.get(i)).map_or(0, |e| e.info[0]);
+    let info = level.entry(door.level_index).map_or(0, |e| e.info[0]);
     (0x2c87 - i32::from(info)) as i16
 }
 
@@ -425,7 +425,7 @@ fn unlock(g: &mut PlayerGlobals, door: &mut Sprite, level: &mut Level, events: &
     events.push(TouchEvent::Sound(snd::UNLOCK));
     remove_item(g, g.cur_slot);
     door.kind -= 2;
-    if let Some(e) = usize::try_from(door.level_index).ok().and_then(|i| level.sprites.get_mut(i)) {
+    if let Some(e) = level.entry_mut(door.level_index) {
         e.id = e.id.wrapping_sub(2);
     }
     true

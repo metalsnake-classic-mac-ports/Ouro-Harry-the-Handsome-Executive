@@ -5,7 +5,7 @@
 //! `gShotKind` and `gRecoil` = 3; the frame counts the recoil down and the
 //! held weapon shoots while it is above 1 - once per firing.
 
-use crate::bounce::{Body, Rect, wall_bounce};
+use crate::bounce::{Body, Rect, fix_of, wall_bounce};
 use crate::frame::PlayerGlobals;
 use crate::inventory::{current_item, item};
 use crate::mask::{Mask, mask_hit};
@@ -238,7 +238,7 @@ pub fn new_shot(kind: i16, pos: (i16, i16), speed: Speed, dir: i16) -> Shot {
         kind,
         pos,
         at: pos,
-        fix: (i32::from(pos.1) << 8, i32::from(pos.0) << 8),
+        fix: fix_of(pos),
         speed,
         dir,
         timer: 3,

@@ -20,6 +20,23 @@ pub struct Body {
     pub speed: Speed,
 }
 
+/// A position (v, h) as a 24.8 fixed position (h, v).
+pub fn fix_of(p: (i16, i16)) -> (i32, i32) {
+    (i32::from(p.1) << 8, i32::from(p.0) << 8)
+}
+
+impl Body {
+    /// `fix` = `at` << 8.
+    pub fn fix_from_at(&mut self) {
+        self.fix = fix_of(self.at);
+    }
+
+    /// `fix` = `pos` << 8.
+    pub fn fix_from_pos(&mut self) {
+        self.fix = fix_of(self.pos);
+    }
+}
+
 /// A rect as the Toolbox stores it: top, left, bottom, right.
 pub type Rect = [i16; 4];
 
@@ -131,7 +148,7 @@ pub fn wall_bounce(
                         reflect_h(s, bounce);
                     }
                     body.at.1 = mid_h - if left { hot[1] } else { hot[3] };
-                    body.fix = (i32::from(body.at.1) << 8, i32::from(body.at.0) << 8);
+                    body.fix_from_at();
                     return 1;
                 }
             } else {
@@ -141,7 +158,7 @@ pub fn wall_bounce(
                         reflect_v(s, bounce);
                     }
                     body.at.0 = mid_v - if top { hot[0] } else { hot[2] };
-                    body.fix = (i32::from(body.at.1) << 8, i32::from(body.at.0) << 8);
+                    body.fix_from_at();
                     return 1;
                 }
             }
@@ -240,7 +257,7 @@ pub fn wall_bounce(
             }
         }
     }
-    body.fix = (i32::from(body.at.1) << 8, i32::from(body.at.0) << 8);
+    body.fix_from_at();
     1
 }
 
@@ -456,7 +473,7 @@ fn tile_bounce(
             }
         }
     }
-    body.fix = (i32::from(body.at.1) << 8, i32::from(body.at.0) << 8);
+    body.fix_from_at();
     1
 }
 

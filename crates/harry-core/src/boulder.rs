@@ -46,10 +46,6 @@ pub fn setup_boulder(sp: &mut Sprite) {
     sp.b8b = false;
 }
 
-fn entry_mut(level: &mut Level, index: i16) -> Option<&mut crate::level::LevelSprite> {
-    usize::try_from(index).ok().and_then(|i| level.sprites.get_mut(i))
-}
-
 /// `HandleBoulderSprite`. On its first frame it takes `timer` and `dir`
 /// from its level entry (info #0, #1) and its start from info #2 (or
 /// writes its own there). The timer counting down to 0 stops it (dir +
@@ -64,7 +60,7 @@ pub fn handle_boulder(sp: &mut Sprite, level: &mut Level, rng: &mut Random, even
     }
     let up = upright(sp.kind);
     if !sp.b8b {
-        if let Some(e) = entry_mut(level, sp.level_index) {
+        if let Some(e) = level.entry_mut(sp.level_index) {
             sp.timer = e.info[0];
             if e.info[2] == 0 {
                 e.info[2] = sp.state;
@@ -111,7 +107,7 @@ pub fn handle_boulder(sp: &mut Sprite, level: &mut Level, rng: &mut Random, even
     }
     sp.pos = (sp.pos.0.wrapping_add(sp.speed.v), sp.pos.1.wrapping_add(sp.speed.h));
     sp.at = sp.pos;
-    if let Some(e) = entry_mut(level, sp.level_index) {
+    if let Some(e) = level.entry_mut(sp.level_index) {
         e.info[0] = sp.timer;
         e.info[1] = sp.dir;
         e.id = sp.kind;

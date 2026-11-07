@@ -57,7 +57,7 @@ pub fn setup_turret(sp: &mut Sprite) {
     sp.layer = 7;
     sp.speed = Default::default();
     sp.at_from_pos();
-    sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+    sp.fix_from_pos();
     sp.f6e = 1;
     sp.state = if sp.kind < 1910 { 25 } else if sp.kind < 1920 { 40 } else { 50 };
     sp.face = 0;

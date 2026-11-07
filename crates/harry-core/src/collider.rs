@@ -143,18 +143,10 @@ pub struct ColliderWorld<'a> {
     pub rng: &'a mut Random,
 }
 
-fn entry(level: &Level, index: i16) -> Option<&crate::level::LevelSprite> {
-    usize::try_from(index).ok().and_then(|i| level.sprites.get(i))
-}
-
-fn entry_mut(level: &mut Level, index: i16) -> Option<&mut crate::level::LevelSprite> {
-    usize::try_from(index).ok().and_then(|i| level.sprites.get_mut(i))
-}
-
 /// The vending machine's level entry: info #0 kicks until the next can
 /// (2–4), info #1 cans left (−1 empty); unset ones get 2–4.
 fn vending_defaults(level: &mut Level, index: i16, rng: &mut Random) {
-    if let Some(e) = entry_mut(level, index) {
+    if let Some(e) = level.entry_mut(index) {
         if e.info[0] == 0 {
             e.info[0] = rng.below(3) + 2;
         }
@@ -194,8 +186,7 @@ pub fn handle_collider(sp: &mut Sprite, w: &mut ColliderWorld, events: &mut Vec<
         let (ph, pv) = w.g.player_pos;
         let near = |a: i16, b: i16| (i32::from(a) - i32::from(b)).abs() < 448;
         if near(sp.at.1, ph) && near(sp.at.0, pv) {
-            if sp.f6e == FAN_UNSET && (0..256).contains(&sp.level_index) {
-                let e = &w.level.sprites[sp.level_index as usize];
+            if let Some(e) = w.level.entry(sp.level_index).filter(|_| sp.f6e == FAN_UNSET) {
                 sp.f6e = if e.info[0] == 0 { 125 } else { i32::from(e.info[0]) };
                 sp.timer = if e.info[1] == 0 { 256 } else { e.info[1] };
             }
@@ -282,13 +273,15 @@ fn magnet(sp: &Sprite, w: &mut ColliderWorld, events: &mut Vec<SpriteEvent>) {
 /// standing still.
 fn gun(sp: &mut Sprite, w: &mut ColliderWorld, events: &mut Vec<SpriteEvent>) {
     let level = &*w.level;
-    let link = level.sprites[sp.level_index as usize].info[0];
-    let switch = entry(level, link.wrapping_abs()).map_or(0, |e| e.info[1]);
+    // the caller checked the entry
+    let own = level.sprites[sp.level_index as usize];
+    let link = own.info[0];
+    let switch = level.entry(link.wrapping_abs()).map_or(0, |e| e.info[1]);
     if sp.timer > 0 {
         sp.timer -= 1;
     }
     let on = if link < 0 { switch != 0 } else { switch == 0 };
-    if (on || level.sprites[sp.level_index as usize].info[1] != 0) && sp.timer == 0 {
+    if (on || own.info[1] != 0) && sp.timer == 0 {
         let (dh, dv, speed) = match sp.kind {
             9401 => (2, -12, Speed { v: -1500, h: 0 }),
             9411 => (2, 8, Speed { v: 1500, h: 0 }),
@@ -355,7 +348,7 @@ fn vending(sp: &mut Sprite, w: &mut ColliderWorld, events: &mut Vec<SpriteEvent>
 
 fn vending_kick(sp: &mut Sprite, w: &mut ColliderWorld, events: &mut Vec<SpriteEvent>) {
     let index = sp.level_index;
-    let Some(e) = entry_mut(w.level, index) else { return };
+    let Some(e) = w.level.entry_mut(index) else { return };
     if e.info[0] > 0 {
         e.info[0] -= 1;
     }
@@ -444,16 +437,16 @@ pub fn hit_collider(
     }
     if sp.kind == 9200 && sp.timer == 0 {
         let index = sp.level_index;
-        if let Some(e) = entry_mut(level, index) {
+        if let Some(e) = level.entry_mut(index) {
             e.id = 9199;
         }
         if save() {
-            if let Some(e) = entry_mut(level, index) {
+            if let Some(e) = level.entry_mut(index) {
                 e.id = 9199;
             }
             sp.kind = 9199;
         } else {
-            if let Some(e) = entry_mut(level, index) {
+            if let Some(e) = level.entry_mut(index) {
                 e.present = true;
             }
             sp.timer = 300;

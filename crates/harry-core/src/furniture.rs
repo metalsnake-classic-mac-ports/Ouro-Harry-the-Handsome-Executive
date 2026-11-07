@@ -51,7 +51,7 @@ fn rounded(s: Speed) -> Speed {
 }
 
 fn clear_entry(level: &mut Level, index: i16) {
-    if let Some(e) = usize::try_from(index).ok().filter(|&i| i < 256).and_then(|i| level.sprites.get_mut(i)) {
+    if let Some(e) = level.entry_mut(index) {
         e.present = false;
     }
 }
@@ -68,7 +68,7 @@ pub fn setup_barrel(sp: &mut Sprite) {
     sp.speed = Speed::default();
     sp.hot_rect = [0, 0, 24, 24];
     sp.face = BARREL;
-    sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+    sp.fix_from_pos();
     sp.b8b = true;
 }
 
@@ -223,7 +223,7 @@ pub fn hit_barrel(
                 }
             }
         } else if mask_hit(&mut other.pos, masks.body, sp.at, masks.barrel) {
-            other.fix = (i32::from(other.pos.1) << 8, i32::from(other.pos.0) << 8);
+            other.fix_from_pos();
             bump(bump_playing, snd::BARREL_BUMP, events);
             sp.speed.h = scaled(0.6, other.speed.h);
             sp.speed.v = scaled(0.6, other.speed.v);
@@ -244,8 +244,8 @@ pub fn hit_barrel(
         sp.pos = sp.at;
         other.pos = other.at;
         if mask_hit(&mut other.pos, masks.barrel, sp.at, masks.barrel) {
-            other.fix = (i32::from(other.pos.1) << 8, i32::from(other.pos.0) << 8);
-            sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+            other.fix_from_pos();
+            sp.fix_from_pos();
             bump(bump_playing, snd::BARREL_BUMP, events);
             back(&mut sp.speed);
             back(&mut other.speed);
@@ -266,7 +266,7 @@ pub fn hit_barrel(
         // a desk: always a hit, no mask test (its step back, fix − speed,
         // is overwritten by the fix from pos)
         if other.task == Some(Task::Desk) || mask_hit(&mut sp.pos, masks.barrel, other.at, other_mask) {
-            sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+            sp.fix_from_pos();
             bump(bump_playing, snd::BARREL_BUMP, events);
             if matches!(other.task, Some(Task::Cooler | Task::Desk)) {
                 back(&mut sp.speed);
@@ -437,7 +437,7 @@ pub fn hit_chair(
         let other_mask = if other.task == Some(Task::Chair) { masks.plant } else { masks.barrel };
         // a desk: always a hit, as for the barrel
         if other.task == Some(Task::Desk) || mask_hit(&mut sp.pos, masks.plant, other.at, other_mask) {
-            sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+            sp.fix_from_pos();
             bump(bump_playing, snd::CHAIR_BUMP, events);
             if matches!(other.task, Some(Task::Cooler | Task::Desk)) {
                 back(&mut sp.speed);

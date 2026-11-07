@@ -368,7 +368,7 @@ pub fn setup_player(sp: &mut Sprite, g: &mut PlayerGlobals) {
     sp.task = Some(Task::Player);
     sp.hit_task = None;
     sp.hit_tile_task = Some(HitTileTask::Player);
-    sp.fix = (i32::from(sp.pos.1) << 8, i32::from(sp.pos.0) << 8);
+    sp.fix_from_pos();
     sp.face = PLAYER_FACES + sp.dir;
     g.moves.inch = 0;
     g.moves.kick = 0;
@@ -1153,7 +1153,7 @@ impl Game {
                 crate::scientist::handle_scientist(&mut sp, view, player, &mut self.rng, &mut events);
             }
             Some(Task::Blob) => {
-                let drop = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map_or(0, |i| self.level.sprites[i].info[3]);
+                let drop = self.level.entry(sp.level_index).map_or(0, |e| e.info[3]);
                 let (mut wall, mut obstacle) = self.blob_flags;
                 let mut s = Vec::new();
                 crate::blob::handle_blob(&mut sp, &self.level, self.g.player_pos, drop, &mut self.rng, &mut wall, &mut obstacle, &mut events, &mut s);
@@ -1177,7 +1177,7 @@ impl Game {
             }
             Some(Task::Boulder) => crate::boulder::handle_boulder(&mut sp, &mut self.level, &mut self.rng, &mut events),
             Some(Task::Turret) => {
-                let drop = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map_or(0, |i| self.level.sprites[i].info[3]);
+                let drop = self.level.entry(sp.level_index).map_or(0, |e| e.info[3]);
                 crate::turret::handle_turret(&mut sp, self.g.player_pos, drop, &mut self.rng, &mut events);
             }
             Some(Task::Grate) => crate::grate::handle_grate(&mut sp, &mut events),
@@ -1186,7 +1186,7 @@ impl Game {
                 crate::ghost::handle_ghost(&mut sp, view, player, &mut self.rng, &mut events);
             }
             Some(Task::FirePipe) => {
-                let info1 = usize::try_from(sp.level_index).ok().filter(|&i| i < 256).map(|i| self.level.sprites[i].info[1]);
+                let info1 = self.level.entry(sp.level_index).map(|e| e.info[1]);
                 crate::firepipe::handle_fire_pipe(&mut sp, info1, &mut self.rng, &mut events);
             }
             Some(Task::Robot) => {

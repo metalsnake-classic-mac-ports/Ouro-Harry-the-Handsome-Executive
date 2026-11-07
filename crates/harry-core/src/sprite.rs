@@ -257,7 +257,12 @@ impl Sprite {
 
     /// `fix` = `at` << 8.
     pub fn fix_from_at(&mut self) {
-        self.fix = (i32::from(self.at.1) << 8, i32::from(self.at.0) << 8);
+        self.fix = crate::bounce::fix_of(self.at);
+    }
+
+    /// `fix` = `pos` << 8.
+    pub fn fix_from_pos(&mut self) {
+        self.fix = crate::bounce::fix_of(self.pos);
     }
 
     /// The moving part, as the bounce and jump code takes it.

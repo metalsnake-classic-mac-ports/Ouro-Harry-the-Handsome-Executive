@@ -434,10 +434,9 @@ impl World {
         let list = self.sprites.list.clone();
         for i in list {
             let r = &mut self.sprites.recs[i];
-            let li = usize::try_from(r.level_index).ok().filter(|&x| x < 256);
             if r.task.is_none() || r.frozen {
-                if let Some(li) = li.filter(|_| r.frozen) {
-                    level.sprites[li].present = false;
+                if let Some(e) = level.entry_mut(r.level_index).filter(|_| r.frozen) {
+                    e.present = false;
                     if let Some(s) = usize::try_from(r.idle_index).ok().filter(|&x| x < 256).and_then(|x| self.idle.get_mut(x)) {
                         s.used = false;
                     }
@@ -456,8 +455,7 @@ impl World {
                 if r.blast_cooldown != 0 {
                     r.blast_cooldown = r.blast_cooldown.wrapping_sub(1);
                 }
-                if let Some(li) = li {
-                    let e = &mut level.sprites[li];
+                if let Some(e) = level.entry_mut(r.level_index) {
                     e.id = r.kind;
                     e.h = r.at.1.wrapping_add(6);
                     e.v = r.at.0.wrapping_add(6);
