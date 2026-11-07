@@ -282,6 +282,16 @@ bug was watched in the original yet; "expected" is what the code says.
   `emu_death.py` runs the direction after a wrap is one lower than a
   wrap with 36 would give.
 
+- **Two doors in level 12 have no key.** The locked doors 923 at
+  (3311, 883) and (3310, 1170), the level's right edge, need the keys
+  11397 and 11398 (item 11399 − info #0 2 and 1); level 12 holds only
+  11399s, and `UpLevel` takes every key away before a level starts, so
+  they never open. Behind them: a plant and a water cooler, two chairs.
+  Probably left from an earlier layout of the level. Port: keep.
+  **See it:** level 12, the two small rooms west of the corridor at the
+  right edge; walking into either door gives only Harry's remark (sound
+  205). Not seen yet.
+
 - **Only one robot a frame bounces off walls.** The flags that keep a
   robot from bouncing twice off walls / obstacles are globals cleared by
   every robot's task, but the tile pass runs after all tasks: only the
