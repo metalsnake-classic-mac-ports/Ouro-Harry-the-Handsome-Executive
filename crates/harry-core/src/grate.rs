@@ -234,12 +234,12 @@ pub fn touch_grate(
 
 /// A shot hitting a grate with hits left (`HitPlayerShotSprite`): a hit,
 /// layer 10, sound 4702 rising as it weakens (40000 + `SATRand(12000)` +
-/// (20 − hits) × 1800, fences (4 − hits) × 8000).
-pub fn player_shot_hit(grate: &mut Sprite, rng: &mut Random, events: &mut Vec<SpriteEvent>) {
+/// (20 − hits) × 1800, fences (4 − hits) × 8000) at the shot (`shot_at`).
+pub fn player_shot_hit(grate: &mut Sprite, shot_at: (i16, i16), rng: &mut Random, events: &mut Vec<SpriteEvent>) {
     grate.state -= 1;
     grate.b8a = true;
     grate.layer = 10;
     let r = i32::from(rng.below(12000));
     let rise = if grate.kind < 3910 { (20 - i32::from(grate.state)) * 1800 } else { (4 - i32::from(grate.state)) * 8000 };
-    events.push(SpriteEvent::Sound3DPitched { id: snd::HIT, rate: (r + rise + 40000) as u32 });
+    events.push(SpriteEvent::Sound3DPitched { id: snd::HIT, at: shot_at, rate: (r + rise + 40000) as u32 });
 }

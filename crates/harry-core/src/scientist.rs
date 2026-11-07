@@ -88,7 +88,7 @@ pub fn handle_scientist(sp: &mut Sprite, view: (i16, i16), player: (i16, i16), r
             }
             9 => {
                 sp.dir = 4;
-                events.push(SpriteEvent::Sound3D(snd::THROW));
+                events.push(SpriteEvent::sound_3d(snd::THROW, sp.pos));
                 let hand = match group {
                     1131 => Some((20, 2)),
                     1121 => Some((4, 4)),
@@ -183,7 +183,7 @@ pub fn hit_scientist(sp: &mut Sprite, other: &mut Sprite, favor: &mut i16, rng: 
         return;
     }
     other.frozen = true;
-    events.push(SpriteEvent::Sound3D(snd::HIT));
+    events.push(SpriteEvent::sound_3d(snd::HIT, sp.pos));
     sp.layer = 10;
     *favor = favor.wrapping_sub(3);
     sp.timer = rng.below(70) + 65;

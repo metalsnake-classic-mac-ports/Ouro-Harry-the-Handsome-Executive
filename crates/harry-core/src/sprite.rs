@@ -116,10 +116,14 @@ pub enum HitTileTask {
 pub enum SpriteEvent {
     /// `STPlayRegSound`.
     Sound(i16),
-    /// `STPlay3DSound` at the sprite.
-    Sound3D(i16),
-    /// `STPlay3DSoundPitched` at the sprite, rate 0x10000 = as recorded.
-    Sound3DPitched { id: i16, rate: u32 },
+    /// `STPlayRegSound` at a volume other than 0x100.
+    SoundVolume { id: i16, volume: i16 },
+    /// `STPlay3DSound(snd, …, volume, at)`: placed at `at` (v, h), the
+    /// point the original passes (mostly the sprite's `at`, `pos` or
+    /// `SpriteCenter` as the call finds it); volume 0x100 = full.
+    Sound3D { id: i16, at: (i16, i16), volume: i16 },
+    /// `STPlay3DSoundPitched` at `at` (v, h), rate 0x10000 = as recorded.
+    Sound3DPitched { id: i16, at: (i16, i16), rate: u32 },
     /// `EasyExplosion(h, v, 0, 0, a, b)`.
     Explosion { h: i16, v: i16, a: i16, b: i16 },
     /// `EasyExplosion(h, v, 0, 0, a, b)` and its timer set.
@@ -160,6 +164,13 @@ pub enum SpriteEvent {
     /// its kind (enemy shots, the soda can item), then its speed set if
     /// the caller sets one.
     Spawn { kind: i16, h: i16, v: i16, speed: Option<Speed> },
+}
+
+impl SpriteEvent {
+    /// `STPlay3DSound` at full volume at `at` (v, h).
+    pub fn sound_3d(id: i16, at: (i16, i16)) -> SpriteEvent {
+        SpriteEvent::Sound3D { id, at, volume: 0x100 }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -248,6 +259,13 @@ impl Sprite {
         self.f94 = 0;
         self.blast_cooldown = 0;
         self.speed = Speed::default();
+    }
+
+    /// `SpriteCenter` (PPC 0x1001e458): the middle of the hot rect at
+    /// `at`, (v, h).
+    pub fn centre(&self) -> (i16, i16) {
+        let mid = |a: i16, b: i16| ((i32::from(a) + i32::from(b)) >> 1) as i16;
+        (self.at.0.wrapping_add(mid(self.hot_rect[0], self.hot_rect[2])), self.at.1.wrapping_add(mid(self.hot_rect[1], self.hot_rect[3])))
     }
 
     /// `at` = `pos`.

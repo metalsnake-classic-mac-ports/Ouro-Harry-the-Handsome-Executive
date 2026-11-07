@@ -248,7 +248,7 @@ pub fn hit_blob(sp: &mut Sprite, other: &Sprite, physics: &Physics, kick_contact
         Some(Task::Player) if other.hot_rect[1] == 0 => {
             let kick = offset(KICK_RECTS[other.dir as usize], other.at.0, other.at.1);
             if sect(kick, offset(sp.hot_rect, sp.at.0, sp.at.1)) {
-                events.push(SpriteEvent::Sound3D(crate::robot::snd::HIT));
+                events.push(SpriteEvent::sound_3d(crate::robot::snd::HIT, sp.centre()));
                 sp.state -= 1;
                 sp.layer = 10;
                 let thrust = ((i32::from(physics.kick) * 26) >> 2) as i16;

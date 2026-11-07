@@ -148,9 +148,9 @@ fn ignite(sp: &mut Sprite, events: &mut Vec<SpriteEvent>) {
     }
 }
 
-fn bump(bump_playing: bool, id: i16, events: &mut Vec<SpriteEvent>) {
+fn bump(bump_playing: bool, id: i16, volume: i16, events: &mut Vec<SpriteEvent>) {
     if !bump_playing {
-        events.push(SpriteEvent::Sound(id));
+        events.push(SpriteEvent::SoundVolume { id, volume });
     }
 }
 
@@ -216,15 +216,15 @@ pub fn hit_barrel(
                 *kick_contact = 0x80;
                 if rng.below(100) < 50 && sp.dir == 1 {
                     let pitch = rng.below(6000) as u32;
-                    events.push(SpriteEvent::Sound3DPitched { id: snd::BARREL_FIRE, rate: pitch + 62000 });
+                    events.push(SpriteEvent::Sound3DPitched { id: snd::BARREL_FIRE, at: sp.at, rate: pitch + 62000 });
                     sp.dir += 1;
                 } else {
-                    bump(bump_playing, snd::BARREL_BUMP, events);
+                    bump(bump_playing, snd::BARREL_BUMP, 0x100, events);
                 }
             }
         } else if mask_hit(&mut other.pos, masks.body, sp.at, masks.barrel) {
             other.fix_from_pos();
-            bump(bump_playing, snd::BARREL_BUMP, events);
+            bump(bump_playing, snd::BARREL_BUMP, 0x100, events);
             sp.speed.h = scaled(0.6, other.speed.h);
             sp.speed.v = scaled(0.6, other.speed.v);
             other.speed.h = scaled(-0.3, other.speed.h);
@@ -246,7 +246,7 @@ pub fn hit_barrel(
         if mask_hit(&mut other.pos, masks.barrel, sp.at, masks.barrel) {
             other.fix_from_pos();
             sp.fix_from_pos();
-            bump(bump_playing, snd::BARREL_BUMP, events);
+            bump(bump_playing, snd::BARREL_BUMP, 0x100, events);
             back(&mut sp.speed);
             back(&mut other.speed);
             sp.speed.h = sp.speed.h.wrapping_add(other.speed.h);
@@ -267,7 +267,7 @@ pub fn hit_barrel(
         // is overwritten by the fix from pos)
         if other.task == Some(Task::Desk) || mask_hit(&mut sp.pos, masks.barrel, other.at, other_mask) {
             sp.fix_from_pos();
-            bump(bump_playing, snd::BARREL_BUMP, events);
+            bump(bump_playing, snd::BARREL_BUMP, 0x100, events);
             if matches!(other.task, Some(Task::Cooler | Task::Desk)) {
                 back(&mut sp.speed);
             } else {
@@ -398,7 +398,7 @@ pub fn hit_chair(
             if other.hot_rect[1] == 0 {
                 let kick = offset(KICK_RECTS[other.dir as usize], other.at.0, other.at.1);
                 if sect(kick, offset(sp.hot_rect, sp.at.0, sp.at.1)) {
-                    events.push(SpriteEvent::Sound3D(snd::CHAIR_KICK));
+                    events.push(SpriteEvent::sound_3d(snd::CHAIR_KICK, sp.centre()));
                     let old = sp.speed;
                     sp.speed = Speed::default();
                     let thrust = ((i32::from(physics.kick) * 26) >> 1) as i16;
@@ -418,7 +418,7 @@ pub fn hit_chair(
                 other.at = other.pos;
                 other.fix_from_at();
                 sp.fix_from_at();
-                bump(bump_playing, snd::CHAIR_BUMP, events);
+                bump(bump_playing, snd::CHAIR_BUMP, 0xab, events);
                 sp.speed.h = scaled(0.6, other.speed.h);
                 sp.speed.v = scaled(0.6, other.speed.v);
                 other.speed.h = scaled(-0.3, other.speed.h);
@@ -438,7 +438,7 @@ pub fn hit_chair(
         // a desk: always a hit, as for the barrel
         if other.task == Some(Task::Desk) || mask_hit(&mut sp.pos, masks.plant, other.at, other_mask) {
             sp.fix_from_pos();
-            bump(bump_playing, snd::CHAIR_BUMP, events);
+            bump(bump_playing, snd::CHAIR_BUMP, 0xab, events);
             if matches!(other.task, Some(Task::Cooler | Task::Desk)) {
                 back(&mut sp.speed);
             } else {
@@ -463,7 +463,7 @@ pub fn hit_chair(
     }
     if matches!(other.task, Some(Task::PlayerShot | Task::EnemyShot)) {
         other.frozen = true;
-        events.push(SpriteEvent::Sound3D(snd::CHAIR_BUMP));
+        events.push(SpriteEvent::Sound3D { id: snd::CHAIR_BUMP, at: sp.centre(), volume: 0xab });
         sp.dir = 1;
         if other.kind == 9450 {
             sp.speed.h = sp.speed.h.wrapping_add(other.speed.h >> 2);

@@ -165,7 +165,7 @@ pub fn handle_dart_enemy(sp: &mut Sprite, view: (i16, i16), level: &Level, rng: 
             13 => sp.dir = 5,
             20 => {
                 sp.dir = 6;
-                events.push(SpriteEvent::Sound3D(snd::THROW));
+                events.push(SpriteEvent::sound_3d(snd::THROW, sp.pos));
                 throw(sp, level, rng, events);
             }
             22 => sp.dir = 0,
@@ -194,7 +194,7 @@ pub fn hit_dart_enemy(sp: &mut Sprite, other: &mut Sprite, g: &mut PlayerGlobals
         return;
     }
     other.frozen = true;
-    events.push(SpriteEvent::Sound3D(snd::HIT));
+    events.push(SpriteEvent::sound_3d(snd::HIT, sp.pos));
     sp.layer = 10;
     g.favor = g.favor.wrapping_sub(3);
     sp.timer = rng.below(70) + 65;

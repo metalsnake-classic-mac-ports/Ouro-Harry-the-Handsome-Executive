@@ -114,8 +114,7 @@ fn episode_1_frames_match_the_original() {
     let mut bad = 0;
     let mut n = 0;
     let mut stale = 0;
-    // runs whose sounds differ; counted apart while the port's sound
-    // positions and volumes are not all the original's (TODO.md)
+    // runs whose sounds differ (counted apart: GAME_TRIAGE names them)
     let mut sound_bad = 0;
     for line in text.lines().skip(1) {
         let (a, b) = line.split_once(" -> ").unwrap();
@@ -173,8 +172,8 @@ fn episode_1_frames_match_the_original() {
             harry: None,
             words: words.clone(),
             sounds: Vec::new(),
-            // the recorder stubs the mixer: nothing ever plays (sounds are
-            // compared where they reach it)
+            // the recorder stubs the mixer: nothing ever plays (the sounds
+            // are compared where they reach it)
             audio: harry_core::sound::Audio { silent: true, ..Default::default() },
             level_start: LevelStart::default(),
             track: Default::default(),
@@ -359,6 +358,9 @@ fn episode_1_frames_match_the_original() {
         let (want_sounds, got_sounds) = (sounds(b), sounds(&got));
         if want_sounds != got_sounds {
             sound_bad += 1;
+            if std::env::var("GAME_TRIAGE").is_ok() {
+                eprintln!("SOUNDS level={} seed={} {want_sounds}/{got_sounds}", i.str("level"), i.str("seed"));
+            }
         }
         let rest_want = b.replace(&format!(" {want_sounds}"), "");
         let b = rest_want.as_str();
@@ -411,5 +413,6 @@ fn episode_1_frames_match_the_original() {
         }
     }
     assert_eq!(bad, 0, "{bad} of {n} cases differ");
-    eprintln!("{n} cases ({stale} more kick a locked door); sounds differ in {sound_bad} (known, TODO.md)");
+    assert_eq!(sound_bad, 0, "the sounds of {sound_bad} of {n} cases differ");
+    eprintln!("{n} cases ({stale} more kick a locked door), sounds included");
 }

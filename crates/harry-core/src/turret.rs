@@ -89,14 +89,14 @@ pub fn handle_turret(sp: &mut Sprite, player: (i16, i16), drop: i16, rng: &mut R
             let mut speed = sp.speed;
             add_polar(&mut speed, sp.dir, &SHOT_SPEED);
             events.push(SpriteEvent::Shot { kind: sp.kind, h: sp.pos.1.wrapping_add(7), v: sp.pos.0.wrapping_add(8), speed, dir: sp.dir, fix: None, to_fix: false, timer: None, f7c: None });
-            events.push(SpriteEvent::Sound3D(crate::robot::snd::SHOT));
+            events.push(SpriteEvent::sound_3d(crate::robot::snd::SHOT, sp.at));
         }
     }
     if sp.state < 1 {
         sp.frozen = true;
         let speed = crate::physics::Speed { h: sp.speed.h / 256, v: sp.speed.v / 256 };
         events.push(SpriteEvent::MovingExplosion { h: sp.pos.1.wrapping_sub(20), v: sp.pos.0.wrapping_sub(20), speed, a: 0, b: 0 });
-        events.push(SpriteEvent::Sound3D(crate::robot::snd::EXPLODE));
+        events.push(SpriteEvent::sound_3d(crate::robot::snd::EXPLODE, sp.pos));
         if drop != 0 {
             events.push(SpriteEvent::Generate { kind: drop, h: sp.at.1, v: sp.at.0 });
         }
@@ -114,7 +114,7 @@ pub fn hit_turret(sp: &mut Sprite, other: &mut Sprite, events: &mut Vec<SpriteEv
         return;
     }
     if other.task == Some(Task::PlayerShot) {
-        events.push(SpriteEvent::Sound3D(crate::robot::snd::HIT));
+        events.push(SpriteEvent::sound_3d(crate::robot::snd::HIT, other.at));
         sp.state -= 5;
         other.frozen = true;
     } else if other.task == Some(Task::Effect) && sp.timer == 0 && other.hot_rect != [0; 4] {

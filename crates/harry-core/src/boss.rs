@@ -219,7 +219,7 @@ pub fn handle_boss(
             sp.dir -= 35;
         }
         if boss.change == -98 {
-            events.push(SpriteEvent::Sound3DPitched { id: snd::ROAR, rate: 32000 });
+            events.push(SpriteEvent::Sound3DPitched { id: snd::ROAR, at: sp.at, rate: 32000 });
         }
         boss.change += 1;
         *shake = (boss.change & 1) + 16;
@@ -274,7 +274,7 @@ pub fn handle_boss(
                 }
             }
             let pitch = rng.below(6000) as u32;
-            events.push(SpriteEvent::Sound3DPitched { id: snd::SHOT, rate: pitch + 62000 });
+            events.push(SpriteEvent::Sound3DPitched { id: snd::SHOT, at: sp.at, rate: pitch + 62000 });
         }
         if boss.cooldown > 0 {
             boss.cooldown -= 1;
@@ -315,7 +315,7 @@ pub fn handle_boss(
         if volleys.contains(&boss.count) {
             volley(sp, phase == 3, phase == 1, events);
             let pitch = rng.below(6000) as u32;
-            events.push(SpriteEvent::Sound3DPitched { id: snd::VOLLEY, rate: pitch + 62000 });
+            events.push(SpriteEvent::Sound3DPitched { id: snd::VOLLEY, at: sp.at, rate: pitch + 62000 });
         }
     }
     turn(sp, boss);
@@ -367,17 +367,17 @@ pub fn handle_boss_death(sp: &mut Sprite, boss: &mut BossState, rng: &mut Random
             sp.hit_task = None;
             sp.hit_tile_task = None;
             boss.spin = 800;
-            events.push(SpriteEvent::Sound3DPitched { id: snd::ROAR, rate: 34000 });
+            events.push(SpriteEvent::Sound3DPitched { id: snd::ROAR, at: sp.at, rate: 34000 });
         }
-        8 => events.push(SpriteEvent::Sound3DPitched { id: snd::ROAR, rate: 40000 }),
-        16 => events.push(SpriteEvent::Sound3DPitched { id: snd::ROAR, rate: 24000 }),
+        8 => events.push(SpriteEvent::Sound3DPitched { id: snd::ROAR, at: sp.at, rate: 40000 }),
+        16 => events.push(SpriteEvent::Sound3DPitched { id: snd::ROAR, at: sp.at, rate: 24000 }),
         50 | 54 | 58 | 66 | 70 | 74 | 78 | 80 | 84 | 88 | 92 | 96 => {
             events.push(SpriteEvent::StopSound(snd::EXPLODE));
-            events.push(SpriteEvent::Sound3DPitched { id: snd::EXPLODE, rate: 50000 });
+            events.push(SpriteEvent::Sound3DPitched { id: snd::EXPLODE, at: sp.at, rate: 50000 });
             blast(rng, sp, events);
         }
         114 => {
-            events.push(SpriteEvent::Sound3DPitched { id: snd::EXPLODE, rate: 24000 });
+            events.push(SpriteEvent::Sound3DPitched { id: snd::EXPLODE, at: sp.at, rate: 24000 });
             events.push(SpriteEvent::BigBlast { h: sp.at.1.wrapping_sub(2), v: sp.at.0.wrapping_sub(2) });
             events.push(SpriteEvent::BigBlast { h: sp.at.1.wrapping_add(2), v: sp.at.0.wrapping_add(2) });
             for _ in 0..3 {
@@ -424,13 +424,13 @@ pub fn hit_boss(
             sp.b8a = true;
             if sp.state % 8 == 1 && !cry_playing {
                 let id = if rng.below(100) < 50 { snd::HURT[0] } else { snd::HURT[1] };
-                events.push(SpriteEvent::Sound3D(id));
+                events.push(SpriteEvent::sound_3d(id, sp.centre()));
             }
         }
         Some(Task::Player) if other.hot_rect[1] == 0 => {
             let kick = offset(KICK_RECTS[other.dir as usize], other.at.0, other.at.1);
             if sect(kick, offset(sp.hot_rect, sp.at.0, sp.at.1)) {
-                events.push(SpriteEvent::Sound3D(snd::KICKED));
+                events.push(SpriteEvent::sound_3d(snd::KICKED, sp.centre()));
                 sp.state -= 1;
                 sp.layer = 10;
                 *kick_contact = 0x40;

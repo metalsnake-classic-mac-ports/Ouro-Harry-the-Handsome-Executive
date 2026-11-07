@@ -1462,15 +1462,31 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   prints them). The mixer stub plays nothing and answers 0 (as with all
   voices taken), so the fans keep `f78` = 0 like the port; the game loop's
   `UpdateDynamicSounds` runs after `CheckGameEvents`. Everything else in
-  the recording stayed the same. The port's `SoundEvent::Play` events are
-  compared with it apart from the rest: 352 of 1494 runs still differ
-  (TODO.md) - the port gives a sprite's 3-D sounds one position (the
-  original passes each call its own point), plays every sound at 0x100
-  (the fan 1303 is 0x55; the 602 of barrel, chair, plant and robot hits
-  and the chair's sounds 0xab), the mail guy's 402 differs, and sound 217
-  plays where the original's does not. The staple's rate was cut to 16
-  bits (`62000 + SATRand(6000)` up to 67999): fixed, `emu_keys.py` now
-  records the whole rate.
+  the recording stayed the same; `ShowBalloon` (stubbed) plays its sound
+  217 as the original would (`SATRand(16000)`, `CalcStereoVolume` at the
+  sprite's `at`). `SOUNDS=1` also prints the point (v:h) of each 3-D sound.
+  The port's `SoundEvent::Play` events are compared with it: all 1494
+  runs match. They reach 76 `snd`s; not reached: 253, 255, 256 (the
+  co-workers' remarks), 605, 1000, 1001, 1302, 4900. Mutations caught:
+  the fan at full volume (53 runs), the robot's shot at `pos` (1), the
+  bump sounds before the routine's others (1), the staple at Harry's
+  `pos` (6).
+  **Where a sound plays**: every `STPlay3DSound(Pitched)` passes its own
+  point, taken as the call finds the sprite - mostly its `at`, in some
+  routines its `pos` (buttons, sliding doors, dart enemies, scientists,
+  the enemy shot's burst, the robot's and turret's explosion, the mail
+  guy), `SpriteCenter` in most hit routines and the colliders (the fan,
+  the phone, the magnet, the vending machine), the other sprite's `at`
+  (a barrel catching fire on a reversor or robot, a shot hitting a
+  turret); the held weapon's shots at their `pos`, `HandleKeys`' gulp and
+  staple at Harry's `at`. So `SpriteEvent::Sound3D` / `Sound3DPitched`,
+  `WeaponEvent::Sound3D` and `KeyEvent::Sound3D` carry the point.
+  Volumes other than 0x100: the fan 0x55, the robot's explosion 602
+  0xab, the chair's sounds 258 0xab and 602 at the mail guy's crash 0xab
+  (`SoundVolume`). `HandleHalfPipe` / `JumpScale` come last in every
+  routine that has them, so their bump sounds follow the routine's
+  others. The staple's rate was cut to 16 bits (`62000 + SATRand(6000)`
+  up to 67999): fixed, `emu_keys.py` now records the whole rate.
 - **Harry's death** (`harry_core::death`): `HandlePlayerSprite` hands
   Harry to `HandlePlayerSpriteDeath` (timer 0) once comfort or favor
   *shown* is below 1 and he is on the ground. Each frame clears the shot

@@ -111,8 +111,9 @@ pub fn tile_name(t: Option<HitTileTask>) -> &'static str {
 pub fn event(e: &SpriteEvent) -> String {
     match *e {
         SpriteEvent::Sound(s) => format!("p:{s}"),
-        SpriteEvent::Sound3D(s) => format!("3d:{s}"),
-        SpriteEvent::Sound3DPitched { id, rate } => format!("3d:{id}:{rate}"),
+        SpriteEvent::SoundVolume { id, .. } => format!("p:{id}"),
+        SpriteEvent::Sound3D { id, .. } => format!("3d:{id}"),
+        SpriteEvent::Sound3DPitched { id, rate, .. } => format!("3d:{id}:{rate}"),
         SpriteEvent::Explosion { h, v, a, b } => format!("x:{h}:{v}:{a}:{b}"),
         SpriteEvent::MovingExplosion { h, v, speed, a, b } => format!("x:{h}:{v}:{}:{}:{a}:{b}", speed.h, speed.v),
         SpriteEvent::DynamicSound { id, volume, at, speed } => format!("dyn:{id}:{volume}:{}:{}:{}:{}", at.0, at.1, speed.v, speed.h),

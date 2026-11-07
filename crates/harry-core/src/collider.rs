@@ -191,7 +191,7 @@ pub fn handle_collider(sp: &mut Sprite, w: &mut ColliderWorld, events: &mut Vec<
                 sp.timer = if e.info[1] == 0 { 256 } else { e.info[1] };
             }
             if !w.fan_sound_playing {
-                events.push(SpriteEvent::Sound3D(snd::FAN));
+                events.push(SpriteEvent::Sound3D { id: snd::FAN, at: sp.centre(), volume: 0x55 });
                 // the channel of the sound; the port has none
                 sp.f78 = 0;
             }
@@ -228,7 +228,7 @@ fn phone(sp: &mut Sprite, rng: &mut Random, events: &mut Vec<SpriteEvent>) {
         }
     } else if sp.timer > 0 {
         if matches!(sp.timer, 90 | 180 | 270) {
-            events.push(SpriteEvent::Sound3D(snd::PHONE));
+            events.push(SpriteEvent::sound_3d(snd::PHONE, sp.centre()));
         }
         let t = sp.timer;
         if !((61..=89).contains(&t) || (151..=179).contains(&t) || (241..=269).contains(&t)) {
@@ -253,7 +253,7 @@ fn magnet(sp: &Sprite, w: &mut ColliderWorld, events: &mut Vec<SpriteEvent>) {
     let armed = g.ammo.staple != 0 || g.ammo.badass != 0 || g.ammo.shrapnel != 0;
     if dh < 96 && pv + 32 < i32::from(sp.at.0) + 12 && armed {
         if *w.magnet == 0 {
-            events.push(SpriteEvent::Sound3D(snd::MAGNET));
+            events.push(SpriteEvent::sound_3d(snd::MAGNET, sp.centre()));
             w.harry_speed.v = 2500;
             *w.magnet = 2;
             if g.caffeine == 0 {
@@ -289,7 +289,7 @@ fn gun(sp: &mut Sprite, w: &mut ColliderWorld, events: &mut Vec<SpriteEvent>) {
             9431 => (-12, 2, Speed { v: 0, h: -1500 }),
             _ => (0, 0, Speed::default()),
         };
-        events.push(SpriteEvent::Sound3D(snd::GUN));
+        events.push(SpriteEvent::sound_3d(snd::GUN, sp.at));
         events.push(SpriteEvent::Spawn {
             kind: GUN_SHOT,
             h: sp.at.1.wrapping_add(dh),
@@ -353,10 +353,10 @@ fn vending_kick(sp: &mut Sprite, w: &mut ColliderWorld, events: &mut Vec<SpriteE
         e.info[0] -= 1;
     }
     if e.info[0] != 0 || e.info[1] < 1 {
-        events.push(SpriteEvent::Sound3D(snd::VENDING_EMPTY));
+        events.push(SpriteEvent::sound_3d(snd::VENDING_EMPTY, sp.centre()));
         return;
     }
-    events.push(SpriteEvent::Sound3D(snd::VENDING_DROP));
+    events.push(SpriteEvent::sound_3d(snd::VENDING_DROP, sp.centre()));
     if e.info[0] == 0 {
         e.info[0] = w.rng.below(3) + 2;
     }
@@ -373,14 +373,9 @@ pub fn is_repelled(task: Task) -> bool {
     matches!(task, Task::Player | Task::PlayerShot | Task::EnemyShot | Task::Plant | Task::Barrel | Task::Chair | Task::Robot | Task::Ghost | Task::Reversor | Task::Blob)
 }
 
-/// `SpriteCenter` (PPC 0x1001e458): the middle of the hot rect at `at`,
-/// (v, h).
+/// `SpriteCenter` (`Sprite::centre`).
 pub fn centre(sp: &Sprite) -> (i16, i16) {
-    let mid = |a: i16, b: i16| ((i32::from(a) + i32::from(b)) >> 1) as i16;
-    (
-        sp.at.0.wrapping_add(mid(sp.hot_rect[0], sp.hot_rect[2])),
-        sp.at.1.wrapping_add(mid(sp.hot_rect[1], sp.hot_rect[3])),
-    )
+    sp.centre()
 }
 
 /// One sprite (its centre `c`, (v, h)) in a fan's wind: in front of the

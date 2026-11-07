@@ -102,7 +102,7 @@ pub fn handle_boulder(sp: &mut Sprite, level: &mut Level, rng: &mut Random, even
             }
             sp.dir = 0;
             let pitch = rng.below(6000) as u32;
-            events.push(SpriteEvent::Sound3DPitched { id: SOUND, rate: pitch + 62000 });
+            events.push(SpriteEvent::Sound3DPitched { id: SOUND, at: sp.at, rate: pitch + 62000 });
         }
     }
     sp.pos = (sp.pos.0.wrapping_add(sp.speed.v), sp.pos.1.wrapping_add(sp.speed.h));

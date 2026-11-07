@@ -156,13 +156,13 @@ pub fn hit_mail_guy(sp: &Sprite, other: &mut Sprite) {
 
 /// A plant, barrel or chair (`sp`) meeting the mail guy, in their hit
 /// tasks: both are gone (frozen, their level entries cleared), sounds 602
-/// and 401, three explosions - kind 1 with the cart's speed, kind 0 with
+/// (at 0xab) and 401, three explosions - kind 1 with the cart's speed, kind 0 with
 /// half of it, and one at the object − 20 with its speed / 256 (frame −4)
 /// - and 5000 points.
 pub fn mail_guy_crash(sp: &mut Sprite, mail: &mut Sprite, events: &mut Vec<SpriteEvent>) {
     sp.frozen = true;
     mail.frozen = true;
-    events.push(SpriteEvent::Sound(602));
+    events.push(SpriteEvent::SoundVolume { id: 602, volume: 0xab });
     events.push(SpriteEvent::Sound(401));
     let (h, v) = (mail.at.1, mail.at.0);
     events.push(SpriteEvent::MovingExplosion { h, v, speed: mail.speed, a: 1, b: 4 });

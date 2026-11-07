@@ -129,8 +129,8 @@ pub enum KeyEvent {
     StopCharge,
     /// A sound that becomes the voice (`_DAT_10068aa0`).
     VoiceSound(i16),
-    /// `STPlay3DSoundPitched` at Harry's position.
-    Sound3D { snd: i16, pitch: u32 },
+    /// `STPlay3DSoundPitched` at Harry's `at` (v, h) as `HandleKeys` finds it.
+    Sound3D { snd: i16, at: (i16, i16), pitch: u32 },
     /// `EasyExplosion` at (h, v); `flag` is its fifth parameter.
     Explosion { h: i16, v: i16, flag: i16 },
     /// `ShowBalloon`: one of the 52 random messages, or −1 for the
@@ -168,7 +168,7 @@ pub fn handle_keys(h: &mut Harry, g: &mut PlayerGlobals, input: &KeyInput, rng: 
     // the size Easter egg
     if k.down(code::SHIFT) && k.down(code::PAGE_UP) && k.down(code::EQUALS) && !input.gulp_playing {
         if h.air.scale == 0x100 {
-            events.push(KeyEvent::Sound3D { snd: snd::GULP, pitch: 50000 });
+            events.push(KeyEvent::Sound3D { snd: snd::GULP, at: h.player.body.at, pitch: 50000 });
             h.air.scale = 0x200;
         } else {
             h.air.scale = 0x100;
@@ -262,7 +262,7 @@ fn use_item(h: &mut Harry, g: &mut PlayerGlobals, input: &KeyInput, rng: &mut Ra
             } else {
                 g.ammo.staple -= 1;
                 let pitch = rng.below(6000) as u32 + 62000;
-                events.push(KeyEvent::Sound3D { snd: snd::STAPLE, pitch });
+                events.push(KeyEvent::Sound3D { snd: snd::STAPLE, at: h.player.body.at, pitch });
                 g.recoil = 3;
                 g.shot_kind = 0;
             }

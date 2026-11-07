@@ -55,5 +55,5 @@ pub fn handle_fire_pipe(sp: &mut Sprite, info1: Option<i16>, rng: &mut Random, e
         kind: info1.unwrap_or(0),
     });
     sp.f6e = 0;
-    events.push(SpriteEvent::Sound3D(SOUND));
+    events.push(SpriteEvent::sound_3d(SOUND, sp.at));
 }

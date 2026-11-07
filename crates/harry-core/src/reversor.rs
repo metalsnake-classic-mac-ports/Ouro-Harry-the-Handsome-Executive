@@ -85,7 +85,7 @@ pub fn hit_reversor(sp: &mut Sprite, other: &mut Sprite, physics: &Physics, even
     let door = other.task == Some(Task::Door) && !crate::kinds::door_open(other.kind);
     match other.task {
         Some(Task::Barrel) => {
-            events.push(SpriteEvent::Sound3D(crate::furniture::snd::BARREL_FIRE));
+            events.push(SpriteEvent::sound_3d(crate::furniture::snd::BARREL_FIRE, other.at));
             other.dir += 1;
             sp.speed.h = sp.speed.h.wrapping_neg();
             sp.speed.v = sp.speed.v.wrapping_neg();
@@ -110,7 +110,7 @@ pub fn hit_reversor(sp: &mut Sprite, other: &mut Sprite, physics: &Physics, even
             other.fix.1 = other.fix.1.wrapping_sub(i32::from(other.speed.v));
             other.speed.h = other.speed.h.wrapping_neg();
             other.speed.v = other.speed.v.wrapping_neg();
-            events.push(SpriteEvent::Sound3D(SOUND));
+            events.push(SpriteEvent::sound_3d(SOUND, sp.centre()));
             if i32::from(sp.speed.v).abs() < i32::from(sp.speed.h).abs() {
                 sp.speed.v = sp.speed.h;
                 sp.speed.h = 0;

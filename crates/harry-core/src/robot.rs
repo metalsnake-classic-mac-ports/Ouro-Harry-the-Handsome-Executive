@@ -174,7 +174,7 @@ fn random_shot(sp: &Sprite, rng: &mut Random, events: &mut Vec<SpriteEvent>) {
         let mut speed = sp.speed;
         add_polar(&mut speed, sp.dir, &SHOT_SPEED);
         events.push(SpriteEvent::Shot { kind: sp.kind, h: sp.pos.1.wrapping_add(7), v: sp.pos.0.wrapping_add(8), speed, dir: sp.dir, fix: None, to_fix: false, timer: None, f7c: None });
-        events.push(SpriteEvent::Sound3D(snd::SHOT));
+        events.push(SpriteEvent::sound_3d(snd::SHOT, sp.at));
     }
 }
 
@@ -206,7 +206,7 @@ fn random_mg_shot(sp: &Sprite, rng: &mut Random, mg_playing: usize, events: &mut
     events.push(SpriteEvent::Shot { kind: sp.kind, h, v, speed, dir, fix: Some(fix), to_fix: true, timer: None, f7c: None });
     if mg_playing < 2 {
         let pitch = rng.below(6000) as u32;
-        events.push(SpriteEvent::Sound3DPitched { id: snd::MACHINE_GUN, rate: pitch + 62000 });
+        events.push(SpriteEvent::Sound3DPitched { id: snd::MACHINE_GUN, at: sp.at, rate: pitch + 62000 });
     }
 }
 
@@ -222,7 +222,7 @@ fn explode(sp: &mut Sprite, w: &mut RobotWorld, events: &mut Vec<SpriteEvent>) {
         (20, Speed { h: sp.speed.h / 256, v: sp.speed.v / 256 })
     };
     events.push(SpriteEvent::MovingExplosion { h: sp.pos.1.wrapping_sub(d), v: sp.pos.0.wrapping_sub(d), speed, a: 0, b: 0 });
-    events.push(SpriteEvent::Sound3D(snd::EXPLODE));
+    events.push(SpriteEvent::Sound3D { id: snd::EXPLODE, at: sp.pos, volume: 0xab });
     w.g.chatter = 20;
     let drop = w.level.entry(sp.level_index).map_or(0, |e| e.info[3]);
     if drop != 0 {
@@ -427,7 +427,7 @@ pub fn hit_robot(
     match other.task {
         Some(Task::Barrel) => {
             if other.dir == 1 {
-                events.push(SpriteEvent::Sound3D(crate::furniture::snd::BARREL_FIRE));
+                events.push(SpriteEvent::sound_3d(crate::furniture::snd::BARREL_FIRE, other.at));
                 other.dir += 1;
             }
             recoil(sp, false);
@@ -459,7 +459,7 @@ pub fn hit_robot(
             if other.hot_rect[1] == 0 {
                 let kick = offset(KICK_RECTS[other.dir as usize], other.at.0, other.at.1);
                 if sect(kick, offset(sp.hot_rect, sp.at.0, sp.at.1)) {
-                    events.push(SpriteEvent::Sound3D(snd::HIT));
+                    events.push(SpriteEvent::sound_3d(snd::HIT, sp.centre()));
                     sp.state -= 1;
                     sp.layer = 10;
                     let thrust = ((i32::from(physics.kick) * 26) >> 1) as i16;

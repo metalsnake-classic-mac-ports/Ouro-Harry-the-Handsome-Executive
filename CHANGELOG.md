@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The stapler's shot sound no longer jumps to a very low pitch now and
   then (its random rate above 65535 was cut to 16 bits).
+- Sounds play where and as loud as in the original: each from the point
+  the original gives it (stereo), the fan, the chair and some explosions
+  quieter, a boulder's rumble from where it stopped.
 
 ## [0.1.0] - 2026-11-05
 

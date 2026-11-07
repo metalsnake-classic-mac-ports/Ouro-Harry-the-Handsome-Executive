@@ -34,7 +34,7 @@ fn notation(e: &KeyEvent) -> Option<String> {
         KeyEvent::ChargeSound(s) => format!("c:{s}"),
         KeyEvent::VoiceSound(s) => format!("v:{s}"),
         KeyEvent::StopCharge => "stop".into(),
-        KeyEvent::Sound3D { snd, pitch } => format!("3d:{snd}:{pitch}"),
+        KeyEvent::Sound3D { snd, pitch, .. } => format!("3d:{snd}:{pitch}"),
         KeyEvent::Explosion { h, v, flag } => format!("x:{h}:{v}:{flag}"),
         KeyEvent::Balloon(n) => format!("b:{n}"),
         KeyEvent::Shot { h, v, dir, speed } => format!("shot:{h}:{v}:{dir}:{}:{}", speed.v, speed.h),

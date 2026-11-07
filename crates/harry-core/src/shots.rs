@@ -80,8 +80,8 @@ pub struct NewShot {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WeaponEvent {
     Sound(i16),
-    /// `STPlay3DSound` at the shot's position.
-    Sound3D(i16),
+    /// `STPlay3DSound` at the shot's `pos` (v, h).
+    Sound3D { id: i16, at: (i16, i16) },
     /// `EasyExplosion(h, v, 0, 0, a, b)`.
     Explosion { h: i16, v: i16, a: i16, b: i16 },
 }
@@ -323,7 +323,7 @@ pub fn hit_shot_tile(s: &mut Shot, shot_mask: &Mask, walls: &[Mask], hit: TileHi
         events.push(WeaponEvent::Sound(500));
         events.push(WeaponEvent::Explosion { h: s.pos.1.wrapping_sub(28), v: s.pos.0.wrapping_sub(28), a: 14, b: 0 });
     } else {
-        events.push(WeaponEvent::Sound3D(4700));
+        events.push(WeaponEvent::Sound3D { id: 4700, at: s.pos });
     }
 }
 
@@ -350,7 +350,7 @@ pub fn hit_player_shot(sp: &mut Sprite, other: &mut Sprite, favor: &mut i16, rng
             }
         }
         Some(Task::Collider | Task::SlidingDoor) => {
-            events.push(SpriteEvent::Sound3D(4700));
+            events.push(SpriteEvent::sound_3d(4700, sp.at));
             sp.frozen = true;
         }
         Some(Task::DartEnemy | Task::CoWorker | Task::Scientist) => {
@@ -363,7 +363,7 @@ pub fn hit_player_shot(sp: &mut Sprite, other: &mut Sprite, favor: &mut i16, rng
                     2 => 255,
                     _ => 256,
                 };
-                events.push(SpriteEvent::Sound3D(remark));
+                events.push(SpriteEvent::sound_3d(remark, sp.at));
             }
             other.layer = 10;
             other.b8a = true;
@@ -371,7 +371,7 @@ pub fn hit_player_shot(sp: &mut Sprite, other: &mut Sprite, favor: &mut i16, rng
         _ => {}
     }
     if other.task == Some(Task::Grate) && other.state > 0 {
-        crate::grate::player_shot_hit(other, rng, events);
+        crate::grate::player_shot_hit(other, sp.at, rng, events);
         sp.frozen = true;
     }
     if sp.kind == 4 && !matches!(other.task, Some(Task::Player | Task::HeldWeapon | Task::Effect)) {

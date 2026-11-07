@@ -75,7 +75,7 @@ pub fn handle_button(sp: &mut Sprite, level: &mut Level, events: &mut Vec<Sprite
     }
     sp.dir = sp.dir.clamp(0, 9);
     if i32::from(sp.dir) < sp.f6e && sp.f6e == 5 {
-        events.push(SpriteEvent::Sound3D(if sp.kind < PLATE { snd::BUTTON_UP } else { snd::PLATE_UP }));
+        events.push(SpriteEvent::sound_3d(if sp.kind < PLATE { snd::BUTTON_UP } else { snd::PLATE_UP }, sp.pos));
     }
     if let Some(first) = faces(sp.kind) {
         sp.face = if sp.kind == PLATE {
@@ -102,18 +102,18 @@ pub fn hit_button(sp: &mut Sprite, other: &Sprite, events: &mut Vec<SpriteEvent>
     let down = if sp.kind < PLATE { snd::BUTTON_DOWN } else { snd::PLATE_DOWN };
     if (player && other.hot_rect[1] != 0) || matches!(other.task, Some(Task::Plant | Task::Barrel | Task::Chair | Task::MailGuy | Task::Robot | Task::Reversor)) {
         if sp.dir == 0 {
-            events.push(SpriteEvent::Sound3D(down));
+            events.push(SpriteEvent::sound_3d(down, sp.pos));
         }
         sp.dir += 2;
     } else if matches!(other.task, Some(Task::EnemyShot | Task::PlayerShot)) {
         if sp.kind < PLATE {
-            events.push(SpriteEvent::Sound3D(down));
+            events.push(SpriteEvent::sound_3d(down, sp.pos));
             sp.dir = 9;
         }
     } else if player && sp.kind < PLATE {
         let kick = offset(KICK_RECTS[other.dir as usize], other.at.0, other.at.1);
         if sect(kick, offset(sp.hot_rect, sp.at.0, sp.at.1)) {
-            events.push(SpriteEvent::Sound3D(down));
+            events.push(SpriteEvent::sound_3d(down, sp.at));
             sp.dir += 10;
         }
     }
@@ -158,13 +158,13 @@ pub fn handle_sliding_door(sp: &mut Sprite, level: &Level, events: &mut Vec<Spri
     if closed == 0 {
         if sp.dir < 14 {
             if sp.dir == 0 {
-                events.push(SpriteEvent::Sound3D(snd::SLIDING_OPEN));
+                events.push(SpriteEvent::sound_3d(snd::SLIDING_OPEN, sp.pos));
             }
             sp.dir += 1;
         }
     } else if sp.dir > 0 {
         if sp.dir == 14 {
-            events.push(SpriteEvent::Sound3D(snd::SLIDING_CLOSE));
+            events.push(SpriteEvent::sound_3d(snd::SLIDING_CLOSE, sp.pos));
         }
         sp.dir -= 1;
     }

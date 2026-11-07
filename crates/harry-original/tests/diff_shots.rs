@@ -56,7 +56,7 @@ fn held_weapon_matches_the_original() {
             .iter()
             .map(|e| match *e {
                 WeaponEvent::Sound(s) => format!("p:{s}"),
-                WeaponEvent::Sound3D(s) => format!("3d:{s}"),
+                WeaponEvent::Sound3D { id, .. } => format!("3d:{id}"),
                 WeaponEvent::Explosion { h, v, a, b } => format!("x:{h}:{v}:{a}:{b}"),
             })
             .collect();
@@ -141,7 +141,7 @@ fn shot_tile_hits_match_the_original() {
             .iter()
             .map(|e| match *e {
                 WeaponEvent::Sound(s) => format!("p:{s}"),
-                WeaponEvent::Sound3D(s) => format!("3d:{s}"),
+                WeaponEvent::Sound3D { id, .. } => format!("3d:{id}"),
                 WeaponEvent::Explosion { h, v, a, b } => format!("x:{h}:{v}:{a}:{b}"),
             })
             .collect();

@@ -233,7 +233,7 @@ fn burst(sp: &mut Sprite, events: &mut Vec<SpriteEvent>) {
     if sp.timer == -16 {
         sp.at.1 = sp.at.1.wrapping_sub(4);
         sp.at.0 = sp.at.0.wrapping_sub(4);
-        events.push(SpriteEvent::Sound3D(snd::BURST));
+        events.push(SpriteEvent::sound_3d(snd::BURST, sp.pos));
     }
     sp.face = face::BURST + (8 - (-i32::from(sp.timer)) / 2) as i16;
     sp.timer = sp.timer.wrapping_add(1);
@@ -316,13 +316,13 @@ pub fn hit_enemy_shot(sp: &mut Sprite, other: &mut Sprite, events: &mut Vec<Spri
         }
     } else if matches!(other.task, Some(Task::Collider | Task::SlidingDoor)) {
         if !(other.task == Some(Task::Collider) && (9401..=9499).contains(&other.kind) && sp.kind == 9450) {
-            events.push(SpriteEvent::Sound3D(snd::HIT));
+            events.push(SpriteEvent::sound_3d(snd::HIT, sp.at));
             sp.frozen = true;
         }
     } else if other.task == Some(Task::Grate) && other.state > 0 {
         other.state -= 1;
         other.b8a = true;
-        events.push(SpriteEvent::Sound3D(crate::grate::snd::HIT));
+        events.push(SpriteEvent::sound_3d(crate::grate::snd::HIT, sp.at));
         other.layer = 10;
         sp.frozen = true;
     } else if matches!(other.task, Some(Task::EnemyShot | Task::PlayerShot)) && homing(sp.kind) {

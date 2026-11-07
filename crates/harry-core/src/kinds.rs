@@ -281,7 +281,7 @@ pub fn hit_cooler(
         if other.hot_rect[1] == 0 {
             let kick = offset(KICK_RECTS[other.dir as usize], other.at.0, other.at.1);
             if sect(kick, offset(sp.hot_rect, sp.at.0, sp.at.1)) {
-                events.push(SpriteEvent::Sound3D(501));
+                events.push(SpriteEvent::sound_3d(501, sp.centre()));
                 *kick_contact = 0xc0;
             }
         } else {
@@ -468,7 +468,7 @@ pub fn hit_plant(
                 let kick = offset(KICK_RECTS[other.dir as usize], other.at.0, other.at.1);
                 if sect(kick, offset(sp.hot_rect, sp.at.0, sp.at.1)) {
                     sp.dir = 1;
-                    events.push(SpriteEvent::Sound3D(1101));
+                    events.push(SpriteEvent::sound_3d(1101, sp.centre()));
                     let thrust = ((i32::from(physics.kick) * 26) >> 1) as i16;
                     apply_moded_impulse(&mut sp.speed, inverse_mode(other.dir), thrust);
                     *kick_contact = 0x80;
@@ -547,7 +547,7 @@ pub fn hit_plant(
     }
     if matches!(other.task, Some(Task::PlayerShot | Task::EnemyShot)) && other.kind != 9610 {
         other.frozen = true;
-        events.push(SpriteEvent::Sound3D(1101));
+        events.push(SpriteEvent::sound_3d(1101, sp.centre()));
         sp.dir = 1;
         if other.kind == 9450 {
             sp.speed.h = sp.speed.h.wrapping_add(other.speed.h >> 2);

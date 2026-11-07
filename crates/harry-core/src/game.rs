@@ -657,8 +657,8 @@ impl Game {
         i
     }
 
-    /// The events of a sprite's routine; its 3-D sounds at `at`.
-    fn sprite_events(&mut self, events: Vec<SpriteEvent>, at: (i16, i16)) {
+    /// The events of a sprite's routine.
+    fn sprite_events(&mut self, events: Vec<SpriteEvent>) {
         for e in events {
             match e {
                 SpriteEvent::Spawn { kind, h, v, speed } => self.spawn(kind, h, v, speed),
@@ -739,9 +739,10 @@ impl Game {
                         e.present = false;
                     }
                 }
-                SpriteEvent::Sound3DPitched { id, rate } => self.play(id, 0x100, Some(at), rate, Channel::Effect),
+                SpriteEvent::Sound3DPitched { id, at, rate } => self.play(id, 0x100, Some(at), rate, Channel::Effect),
                 SpriteEvent::Sound(id) => self.effect(id),
-                SpriteEvent::Sound3D(id) => self.effect_at(id, at),
+                SpriteEvent::SoundVolume { id, volume } => self.play(id, volume, None, RATE, Channel::Effect),
+                SpriteEvent::Sound3D { id, at, volume } => self.play(id, volume, Some(at), RATE, Channel::Effect),
             }
         }
     }
@@ -771,14 +772,14 @@ impl Game {
         }
     }
 
-    fn weapon_events(&mut self, events: Vec<WeaponEvent>, at: (i16, i16)) {
+    fn weapon_events(&mut self, events: Vec<WeaponEvent>) {
         for e in events {
             match e {
                 WeaponEvent::Explosion { h, v, a, b } => {
                     self.explosion(h, v, a, b);
                 }
                 WeaponEvent::Sound(id) => self.effect(id),
-                WeaponEvent::Sound3D(id) => self.effect_at(id, at),
+                WeaponEvent::Sound3D { id, at } => self.effect_at(id, at),
             }
         }
     }
@@ -798,16 +799,6 @@ impl Game {
     /// A sound at full volume and normal rate, placed at `at` (v, h).
     fn effect_at(&mut self, id: i16, at: (i16, i16)) {
         self.play(id, 0x100, Some(at), RATE, Channel::Effect);
-    }
-
-    /// The sounds a sprite's `HandleHalfPipe` / `JumpScale` asked for:
-    /// `id` gives the one each makes, none for silent.
-    fn air_sounds(&mut self, sounds: Vec<AirSound>, id: impl Fn(AirSound) -> Option<i16>) {
-        for a in sounds {
-            if let Some(id) = id(a) {
-                self.effect(id);
-            }
-        }
     }
 
     /// `play`, returning the sound's handle.
@@ -1013,7 +1004,6 @@ impl Game {
                     self.view.corner = c;
                     self.view.target = c;
                 }
-                let at = sp.at;
                 self.world.sprites.recs[i] = std::mem::take(&mut sp);
                 for e in key_events {
                     match e {
@@ -1029,7 +1019,7 @@ impl Game {
                         KeyEvent::ChargeSound(id) => self.play(id, 0x100, None, RATE, Channel::Charge),
                         KeyEvent::StopCharge => self.sound(SoundEvent::StopCharge),
                         KeyEvent::VoiceSound(id) => self.play(id, 0x100, None, RATE, Channel::Voice),
-                        KeyEvent::Sound3D { snd, pitch } => self.play(snd, 0x100, Some(at), pitch, Channel::Effect),
+                        KeyEvent::Sound3D { snd, at, pitch } => self.play(snd, 0x100, Some(at), pitch, Channel::Effect),
                         // ShowBalloon(NULL, text, 2): over Harry, no sound; if it
                         // does not fit (and the view pages), the view is nudged
                         // by the null sprite's position - low memory, 0 here
@@ -1066,12 +1056,11 @@ impl Game {
                     sp.face = weapon_face(w.face);
                 }
                 self.gun = w.gun;
-                let at = sp.at;
                 self.world.sprites.recs[i] = std::mem::take(&mut sp);
                 for s in shots {
                     self.spawn_with(s.kind, s.h, s.v, Setup::PlayerShot, Some(s.speed));
                 }
-                self.weapon_events(wev, at);
+                self.weapon_events(wev);
                 sp = std::mem::take(&mut self.world.sprites.recs[i]);
             }
             Some(Task::Bonus) => handle_bonus(&mut sp),
@@ -1082,18 +1071,18 @@ impl Game {
                 let mut s = Vec::new();
                 handle_plant(&mut sp, &self.level, &self.physics, &mut self.rng, &mut self.plant_flag, &mut s);
                 // HandleHalfPipe / JumpScale with the bump sound (none for falling)
-                self.air_sounds(s, |a| (a != AirSound::Fall).then_some(snd::PLANT));
+                air_events(&mut events, s, |a| (a != AirSound::Fall).then_some(snd::PLANT));
             }
             Some(Task::Barrel) => {
                 let mut s = Vec::new();
                 handle_barrel(&mut sp, &mut self.level, &self.physics, &mut self.rng, &mut self.view.shake, 0, &mut events, &mut s);
                 // JumpScale with the bump sound; HandleHalfPipe with none
-                self.air_sounds(s, |a| a.is_jump_scale().then_some(furniture::snd::BARREL_BUMP));
+                air_events(&mut events, s, |a| a.is_jump_scale().then_some(furniture::snd::BARREL_BUMP));
             }
             Some(Task::Chair) => {
                 let mut s = Vec::new();
                 handle_chair(&mut sp, &self.level, &self.physics, &mut self.rng, 0, &mut s);
-                self.air_sounds(s, |a| match a {
+                air_events(&mut events, s, |a| match a {
                     AirSound::HalfPipeOut => Some(furniture::snd::CHAIR_BUMP),
                     AirSound::Land | AirSound::Bounce => Some(furniture::snd::CHAIR_KICK),
                     _ => None,
@@ -1167,14 +1156,14 @@ impl Game {
                 let mut s = Vec::new();
                 crate::blob::handle_blob(&mut sp, &self.level, self.g.player_pos, drop, &mut self.rng, &mut wall, &mut obstacle, &mut events, &mut s);
                 self.blob_flags = (wall, obstacle);
-                self.air_sounds(s, |a| (a == AirSound::HalfPipeOut || a.is_jump_scale()).then_some(crate::blob::snd::HIT));
+                air_events(&mut events, s, |a| (a == AirSound::HalfPipeOut || a.is_jump_scale()).then_some(crate::blob::snd::HIT));
             }
             Some(Task::Reversor) => {
                 let (mut wall, mut obstacle) = self.reversor_flags;
                 let mut s = Vec::new();
                 crate::reversor::handle_reversor(&mut sp, &self.level, &mut self.rng, &mut wall, &mut obstacle, &mut s);
                 self.reversor_flags = (wall, obstacle);
-                self.air_sounds(s, |a| a.is_jump_scale().then_some(crate::robot::snd::HIT));
+                air_events(&mut events, s, |a| a.is_jump_scale().then_some(crate::robot::snd::HIT));
             }
             Some(Task::Boulder) => crate::boulder::handle_boulder(&mut sp, &mut self.level, &mut self.rng, &mut events),
             Some(Task::Turret) => {
@@ -1205,7 +1194,7 @@ impl Game {
                 crate::robot::handle_robot(&mut sp, &mut w, 0, &mut events, &mut s);
                 self.robot_flags = (wall, obstacle);
                 // JumpScale with the hit sound
-                self.air_sounds(s, |a| a.is_jump_scale().then_some(crate::robot::snd::HIT));
+                air_events(&mut events, s, |a| a.is_jump_scale().then_some(crate::robot::snd::HIT));
             }
             Some(Task::MailGuy) => crate::mailguy::handle_mail_guy(&mut sp, &mut self.level, &mut self.rng, &mut events),
             Some(Task::CoWorker) => crate::coworker::handle_coworker(&mut sp, &mut self.rng),
@@ -1220,9 +1209,8 @@ impl Game {
             }
             Some(Task::Exit | Task::Stairs | Task::Desk) | None => {}
         }
-        let at = sp.at;
         self.world.sprites.recs[i] = sp;
-        self.sprite_events(events, at);
+        self.sprite_events(events);
         died
     }
 
@@ -1311,10 +1299,9 @@ impl Game {
             Some(HitTask::Bonus | HitTask::Item | HitTask::Stairs | HitTask::SlidingDoor | HitTask::FirePipe | HitTask::Desk) | None => {}
             Some(t) => panic!("hit task {t:?} is not in the frame yet"),
         }
-        let at = sp.at;
         self.world.sprites.recs[a] = sp;
         self.world.sprites.recs[b] = o;
-        self.sprite_events(events, at);
+        self.sprite_events(events);
     }
 
     /// The game's part of `ShowBalloon` after the frontend's: a shown
@@ -1552,11 +1539,17 @@ impl Game {
                         let mut wev = Vec::new();
                         hit_shot_tile(&mut s, assets.player_shot, walls, hit, &mut wev);
                         s.into_sprite(sp);
-                        let at = sp.at;
-                        self.weapon_events(wev, at);
+                        self.weapon_events(wev);
                     }
                 }
             }
         }
     }
+}
+
+/// The sounds a sprite's `HandleHalfPipe` / `JumpScale` asked for, as
+/// events after the routine's others (both come at the end of every
+/// routine that has them): `id` gives the one each makes, none for silent.
+fn air_events(events: &mut Vec<SpriteEvent>, sounds: Vec<AirSound>, id: impl Fn(AirSound) -> Option<i16>) {
+    events.extend(sounds.into_iter().filter_map(id).map(SpriteEvent::Sound));
 }

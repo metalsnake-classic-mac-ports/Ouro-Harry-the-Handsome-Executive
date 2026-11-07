@@ -57,6 +57,7 @@ SCORE = 0x10065AF8
 # inventory copy
 START_SHORTS, START_SCORE, START_AMMO, START_INV = (0x10065B1C, 0x10065B04, 0x10065B10), 0x10065AF0, (0x10065AE0, 0x10065ADC, 0x10065AD8), 0x10065AC0
 TRACK, TRACK_LAST = 0x10072730, 0x1007272C       # the map; Harry's last tile v, h
+BALLOON_SOUND = 217                                 # ShowBalloon's (_DAT_10065cac)
 MASTER_VOLUME = 0x10068564                          # the sound volume (prefs +0xc × 0x1c), 0x100 full
 LOOP_DONE = 0x10068560                              # GameLoop ends (CheckGameEvents: Harry's death over)
 INITS = ("InitPlayerSprite", "InitHeldWeaponSprite", "InitBonusSprite", "InitItemSprite", "InitExitSprite", "InitDoorSprite",
@@ -214,6 +215,13 @@ def main():
                                         struct.unpack(">i", mm.read(a + 8, 4))[0]))
         return 0
     m.stub_routine(0x1005692C, mixer)
+    # SOUNDS=1: also the point (v:h) each 3-D sound is played at
+    if os.environ.get("SOUNDS"):
+        def at_hook(uc, _a, _s, _u):
+            sounds.append("@%d:%d " % (s16(m.get(6) >> 16), s16(m.get(6))))
+        for f in ("STPlay3DSound", "STPlay3DSoundPitched", "STPlayDynamicSound"):
+            a = m.addr(f)
+            m.uc.hook_add(UC_HOOK_CODE, at_hook, None, a, a)
     # BlitEncFace(face, port, ..., mode, arg): the draw procs' tints, but not
     # the fans' grilles and the dart enemies' darts (other faces than the
     # one the draw proc was called with through __ptr_glue)
@@ -279,7 +287,15 @@ def main():
         ans = answers.pop(0) if answers else 0
         log.append("balloon%d" % ans)
         if ans:
-            if mode in (1, 3, 5):
+            if mode in (1, 3, 5) and sp:
+                # STPlay3DSoundPitched(balloon, 100, 0x100, sp's at,
+                # 56000 + SATRand(16000)), as it reaches the mixer
+                r = mm.tb_random()
+                r = abs(r - 0x10000 if r & 0x8000 else r) % 16000
+                at = (s16(mm.r16(sp + 0x5A)), s16(mm.r16(sp + 0x5C)))
+                left, right = stereo(mm, at, 0x100)
+                sounds.append("%d:%d:%d:%d;" % (BALLOON_SOUND, left, right, 56000 + r))
+            elif mode in (1, 3, 5):
                 mm.tb_random()
             if sp and mode != 5:
                 mm.write(sp + 0x92, b"\1")
@@ -290,6 +306,18 @@ def main():
             mm.w16(view, mm.r16(view) + (-16 if mm.r16(sp + 2) + 32 < pv + 32 else 16))
         return ans
     m.stub_routine("ShowBalloon", show_balloon)
+
+    def stereo(mm, at, volume):
+        """CalcStereoVolume: an ear at each side of the view (h, h + 448) at
+        its middle's height; per ear (1024 - PEDistance) / 8 within 1024."""
+        vv, vh = s16(mm.r16(mm.glob(VIEW))), s16(mm.r16(mm.glob(VIEW) + 2))
+
+        def ear(h):
+            dh, dv = abs(s16(h) - at[1]), abs(s16(vv + 0xE0) - at[0])
+            dh, dv = s16(dh), s16(dv)
+            d = s16(max(abs(dh), abs(dv)) + min(abs(dh), abs(dv)) // 3)
+            return (0x400 - d) >> 3 if d < 0x401 else 0
+        return ((volume * ear(vh)) >> 7) & 0xFFFF, ((volume * ear(vh + 0x1C0)) >> 7) & 0xFFFF
     # CopierSave runs: its dialog answers from the run's list (1 save, 2
     # cancel), SaveSG (the file) succeeds; DoSaveGame runs too (autosave)
     copier_answers = []
