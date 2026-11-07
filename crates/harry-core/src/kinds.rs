@@ -14,7 +14,7 @@ use crate::random::Random;
 use crate::stairs::object_on_stairs;
 use crate::words::Words;
 use crate::mask::{Mask, mask_hit};
-use crate::sprite::{HitTask, Sprite, SpriteEvent, Task};
+use crate::sprite::{HitContext, HitTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{KICK_RECTS, TileHit, offset, sect};
 
 /// `SetupBonusSprite` (700–799: the bonus objects Harry collects).
@@ -439,17 +439,14 @@ pub(crate) fn plus_scaled(a: i16, f: f64, b: i16) -> i16 {
 /// `GrateBounce`; ramps carry it (sound
 /// 1101 when it takes off), stairs take it down. Shots stop on it and make it shake.
 /// `bump_playing`: is the plant's bump sound (1100) playing?
-#[allow(clippy::too_many_arguments)]
 pub fn hit_plant(
     sp: &mut Sprite,
     other: &mut Sprite,
     masks: &PlantHitMasks,
-    physics: &Physics,
-    rng: &mut Random,
-    kick_contact: &mut i16,
-    bump_playing: bool,
+    cx: HitContext,
     events: &mut Vec<SpriteEvent>,
 ) {
+    let HitContext { physics, rng, kick_contact, sound_playing: bump_playing, .. } = cx;
     if sp.frozen || other.frozen || sp.air >= 1 || other.air >= 1 {
         return;
     }

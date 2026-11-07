@@ -40,7 +40,7 @@ use crate::ripple;
 use crate::sat::{absolute, collisions, sort_pass};
 use crate::effect::handle_effect;
 use crate::shots::{HeldWeapon, Holder, Shot, WeaponEvent, handle_held_weapon, handle_shot, hit_player_shot, hit_shot_tile, weapon_face};
-use crate::sprite::{Face, HitTask, HitTileTask, Sprite, SpriteEvent, Task};
+use crate::sprite::{HitContext, Face, HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{sect, touched_tiles};
 use crate::tint::{Blit, DrawWorld, draw_proc, prop_blit};
 use crate::touch::{TouchEvent, TouchWorld, touch};
@@ -791,6 +791,18 @@ impl Game {
         self.play_handle(id, volume, at, rate, channel);
     }
 
+    /// What the hit tasks of kicked things read and change;
+    /// `sound_playing`: the thing's own sound still plays.
+    fn hit_context(&mut self, sound_playing: bool) -> HitContext<'_> {
+        HitContext {
+            physics: &self.physics,
+            rng: &mut self.rng,
+            kick_contact: &mut self.g.tile.kick_contact,
+            caffeine: self.g.caffeine > 0,
+            sound_playing,
+        }
+    }
+
     /// A sound at full volume and normal rate, in the middle.
     fn effect(&mut self, id: i16) {
         self.play(id, 0x100, None, RATE, Channel::Effect);
@@ -1223,18 +1235,17 @@ impl Game {
             Some(HitTask::Plant) => {
                 let ms = PlantHitMasks { body: &assets.player.body, plant: assets.plant, barrel: assets.barrel };
                 let bump = self.snd_playing(crate::kinds::snd::PLANT_BUMP);
-                hit_plant(&mut sp, &mut o, &ms, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, bump, &mut events);
+                hit_plant(&mut sp, &mut o, &ms, self.hit_context(bump), &mut events);
             }
             Some(HitTask::Barrel) => {
                 let ms = FurnitureMasks { body: &assets.player.body, plant: assets.plant, barrel: assets.barrel };
-                let caffeine = self.g.caffeine > 0;
                 let bump = self.snd_playing(crate::furniture::snd::BARREL_BUMP);
-                hit_barrel(&mut sp, &mut o, &ms, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, caffeine, bump, &mut events);
+                hit_barrel(&mut sp, &mut o, &ms, self.hit_context(bump), &mut events);
             }
             Some(HitTask::Chair) => {
                 let ms = FurnitureMasks { body: &assets.player.body, plant: assets.plant, barrel: assets.barrel };
                 let bump = self.snd_playing(crate::furniture::snd::CHAIR_BUMP);
-                hit_chair(&mut sp, &mut o, &ms, &self.physics, &mut self.g.tile.kick_contact, bump, &mut events);
+                hit_chair(&mut sp, &mut o, &ms, self.hit_context(bump), &mut events);
             }
             Some(HitTask::Message) => {
                 let (view, player) = (self.view.corner, self.g.player_pos);
@@ -1273,7 +1284,7 @@ impl Game {
             Some(HitTask::Boss) => {
                 let mut boss = self.world.sprites.boss;
                 let cry = crate::boss::snd::HURT.iter().any(|&id| self.snd_playing(id));
-                crate::boss::hit_boss(&mut sp, &mut o, &mut boss, &mut self.rng, &mut self.g.tile.kick_contact, cry, &mut events);
+                crate::boss::hit_boss(&mut sp, &mut o, &mut boss, self.hit_context(cry), &mut events);
                 self.world.sprites.boss = boss;
             }
             Some(HitTask::Scientist) => crate::scientist::hit_scientist(&mut sp, &mut o, &mut self.g.favor, &mut self.rng, &mut events),
@@ -1284,8 +1295,7 @@ impl Game {
             Some(HitTask::Grate) => crate::grate::hit_grate(&mut sp, &o, &mut self.rng),
             Some(HitTask::Ghost) => crate::ghost::hit_ghost(&mut sp, &mut o, &mut events),
             Some(HitTask::Robot) => {
-                let caffeine = self.g.caffeine > 0;
-                crate::robot::hit_robot(&mut sp, &mut o, &self.physics, &mut self.rng, &mut self.g.tile.kick_contact, caffeine, &mut events);
+                crate::robot::hit_robot(&mut sp, &mut o, self.hit_context(false), &mut events);
             }
             Some(HitTask::MailGuy) => crate::mailguy::hit_mail_guy(&sp, &mut o),
             Some(HitTask::Button) => hit_button(&mut sp, &o, &mut events),

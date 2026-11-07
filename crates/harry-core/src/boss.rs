@@ -7,7 +7,7 @@
 use crate::physics::Speed;
 use crate::random::Random;
 use crate::robot::toward_harry;
-use crate::sprite::{HitTask, HitTileTask, Sprite, SpriteEvent, Task};
+use crate::sprite::{HitContext, HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{KICK_RECTS, offset, sect};
 
 /// `snd` ids.
@@ -397,16 +397,8 @@ pub fn handle_boss_death(sp: &mut Sprite, boss: &mut BossState, rng: &mut Random
 /// (state ≡ 1) it cries out (1000 or 1001; only when neither plays,
 /// `cry_playing`). Harry's kick: sound 600, a point, layer 10, kick
 /// contact 64.
-#[allow(clippy::too_many_arguments)]
-pub fn hit_boss(
-    sp: &mut Sprite,
-    other: &mut Sprite,
-    boss: &mut BossState,
-    rng: &mut Random,
-    kick_contact: &mut i16,
-    cry_playing: bool,
-    events: &mut Vec<SpriteEvent>,
-) {
+pub fn hit_boss(sp: &mut Sprite, other: &mut Sprite, boss: &mut BossState, cx: HitContext, events: &mut Vec<SpriteEvent>) {
+    let HitContext { rng, kick_contact, sound_playing: cry_playing, .. } = cx;
     if sp.frozen || other.frozen {
         return;
     }

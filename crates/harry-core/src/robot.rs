@@ -10,10 +10,10 @@ use crate::effect::explode_radius;
 use crate::frame::PlayerGlobals;
 use crate::kinds::door_open;
 use crate::level::Level;
-use crate::physics::{Physics, Speed, apply_moded_impulse, find_desired_direction, inverse_mode, wrap_dir, wrap_dir_35};
+use crate::physics::{Speed, apply_moded_impulse, find_desired_direction, inverse_mode, wrap_dir, wrap_dir_35};
 use crate::ramp::{Rider, handle_ramp_collision};
 use crate::random::Random;
-use crate::sprite::{HitTask, HitTileTask, Sprite, SpriteEvent, Task};
+use crate::sprite::{HitContext, HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 use crate::stairs::object_on_stairs;
 use crate::tiles::{KICK_RECTS, TileHit, offset, sect};
 
@@ -407,16 +407,8 @@ fn recoil(sp: &mut Sprite, undo: bool) {
 /// its move undone, × −1.4. Harry's kick: sound 600, a hit point, flies
 /// off with 13 × the kick thrust, kick contact 128, kicked mode for 10
 /// frames; walking into it: it bounces back, on caffeine losing a point.
-#[allow(clippy::too_many_arguments)]
-pub fn hit_robot(
-    sp: &mut Sprite,
-    other: &mut Sprite,
-    physics: &Physics,
-    rng: &mut Random,
-    kick_contact: &mut i16,
-    caffeine: bool,
-    events: &mut Vec<SpriteEvent>,
-) {
+pub fn hit_robot(sp: &mut Sprite, other: &mut Sprite, cx: HitContext, events: &mut Vec<SpriteEvent>) {
+    let HitContext { physics, rng, kick_contact, caffeine, .. } = cx;
     if sp.frozen || other.frozen {
         return;
     }

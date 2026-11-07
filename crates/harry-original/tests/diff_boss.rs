@@ -4,6 +4,7 @@
 mod common;
 
 use common::{Tally, dump, installed, named_cases, recording};
+use harry_core::sprite::HitContext;
 use harry_core::boss::{BossState, handle_boss, handle_boss_death, hit_boss, setup_boss};
 use harry_core::random::Random;
 use harry_core::sprite::{Sprite, SpriteEvent, Task};
@@ -90,7 +91,7 @@ fn the_boss_matches_the_original() {
                 }
                 o.dir = p[3].parse().unwrap();
                 o.at = (ov, oh);
-                hit_boss(&mut sp, &mut o, &mut boss, &mut rng, &mut contact, false, &mut events);
+                hit_boss(&mut sp, &mut o, &mut boss, HitContext { physics: &Default::default(), rng: &mut rng, kick_contact: &mut contact, caffeine: false, sound_playing: false }, &mut events);
                 events.push(SpriteEvent::Sound(-1 - i16::from(o.frozen)));
             }
             let mut l = Vec::new();

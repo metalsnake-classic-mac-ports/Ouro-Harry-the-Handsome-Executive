@@ -111,6 +111,19 @@ pub enum HitTileTask {
     Boss,
 }
 
+/// What the hit tasks of the things Harry kicks read and change besides
+/// the two sprites.
+pub struct HitContext<'a> {
+    pub physics: &'a crate::Physics,
+    pub rng: &'a mut crate::random::Random,
+    /// `gKickContact`: set when Harry's kick lands.
+    pub kick_contact: &'a mut i16,
+    /// Harry is on caffeine.
+    pub caffeine: bool,
+    /// The thing's own sound still plays (a bump, the boss's cry).
+    pub sound_playing: bool,
+}
+
 /// What a sprite routine asks of the rest of the game.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SpriteEvent {

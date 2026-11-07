@@ -4,6 +4,7 @@
 mod common;
 
 use common::{Tally, dump, installed, named_cases, recording};
+use harry_core::sprite::HitContext;
 use harry_core::Physics;
 use harry_core::effect::setup_effect;
 use harry_core::furniture::{setup_barrel, setup_chair};
@@ -95,7 +96,7 @@ fn plant_hits_match_the_original() {
         let mut contact = w("contact") as i16;
         let mut rng = Random::new(w("seed") as u32);
         let mut events = Vec::new();
-        hit_plant(&mut sp, &mut o, &ms, &physics, &mut rng, &mut contact, w("busy") != 0, &mut events);
+        hit_plant(&mut sp, &mut o, &ms, HitContext { physics: &physics, rng: &mut rng, kick_contact: &mut contact, caffeine: false, sound_playing: w("busy") != 0 }, &mut events);
         let got = format!(
             "{} || {} | contact={contact} events={}",
             dump(&sp),

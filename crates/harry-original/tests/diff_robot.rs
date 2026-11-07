@@ -4,6 +4,7 @@
 mod common;
 
 use common::{check_named, dump, installed, levels_of};
+use harry_core::sprite::HitContext;
 use harry_core::bounce::{FirstBounce, TileMasks};
 use harry_core::Physics;
 use harry_core::air::AirSound;
@@ -145,7 +146,7 @@ fn robot_hits_match_the_original() {
         let mut contact = w("contact");
         let mut rng = Random::new(i.u32("seed2"));
         let mut events = Vec::new();
-        hit_robot(&mut sp, &mut o, &physics, &mut rng, &mut contact, w("caffeine") > 0, &mut events);
+        hit_robot(&mut sp, &mut o, HitContext { physics: &physics, rng: &mut rng, kick_contact: &mut contact, caffeine: w("caffeine") > 0, sound_playing: false }, &mut events);
         format!("{} || {} | contact={contact} events={}", dump(&sp), dump(&o), common::events(&events))
     });
 }

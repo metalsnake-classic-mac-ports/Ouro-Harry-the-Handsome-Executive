@@ -14,7 +14,7 @@ use crate::physics::{Physics, Speed, apply_moded_impulse, find_desired_direction
 use crate::ramp::{Rider, handle_ramp_collision};
 use crate::random::Random;
 use crate::stairs::object_on_stairs;
-use crate::sprite::{HitTask, HitTileTask, Sprite, SpriteEvent, Task};
+use crate::sprite::{HitContext, HitTask, HitTileTask, Sprite, SpriteEvent, Task};
 use crate::tiles::{KICK_RECTS, offset, sect};
 
 /// `snd` ids.
@@ -192,18 +192,14 @@ fn ride_ramp(sp: &mut Sprite, half: i16, ramp: &mut Sprite, physics: &Physics) {
 /// light it; stairs take it down; a mail guy crashes into it
 /// (`mail_guy_crash`); grates: `GrateBounce`. Desks: always a hit
 /// (no mask), it bounces back × −0.4 as from a cooler.
-#[allow(clippy::too_many_arguments)]
 pub fn hit_barrel(
     sp: &mut Sprite,
     other: &mut Sprite,
     masks: &FurnitureMasks,
-    physics: &Physics,
-    rng: &mut Random,
-    kick_contact: &mut i16,
-    caffeine: bool,
-    bump_playing: bool,
+    cx: HitContext,
     events: &mut Vec<SpriteEvent>,
 ) {
+    let HitContext { physics, rng, kick_contact, caffeine, sound_playing: bump_playing } = cx;
     if sp.frozen || other.frozen || sp.air >= 1 || other.air >= 1 {
         return;
     }
@@ -372,16 +368,14 @@ fn turn(a: i16, b: i16) -> i16 {
 /// barrel or chair trading momentum; desks: always a hit, back × −0.4.
 /// Doors (not open), sliding doors, colliders: `RectBounce`; ramps carry it, stairs take it down. Shots stop on it
 /// (sound 258).
-#[allow(clippy::too_many_arguments)]
 pub fn hit_chair(
     sp: &mut Sprite,
     other: &mut Sprite,
     masks: &FurnitureMasks,
-    physics: &Physics,
-    kick_contact: &mut i16,
-    bump_playing: bool,
+    cx: HitContext,
     events: &mut Vec<SpriteEvent>,
 ) {
+    let HitContext { physics, kick_contact, sound_playing: bump_playing, .. } = cx;
     if sp.frozen || other.frozen || sp.air >= 1 || other.air >= 1 {
         return;
     }
