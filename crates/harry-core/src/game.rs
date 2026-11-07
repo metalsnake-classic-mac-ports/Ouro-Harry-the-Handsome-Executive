@@ -13,7 +13,7 @@
 //! parts (sounds, drawing, `ShowBalloon`, `CopierSave` - passed in).
 
 use crate::air::Air;
-use crate::bounce::Rect;
+use crate::bounce::{FirstBounce, Rect, TileMasks};
 use crate::collider::{ColliderWorld, CopierSave, centre, handle_collider, hit_collider, is_repelled, repel};
 use crate::dart_enemy::{handle_dart_enemy, hit_dart_enemy};
 use crate::frame::SLOTS;
@@ -161,12 +161,12 @@ pub struct Game {
     /// `PTR_DAT_10066118`, cleared by every plant's task.
     pub plant_flag: bool,
     /// `PTR_DAT_1006619c` / `PTR_DAT_10066198`: a robot bounced off a wall
-    /// / an obstacle since the last robot's task (`robot::RobotWorld`).
-    pub robot_flags: (bool, bool),
+    /// / an obstacle since the last robot's task (`FirstBounce`).
+    pub robot_flags: FirstBounce,
     /// The same for the reversors (`PTR_DAT_10066188` / `…84`).
-    pub reversor_flags: (bool, bool),
+    pub reversor_flags: FirstBounce,
     /// And for the blobs (`PTR_DAT_10065f00` / `…efc`).
-    pub blob_flags: (bool, bool),
+    pub blob_flags: FirstBounce,
     /// `_DAT_1006c4ac`, the magnets' delay: 2 at launch (data section),
     /// never reset, so it carries over from level to level.
     pub magnet: i16,
@@ -1152,17 +1152,13 @@ impl Game {
             }
             Some(Task::Blob) => {
                 let drop = self.level.entry(sp.level_index).map_or(0, |e| e.info[3]);
-                let (mut wall, mut obstacle) = self.blob_flags;
                 let mut s = Vec::new();
-                crate::blob::handle_blob(&mut sp, &self.level, self.g.player_pos, drop, &mut self.rng, &mut wall, &mut obstacle, &mut events, &mut s);
-                self.blob_flags = (wall, obstacle);
+                crate::blob::handle_blob(&mut sp, &self.level, self.g.player_pos, drop, &mut self.rng, &mut self.blob_flags, &mut events, &mut s);
                 air_events(&mut events, s, |a| (a == AirSound::HalfPipeOut || a.is_jump_scale()).then_some(crate::blob::snd::HIT));
             }
             Some(Task::Reversor) => {
-                let (mut wall, mut obstacle) = self.reversor_flags;
                 let mut s = Vec::new();
-                crate::reversor::handle_reversor(&mut sp, &self.level, &mut self.rng, &mut wall, &mut obstacle, &mut s);
-                self.reversor_flags = (wall, obstacle);
+                crate::reversor::handle_reversor(&mut sp, &self.level, &mut self.rng, &mut self.reversor_flags, &mut s);
                 air_events(&mut events, s, |a| a.is_jump_scale().then_some(crate::robot::snd::HIT));
             }
             Some(Task::Boulder) => crate::boulder::handle_boulder(&mut sp, &mut self.level, &mut self.rng, &mut events),
@@ -1180,19 +1176,16 @@ impl Game {
                 crate::firepipe::handle_fire_pipe(&mut sp, info1, &mut self.rng, &mut events);
             }
             Some(Task::Robot) => {
-                let (mut wall, mut obstacle) = self.robot_flags;
                 let mut s = Vec::new();
                 let mg_playing = self.audio.playing.count_snd(crate::robot::snd::MACHINE_GUN);
                 let mut w = crate::robot::RobotWorld {
                     level: &mut self.level,
                     g: &mut self.g,
                     rng: &mut self.rng,
-                    wall_done: &mut wall,
-                    obstacle_done: &mut obstacle,
+                    done: &mut self.robot_flags,
                     mg_playing,
                 };
                 crate::robot::handle_robot(&mut sp, &mut w, 0, &mut events, &mut s);
-                self.robot_flags = (wall, obstacle);
                 // JumpScale with the hit sound
                 air_events(&mut events, s, |a| a.is_jump_scale().then_some(crate::robot::snd::HIT));
             }
@@ -1512,17 +1505,16 @@ impl Game {
                         hit_object_tile(sp, hit, &self.level, &ms, 12, &self.physics);
                     }
                     HitTileTask::Robot => {
-                        let (wall, obstacle) = &mut self.robot_flags;
-                        crate::robot::hit_robot_tile(sp, hit, &self.level, assets.robot, walls, &assets.player.obstacle, wall, obstacle);
+                        let m = TileMasks { level: &self.level, mask: assets.robot, walls, obstacle: &assets.player.obstacle };
+                        crate::robot::hit_robot_tile(sp, hit, &m, &mut self.robot_flags);
                     }
                     HitTileTask::Reversor => {
-                        let (wall, obstacle) = &mut self.reversor_flags;
-                        crate::reversor::hit_reversor_tile(sp, hit, &self.level, assets.robot, walls, &assets.player.obstacle, wall, obstacle);
+                        let m = TileMasks { level: &self.level, mask: assets.robot, walls, obstacle: &assets.player.obstacle };
+                        crate::reversor::hit_reversor_tile(sp, hit, &m, &mut self.reversor_flags);
                     }
                     HitTileTask::Boss => {}
                     HitTileTask::Blob => {
-                        let (wall, obstacle) = &mut self.blob_flags;
-                        crate::blob::hit_blob_tile(sp, hit, assets.blob, walls, wall, obstacle);
+                        crate::blob::hit_blob_tile(sp, hit, assets.blob, walls, &mut self.blob_flags);
                     }
                     HitTileTask::Boulder => crate::boulder::hit_boulder_tile(sp, hit),
                     HitTileTask::MailGuy => crate::mailguy::hit_mail_guy_tile(sp, hit),

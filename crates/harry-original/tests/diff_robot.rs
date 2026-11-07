@@ -4,6 +4,7 @@
 mod common;
 
 use common::{check_named, dump, installed, levels_of};
+use harry_core::bounce::{FirstBounce, TileMasks};
 use harry_core::Physics;
 use harry_core::air::AirSound;
 use harry_core::button::setup_sliding_door;
@@ -60,7 +61,7 @@ fn robot_tasks_match_the_original() {
         sp.frozen = w("frozen") != 0;
         let mut rng = Random::new(i.u32("seed"));
         let unset = 0; // the port's value (see BUGS.md)
-        let (mut wall, mut obst) = (false, false);
+        let mut done = FirstBounce::default();
         let mut evs = Vec::new();
         for step in i.str("steps").split(',') {
             let (dh, dv) = step.split_once(':').unwrap();
@@ -69,7 +70,7 @@ fn robot_tasks_match_the_original() {
             let mut events = Vec::new();
             let mut sounds = Vec::new();
             {
-                let mut rw = RobotWorld { level: &mut level, g: &mut g, rng: &mut rng, wall_done: &mut wall, obstacle_done: &mut obst, mg_playing: 0 };
+                let mut rw = RobotWorld { level: &mut level, g: &mut g, rng: &mut rng, done: &mut done, mg_playing: 0 };
                 handle_robot(&mut sp, &mut rw, unset, &mut events, &mut sounds);
             }
             let mut log: Vec<String> = events.iter().map(common::event).collect();
@@ -77,7 +78,7 @@ fn robot_tasks_match_the_original() {
             let mut hits = Vec::new();
             touched_tiles(&level, sp.at, sp.hot_rect, bounds(sp.face), |h| hits.push(h));
             for h in hits {
-                hit_robot_tile(&mut sp, h, &level, &mask, &walls, &obstacle, &mut wall, &mut obst);
+                hit_robot_tile(&mut sp, h, &TileMasks { level: &level, mask: &mask, walls: &walls, obstacle: &obstacle }, &mut done);
             }
             evs.push(if log.is_empty() { "-".to_string() } else { log.join(",") });
         }

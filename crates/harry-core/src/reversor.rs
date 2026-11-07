@@ -2,9 +2,9 @@
 //! 186x faster): spinning balls that bounce off everything and send
 //! shots back.
 
+use crate::bounce::{FirstBounce, TileMasks, first_obstacle, first_wall_bounce, obstacle_bounce};
 use crate::ramp::{Rider, handle_ramp_collision};
 use crate::level::Level;
-use crate::mask::{Mask, mask_hit};
 use crate::physics::{Physics, wrap_dir};
 use crate::random::Random;
 use crate::sprite::{HitTask, HitTileTask, Sprite, SpriteEvent, Task};
@@ -48,8 +48,7 @@ pub fn handle_reversor(
     sp: &mut Sprite,
     level: &Level,
     rng: &mut Random,
-    wall_done: &mut bool,
-    obstacle_done: &mut bool,
+    done: &mut FirstBounce,
     sounds: &mut Vec<crate::air::AirSound>,
 ) {
     if sp.frozen {
@@ -57,8 +56,7 @@ pub fn handle_reversor(
     }
     sp.dir += 1;
     sp.dir = wrap_dir(sp.dir);
-    *obstacle_done = false;
-    *wall_done = false;
+    *done = FirstBounce::default();
     sp.face = 4201 + sp.dir;
     sp.integrate();
     let mut body = sp.body();
@@ -133,38 +131,12 @@ fn turn_back(sp: &mut Sprite) {
 /// `HitReversorTileSprite`: walls (`WallBounce`, centre + 16, bounce 256;
 /// a bounce clears `f6e`) and, on the floor, obstacles (`BGTileBounce`,
 /// 256) with the robot mask - only the first reversor of the frame each.
-#[allow(clippy::too_many_arguments)]
-pub fn hit_reversor_tile(
-    sp: &mut Sprite,
-    hit: TileHit,
-    level: &Level,
-    mask: &Mask,
-    walls: &[Mask],
-    obstacle: &Mask,
-    wall_done: &mut bool,
-    obstacle_done: &mut bool,
-) {
-    let tile = hit.tile;
-    let hot = sp.hot_rect;
-    let mut body = sp.body();
+pub fn hit_reversor_tile(sp: &mut Sprite, hit: TileHit, m: &TileMasks, done: &mut FirstBounce) {
     if hit.foreground {
-        if *wall_done {
-            return;
-        }
-        let wall = usize::try_from(hit.kind).ok().and_then(|k| walls.get(k));
-        let r = crate::bounce::wall_bounce(&mut body, hit.kind, tile, (16, 16), 0x100, hot, true, &mut |b| match wall {
-            Some(w) => mask_hit(&mut b.pos, mask, tile, w),
-            None => false,
-        });
-        sp.set_body(body);
-        if r as i8 != 0 {
-            *wall_done = true;
+        if first_wall_bounce(sp, hit, (16, 16), 0x100, m.mask, m.walls, done) {
             sp.f6e = 0;
         }
-    } else if sp.air == 0 && hit.kind == 1 && !*obstacle_done {
-        *obstacle_done = true;
-        let fg = |x: i32, y: i32| level.fg_kind(level.fg_tile(x, y));
-        crate::bounce::bg_tile_bounce(&mut body, tile, (16, 16), 0x100, hot, true, &mut |b| mask_hit(&mut b.pos, mask, tile, obstacle), &fg);
-        sp.set_body(body);
+    } else if first_obstacle(sp, hit, done) {
+        obstacle_bounce(sp, hit.tile, (16, 16), 0x100, m);
     }
 }

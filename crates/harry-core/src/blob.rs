@@ -2,10 +2,10 @@
 //! creeps after him. `state` is their hit points, `f6e` the mode: 2 sets
 //! off, 0 slides and slows, 4 rests (turning on the spot).
 
-use crate::bounce::wall_bounce;
+use crate::bounce::{FirstBounce, first_obstacle, first_wall_bounce};
 use crate::effect::explode_radius;
 use crate::level::Level;
-use crate::mask::{Mask, mask_hit};
+use crate::mask::Mask;
 use crate::physics::{Physics, Speed, apply_moded_impulse, enforce_max_speed, inverse_mode};
 use crate::random::Random;
 use crate::robot::toward_harry;
@@ -99,16 +99,14 @@ pub fn handle_blob(
     player: (i16, i16),
     drop: i16,
     rng: &mut Random,
-    wall_done: &mut bool,
-    obstacle_done: &mut bool,
+    done: &mut FirstBounce,
     events: &mut Vec<SpriteEvent>,
     sounds: &mut Vec<crate::air::AirSound>,
 ) {
     if sp.frozen {
         return;
     }
-    *obstacle_done = false;
-    *wall_done = false;
+    *done = FirstBounce::default();
     if sp.state < 1 {
         if sp.timer >= 0 {
             sp.timer = -999;
@@ -264,34 +262,12 @@ pub fn hit_blob(sp: &mut Sprite, other: &Sprite, physics: &Physics, kick_contact
 /// mask face 1451 - cicn 598 with the faces' mirrored bits; a bounce
 /// makes it slide) and, on the floor, obstacles
 /// (it bounces back) - the first blob of the frame only, each.
-#[allow(clippy::too_many_arguments)]
-pub fn hit_blob_tile(
-    sp: &mut Sprite,
-    hit: TileHit,
-    mask: &Mask,
-    walls: &[Mask],
-    wall_done: &mut bool,
-    obstacle_done: &mut bool,
-) {
+pub fn hit_blob_tile(sp: &mut Sprite, hit: TileHit, mask: &Mask, walls: &[Mask], done: &mut FirstBounce) {
     if hit.foreground {
-        if *wall_done {
-            return;
-        }
-        let tile = hit.tile;
-        let hot = sp.hot_rect;
-        let mut body = sp.body();
-        let wall = usize::try_from(hit.kind).ok().and_then(|k| walls.get(k));
-        let r = wall_bounce(&mut body, hit.kind, tile, (16, 16), 0xff, hot, true, &mut |b| match wall {
-            Some(w) => mask_hit(&mut b.pos, mask, tile, w),
-            None => false,
-        });
-        sp.set_body(body);
-        if r as i8 != 0 {
-            *wall_done = true;
+        if first_wall_bounce(sp, hit, (16, 16), 0xff, mask, walls, done) {
             sp.f6e = mode::SLIDE;
         }
-    } else if sp.air == 0 && hit.kind == 1 && !*obstacle_done {
-        *obstacle_done = true;
+    } else if first_obstacle(sp, hit, done) {
         recoil(sp);
     }
 }

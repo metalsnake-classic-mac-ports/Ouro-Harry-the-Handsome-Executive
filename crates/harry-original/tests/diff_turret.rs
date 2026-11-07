@@ -6,6 +6,7 @@ mod common;
 use std::collections::HashMap;
 
 use common::{Tally, dump, installed, levels_of, named_cases, recording, work};
+use harry_core::bounce::{FirstBounce, TileMasks};
 use harry_core::Physics;
 use harry_core::air::AirSound;
 use harry_core::boulder::{handle_boulder, hit_boulder, hit_boulder_tile, setup_boulder};
@@ -120,7 +121,7 @@ fn run(group: &str) {
         sp.level_index = index;
         let mut player = (w("ph"), w("pv"));
         let mut rng = Random::new(i.u32("seed"));
-        let (mut wall, mut obst) = (false, false);
+        let mut done = FirstBounce::default();
         let mut score = 0;
         let mut evs = Vec::new();
         for step in i.str("steps").split(',') {
@@ -137,7 +138,7 @@ fn run(group: &str) {
                 "boulder" => handle_boulder(&mut sp, &mut level, &mut rng, &mut events),
                 _ => {
                     let mut sounds = Vec::new();
-                    handle_reversor(&mut sp, &level, &mut rng, &mut wall, &mut obst, &mut sounds);
+                    handle_reversor(&mut sp, &level, &mut rng, &mut done, &mut sounds);
                     extra.extend(sounds.iter().filter(|s| matches!(s, AirSound::Land | AirSound::Bounce)).map(|_| "p:600".to_string()));
                 }
             }
@@ -151,7 +152,7 @@ fn run(group: &str) {
                     if group == "boulder" {
                         hit_boulder_tile(&mut sp, h);
                     } else {
-                        hit_reversor_tile(&mut sp, h, &level, &mask, &walls, &obstacle, &mut wall, &mut obst);
+                        hit_reversor_tile(&mut sp, h, &TileMasks { level: &level, mask: &mask, walls: &walls, obstacle: &obstacle }, &mut done);
                     }
                 }
             }

@@ -5,12 +5,11 @@
 //! they explode, give points and may leave something behind (their level
 //! entry's info #3).
 
-use crate::bounce::{Rect, bg_tile_bounce, wall_bounce};
+use crate::bounce::{FirstBounce, TileMasks, first_obstacle, first_wall_bounce, obstacle_bounce};
 use crate::effect::explode_radius;
 use crate::frame::PlayerGlobals;
 use crate::kinds::door_open;
 use crate::level::Level;
-use crate::mask::{Mask, mask_hit};
 use crate::physics::{Physics, Speed, apply_moded_impulse, find_desired_direction, inverse_mode, wrap_dir, wrap_dir_35};
 use crate::ramp::{Rider, handle_ramp_collision};
 use crate::random::Random;
@@ -159,8 +158,7 @@ pub struct RobotWorld<'a> {
     /// `PTR_DAT_1006619c` / `PTR_DAT_10066198`: a robot already bounced
     /// off a wall / an obstacle - cleared by every robot's task, so in the
     /// tile pass after the tasks only the first robot to touch one bounces.
-    pub wall_done: &'a mut bool,
-    pub obstacle_done: &'a mut bool,
+    pub done: &'a mut FirstBounce,
     /// How many machine-gun sounds (606) play: from two on, a bolt is
     /// silent (and draws no pitch).
     pub mg_playing: usize,
@@ -375,8 +373,7 @@ pub fn handle_robot(
     if sp.timer > 0 {
         sp.timer -= 1;
     }
-    *w.wall_done = false;
-    *w.obstacle_done = false;
+    *w.done = FirstBounce::default();
     task(sp, w, events);
     let mut body = sp.body();
     let mut air = sp.air_state();
@@ -486,39 +483,13 @@ pub fn hit_robot(
 /// bits) - each only for the first robot of the
 /// frame to touch one (`RobotWorld`'s flags); a wall it bounced off puts
 /// it into braking.
-#[allow(clippy::too_many_arguments)]
-pub fn hit_robot_tile(
-    sp: &mut Sprite,
-    hit: TileHit,
-    level: &Level,
-    mask: &Mask,
-    walls: &[Mask],
-    obstacle: &Mask,
-    wall_done: &mut bool,
-    obstacle_done: &mut bool,
-) {
-    let tile = hit.tile;
-    let hot: Rect = sp.hot_rect;
-    let mut body = sp.body();
+pub fn hit_robot_tile(sp: &mut Sprite, hit: TileHit, m: &TileMasks, done: &mut FirstBounce) {
     if hit.foreground {
-        if *wall_done {
-            return;
-        }
-        let wall = usize::try_from(hit.kind).ok().and_then(|k| walls.get(k));
-        let r = wall_bounce(&mut body, hit.kind, tile, (12, 12), 0x100, hot, true, &mut |b| match wall {
-            Some(w) => mask_hit(&mut b.pos, mask, tile, w),
-            None => false,
-        });
-        sp.set_body(body);
-        if r as i8 != 0 {
-            *wall_done = true;
+        if first_wall_bounce(sp, hit, (12, 12), 0x100, m.mask, m.walls, done) {
             sp.f7c = mode::BRAKE;
         }
-    } else if sp.air == 0 && hit.kind == 1 && !*obstacle_done {
-        *obstacle_done = true;
-        let fg = |x: i32, y: i32| level.fg_kind(level.fg_tile(x, y));
-        bg_tile_bounce(&mut body, tile, (12, 12), 0xfe, hot, true, &mut |b| mask_hit(&mut b.pos, mask, tile, obstacle), &fg);
-        sp.set_body(body);
+    } else if first_obstacle(sp, hit, done) {
+        obstacle_bounce(sp, hit.tile, (12, 12), 0xfe, m);
     }
 }
 

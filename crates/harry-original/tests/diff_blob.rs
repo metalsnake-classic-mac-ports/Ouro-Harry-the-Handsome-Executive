@@ -6,6 +6,7 @@ mod common;
 use std::collections::HashMap;
 
 use common::{Tally, dump, installed, levels_of, named_cases, recording, work};
+use harry_core::bounce::FirstBounce;
 use harry_core::Physics;
 use harry_core::air::AirSound;
 use harry_core::blob::{handle_blob, hit_blob, hit_blob_tile, setup_blob};
@@ -96,7 +97,7 @@ fn run(group: &str) {
         sp.level_index = index;
         let mut player = (w("ph"), w("pv"));
         let mut view = (w("vv"), w("vh"));
-        let (mut wall, mut obst) = (false, false);
+        let mut done = FirstBounce::default();
         let (mut score, mut favor, mut contact) = (0, 100i16, 0i16);
         let mut evs = Vec::new();
         for step in i.str("steps").split(',') {
@@ -110,12 +111,12 @@ fn run(group: &str) {
                 handle_scientist(&mut sp, view, player, &mut rng, &mut events);
             } else {
                 let drop = level.sprites[index as usize].info[3];
-                handle_blob(&mut sp, &level, player, drop, &mut rng, &mut wall, &mut obst, &mut events, &mut sounds);
+                handle_blob(&mut sp, &level, player, drop, &mut rng, &mut done, &mut events, &mut sounds);
                 let fb = *face_bounds.entry(sp.face).or_insert_with(|| bounds(sp.face));
                 let mut hits = Vec::new();
                 touched_tiles(&level, sp.at, sp.hot_rect, fb, |h| hits.push(h));
                 for h in hits {
-                    hit_blob_tile(&mut sp, h, &mask, &walls, &mut wall, &mut obst);
+                    hit_blob_tile(&mut sp, h, &mask, &walls, &mut done);
                 }
             }
             let mut l = Vec::new();

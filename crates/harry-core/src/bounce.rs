@@ -6,7 +6,11 @@
 //! position the movement integrates. All are the top-left corner of the
 //! sprite's 64 × 64 face; `half` (32) reaches its centre.
 
+use crate::level::Level;
+use crate::mask::{Mask, mask_hit};
 use crate::physics::Speed;
+use crate::sprite::Sprite;
+use crate::tiles::TileHit;
 
 /// The parts of a sprite record the collision code reads and writes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -554,4 +558,66 @@ pub fn rect_bounce(body: &mut Body, half: i16, bounce: i32, hot: Rect, other_at:
     if old.0 != body.at.0 {
         body.fix.1 = i32::from(body.at.0) << 8;
     }
+}
+
+/// A kind's "already bounced this frame" flags (robots, reversors,
+/// blobs): each sprite's task of the kind clears them, so in the tile pass
+/// after the tasks only the first sprite of the kind to touch a wall / an
+/// obstacle bounces (BUGS.md "Only one robot a frame bounces off walls").
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FirstBounce {
+    pub wall: bool,
+    pub obstacle: bool,
+}
+
+/// What a sprite's tile hits test against: the level (its foreground
+/// kinds), the sprite's mask, the wall shapes and the obstacle's.
+pub struct TileMasks<'a> {
+    pub level: &'a Level,
+    pub mask: &'a Mask,
+    pub walls: &'a [Mask],
+    pub obstacle: &'a Mask,
+}
+
+/// A wall tile hit of the first sprite of its kind this frame
+/// (`FirstBounce`): `WallBounce` with the sprite's mask against the wall's
+/// shape. True when it bounced.
+pub fn first_wall_bounce(sp: &mut Sprite, hit: TileHit, half: Half, bounce: i16, mask: &Mask, walls: &[Mask], done: &mut FirstBounce) -> bool {
+    if done.wall {
+        return false;
+    }
+    let tile = hit.tile;
+    let hot = sp.hot_rect;
+    let mut body = sp.body();
+    let wall = usize::try_from(hit.kind).ok().and_then(|k| walls.get(k));
+    let r = wall_bounce(&mut body, hit.kind, tile, half, bounce, hot, true, &mut |b| match wall {
+        Some(w) => mask_hit(&mut b.pos, mask, tile, w),
+        None => false,
+    });
+    sp.set_body(body);
+    let bounced = r as i8 != 0;
+    if bounced {
+        done.wall = true;
+    }
+    bounced
+}
+
+/// An obstacle (background kind 1) under a sprite on the ground, the first
+/// of its kind this frame (`FirstBounce`).
+pub fn first_obstacle(sp: &Sprite, hit: TileHit, done: &mut FirstBounce) -> bool {
+    let first = sp.air == 0 && hit.kind == 1 && !done.obstacle;
+    if first {
+        done.obstacle = true;
+    }
+    first
+}
+
+/// The obstacle's bounce (`BGTileBounce` with the sprite's mask against
+/// the obstacle's).
+pub fn obstacle_bounce(sp: &mut Sprite, tile: (i16, i16), half: Half, bounce: i16, m: &TileMasks) {
+    let hot = sp.hot_rect;
+    let mut body = sp.body();
+    let fg = |x: i32, y: i32| m.level.fg_kind(m.level.fg_tile(x, y));
+    bg_tile_bounce(&mut body, tile, half, bounce, hot, true, &mut |b| mask_hit(&mut b.pos, m.mask, tile, m.obstacle), &fg);
+    sp.set_body(body);
 }
