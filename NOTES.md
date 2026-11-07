@@ -207,7 +207,9 @@ tests against Basilisk II.
   to abort this game?" (`ConfirmAbortGameDialog`), yes ends the loop;
   Command-Q asks to quit, Command-W the same as Escape, Command-S
   `DoSaveGame`, Command-I the options; caps lock pauses; the map key (prefs +0x1e,
-  Tab) shows the map (`ShowMap`, below), then not again for 6 passes.
+  Tab) shows the map (`ShowMap`, below), then not again for 6 passes. In
+  debug mode also F11 (0x67) the next level (level counter + 1) and C + S
+  held together `CopierSave` anywhere.
 - The port (`crates/harry/src/menu.rs`): the menu, buttons by mouse and
   key, the instructions, the credits, the X message (in a box of the
   port's), Escape in the game with a question box (Return / Y yes,
@@ -554,6 +556,13 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   shipped game): F1 comfort 144, F2 staple gun + 100 staples, F12 comfort
   0, `=` an explosion within ±64 px of Harry (not during his blast
   cooldown, +0x96), F13 soda can, F4 the door key 11397, F3 caffeine pill.
+  The main menu then says "CHEAT MODE ENABLED", New Game with Option
+  opens the warp dialog, and F11 / C + S work in the game (above).
+  `re/tools/sheepshaver_debug.py` puts a copy with the flag on into
+  SheepShaver's shared folder ("Unix" disk, folder "Harry Debug"): one
+  byte, `InitAppGlobals`' `li r3, 0` before `stb r3, gDebug` (0x1000138c,
+  data fork offset 0x298f) made `li r3, 1`; checked in systemless (the
+  menu's line shows).
 - Shift (0x38) + `=` (0x18) + key code 0x74 held together, with a sound:
   player scale 1.0 ↔ 2.0 (`scale0/1` = 0x200) - the README's "Command
   Shift +" Easter egg. 0x74 is not Command (0x37). Test in SheepShaver
