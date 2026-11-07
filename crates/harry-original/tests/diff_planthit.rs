@@ -91,7 +91,7 @@ fn plant_hits_match_the_original() {
         }
         o.dir = w("odir") as i16;
         sp.blast_cooldown = blast;
-        sp.f94 = w("f94") as i16;
+        sp.ramp_cooldown = w("f94") as i16;
         let mut contact = w("contact") as i16;
         let mut rng = Random::new(w("seed") as u32);
         let mut events = Vec::new();

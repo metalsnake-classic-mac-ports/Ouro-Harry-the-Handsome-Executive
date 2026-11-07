@@ -536,7 +536,7 @@ pub fn hit_plant(
     if other.task == Some(Task::Ramp) {
         let mut body = sp.body();
         let hot = sp.hot_rect;
-        let mut r = Rider { body: &mut body, air: &mut sp.air, cooldown: &mut sp.f94, player: false };
+        let mut r = Rider { body: &mut body, air: &mut sp.air, cooldown: &mut sp.ramp_cooldown, player: false };
         if handle_ramp_collision(&mut r, 18, hot, other, physics.bounce) {
             events.push(SpriteEvent::Sound(1101));
         }

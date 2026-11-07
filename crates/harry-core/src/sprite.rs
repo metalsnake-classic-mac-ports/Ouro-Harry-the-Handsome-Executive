@@ -198,19 +198,34 @@ pub struct Sprite {
     /// +0x6a: a message waiting to be shown to the player (the original
     /// keeps a pointer to his sprite).
     pub balloon_pending: bool,
+    /// +0x6e, per kind (a mode, a counter, a reach; see each module).
     pub f6e: i32,
     pub state: i16,
     pub timer: i16,
     /// Slot in the idle sprite table, −1 none.
     pub idle_index: i16,
+    /// +0x78, per kind (the fan's sound, the vending machine's lit
+    /// state, the enemy shot's slow count).
     pub f78: i32,
+    /// +0x7c, per kind (the robots' mode, the enemy shot's countdown to
+    /// homing / leaving its gun, a flame's fire pipe kind).
     pub f7c: i16,
     pub face: Face,
-    pub f82: i16,
-    pub f84: i16,
-    pub f86: i32,
+    /// +0x82 / +0x84: `at` (v, h) as the last frame was drawn
+    /// (`EraseSprites`).
+    pub last_at: (i16, i16),
+    /// +0x86: the face as the last frame was drawn.
+    pub last_face: i32,
+    /// +0x8a, a flag of several uses: hit and drawn tinted (cleared by
+    /// `EraseSprites`; set by hits and some draw procs), the held
+    /// weapon's charging.
     pub b8a: bool,
+    /// +0x8b, a flag of several uses: drawn behind the foreground tiles
+    /// (effects, props, the fire pipe), "started" (buttons, boulders, the
+    /// mail guy and others on their first frame), the held weapon's
+    /// second flag. See each module.
     pub b8b: bool,
+    /// +0x8c: kept with an idle sprite; nothing in the port reads it.
     pub b8c: bool,
     /// Jump state (see `air`).
     pub air: i16,
@@ -218,7 +233,8 @@ pub struct Sprite {
     /// Dead: the task does nothing, the sprite leaves the list when the
     /// frame is drawn.
     pub frozen: bool,
-    pub f94: i16,
+    /// +0x94: frames before a ramp can throw it again (`Rider::cooldown`).
+    pub ramp_cooldown: i16,
     /// Frames until an explosion hurts it again.
     pub blast_cooldown: i16,
     /// (h, v) of the last `half_pipe`.
@@ -245,9 +261,9 @@ impl Sprite {
         self.f78 = 0;
         self.f7c = 0;
         self.face = 0;
-        self.f82 = 0;
-        self.f84 = 0;
-        self.f86 = 0;
+        self.last_at.0 = 0;
+        self.last_at.1 = 0;
+        self.last_face = 0;
         self.b8a = false;
         self.b8b = false;
         self.b8c = false;
@@ -256,7 +272,7 @@ impl Sprite {
         self.air = 0;
         self.level_index = -1;
         self.frozen = false;
-        self.f94 = 0;
+        self.ramp_cooldown = 0;
         self.blast_cooldown = 0;
         self.speed = Speed::default();
     }

@@ -174,7 +174,7 @@ fn back(s: &mut Speed) {
 fn ride_ramp(sp: &mut Sprite, half: i16, ramp: &mut Sprite, physics: &Physics) {
     let mut body = sp.body();
     let hot = sp.hot_rect;
-    let mut r = Rider { body: &mut body, air: &mut sp.air, cooldown: &mut sp.f94, player: false };
+    let mut r = Rider { body: &mut body, air: &mut sp.air, cooldown: &mut sp.ramp_cooldown, player: false };
     // the sound given is 0: none
     handle_ramp_collision(&mut r, half, hot, ramp, physics.bounce);
     sp.set_body(body);

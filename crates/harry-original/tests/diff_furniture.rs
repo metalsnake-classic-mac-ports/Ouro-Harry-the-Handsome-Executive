@@ -180,7 +180,7 @@ fn barrel_and_chair_hits_match_the_original() {
         sp.dir = w("dir") as i16;
         sp.timer = w("timer") as i16;
         sp.blast_cooldown = w("blast") as i16;
-        sp.f94 = w("f94") as i16;
+        sp.ramp_cooldown = w("f94") as i16;
         let mut contact = w("contact") as i16;
         let mut rng = Random::new(w("seed2") as u32);
         let busy = w("busy") != 0;

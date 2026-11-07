@@ -255,12 +255,12 @@ impl World {
         self.idle[slot].active = Some(i);
         let s = &self.idle[slot];
         let r = &mut self.sprites.recs[i];
-        r.f86 = 0;
+        r.last_face = 0;
         r.b8a = true;
         r.face = s.face;
         r.f7c = s.f7c;
-        r.f82 = -1;
-        r.f84 = -1;
+        r.last_at.0 = -1;
+        r.last_at.1 = -1;
         r.kind = s.kind;
         r.dir = s.dir;
         r.layer = s.layer;
@@ -444,13 +444,13 @@ impl World {
                 self.sprites.kill(i);
             } else {
                 r.b8a = false;
-                r.f86 = i32::from(r.face);
-                r.f84 = r.at.1;
-                r.f82 = r.at.0;
+                r.last_face = i32::from(r.face);
+                r.last_at.1 = r.at.1;
+                r.last_at.0 = r.at.0;
                 r.scale[2] = r.scale[0];
                 r.scale[3] = r.scale[1];
-                if r.f94 != 0 {
-                    r.f94 = r.f94.wrapping_sub(1);
+                if r.ramp_cooldown != 0 {
+                    r.ramp_cooldown = r.ramp_cooldown.wrapping_sub(1);
                 }
                 if r.blast_cooldown != 0 {
                     r.blast_cooldown = r.blast_cooldown.wrapping_sub(1);

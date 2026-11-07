@@ -140,7 +140,7 @@ fn robot_hits_match_the_original() {
         sp.f7c = w("mode");
         sp.timer = w("timer");
         sp.blast_cooldown = w("blast");
-        sp.f94 = w("f94");
+        sp.ramp_cooldown = w("f94");
         let mut contact = w("contact");
         let mut rng = Random::new(i.u32("seed2"));
         let mut events = Vec::new();

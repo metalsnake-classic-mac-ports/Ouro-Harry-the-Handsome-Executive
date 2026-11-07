@@ -93,7 +93,7 @@ pub fn hit_reversor(sp: &mut Sprite, other: &mut Sprite, physics: &Physics, even
         Some(Task::Ramp) => {
             let mut body = sp.body();
             let hot = sp.hot_rect;
-            let mut r = Rider { body: &mut body, air: &mut sp.air, cooldown: &mut sp.f94, player: false };
+            let mut r = Rider { body: &mut body, air: &mut sp.air, cooldown: &mut sp.ramp_cooldown, player: false };
             if handle_ramp_collision(&mut r, 12, hot, other, physics.bounce) {
                 events.push(SpriteEvent::Sound(crate::robot::snd::HIT));
             }

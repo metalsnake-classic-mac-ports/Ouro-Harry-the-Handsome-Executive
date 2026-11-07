@@ -335,7 +335,7 @@ pub fn harry_from(r: &Sprite) -> Harry {
         frozen: r.frozen,
         dead: false,
         blast_cooldown: r.blast_cooldown,
-        ramp_cooldown: r.f94,
+        ramp_cooldown: r.ramp_cooldown,
     }
 }
 
@@ -350,7 +350,7 @@ pub fn harry_into(h: &Harry, r: &mut Sprite) {
     r.air = p.air;
     r.frozen = h.frozen;
     r.blast_cooldown = h.blast_cooldown;
-    r.f94 = h.ramp_cooldown;
+    r.ramp_cooldown = h.ramp_cooldown;
 }
 
 /// `SetupPlayerSprite` on a new record at (h, v): kind 69, layer 10, the
