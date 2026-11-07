@@ -906,7 +906,7 @@ fn write_screenshot(data: &GameData, assets: &Assets, fonts: &text::Fonts, mut g
             break;
         }
         let mut show = |b: &Balloon| {
-            shown = balloon::place(b, data, &fonts);
+            shown = balloon::place(b, data, fonts);
             shown.is_some()
         };
         game.frame(&KeyMap::default(), assets, &mut show, &mut || false);
