@@ -2,14 +2,16 @@
 //! section, unpacked from PEF's pattern-initialised format. Some texts of
 //! the game live only there (the balloons of the key cheats).
 
+use crate::bytes::{try_be16, try_be32};
+
 /// The unpacked data section (the first section of kind 2, "pattern
 /// initialised data", or 1, "unpacked data"), without the relocations.
 pub fn data_section(pef: &[u8]) -> Option<Vec<u8>> {
     if pef.get(0..8)? != b"Joy!peff" {
         return None;
     }
-    let be16 = |o: usize| pef.get(o..o + 2).map(|b| u16::from_be_bytes([b[0], b[1]]));
-    let be32 = |o: usize| pef.get(o..o + 4).map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]) as usize);
+    let be16 = |o: usize| try_be16(pef, o);
+    let be32 = |o: usize| try_be32(pef, o).map(|x| x as usize);
     let sections = usize::from(be16(0x20)?);
     for i in 0..sections {
         let h = 40 + 28 * i;

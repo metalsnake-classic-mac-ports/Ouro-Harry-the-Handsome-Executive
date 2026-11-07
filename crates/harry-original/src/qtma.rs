@@ -8,13 +8,7 @@ use std::collections::BTreeMap;
 use harry_data::Sound;
 use harry_data::music::{Instrument, MusicEvent, Zone};
 
-fn be32(d: &[u8], o: usize) -> Option<u32> {
-    Some(u32::from_be_bytes(d.get(o..o + 4)?.try_into().ok()?))
-}
-
-fn be16(d: &[u8], o: usize) -> Option<u16> {
-    Some(u16::from_be_bytes(d.get(o..o + 2)?.try_into().ok()?))
-}
+use crate::bytes::{try_be16, try_be32};
 
 /// A ToneDescription: synthesizer type, synthesizer name, instrument
 /// name, instrument number, GM number.
@@ -41,8 +35,8 @@ fn tone(d: &[u8]) -> Option<ToneDescription> {
     Some(ToneDescription {
         synthesizer: pstring(d.get(4..36)?),
         instrument: pstring(d.get(36..68)?),
-        number: be32(d, 68)? as i32,
-        gm: be32(d, 72)? as i32,
+        number: try_be32(d, 68)? as i32,
+        gm: try_be32(d, 72)? as i32,
     })
 }
 
@@ -61,14 +55,14 @@ struct Atom {
 fn atoms(d: &[u8], mut o: usize, end: usize) -> Vec<Atom> {
     let mut out = Vec::new();
     while o + 20 <= end {
-        let Some(size) = be32(d, o).map(|s| s as usize) else { break };
+        let Some(size) = try_be32(d, o).map(|s| s as usize) else { break };
         if size < 20 || o + size > end {
             break;
         }
         out.push(Atom {
             kind: d[o + 4..o + 8].try_into().unwrap(),
-            id: be32(d, o + 8).unwrap_or(0),
-            children: be16(d, o + 14).unwrap_or(0),
+            id: try_be32(d, o + 8).unwrap_or(0),
+            children: try_be16(d, o + 14).unwrap_or(0),
             start: o + 20,
             end: o + size,
         });
@@ -87,17 +81,17 @@ fn container_tone(d: &[u8]) -> Option<ToneDescription> {
 
 /// A tune: the part's tone requests and the events, up to the end marker.
 pub fn tune(d: &[u8]) -> Option<(BTreeMap<u16, ToneDescription>, Vec<MusicEvent>)> {
-    let header = be32(d, 0)? as usize;
+    let header = try_be32(d, 0)? as usize;
     let mut parts = BTreeMap::new();
     let mut o = 0x14;
     while o + 4 <= header {
-        let w = be32(d, o)?;
+        let w = try_be32(d, o)?;
         if w >> 28 != 0xf {
             break;
         }
         let (part, words) = (((w >> 16) & 0xfff) as u16, (w & 0xffff) as usize);
         let body = d.get(o + 4..o + 4 * words - 4)?;
-        let kind = (be32(d, o + 4 * words - 4)? >> 16) & 0x3fff;
+        let kind = (try_be32(d, o + 4 * words - 4)? >> 16) & 0x3fff;
         let t = match kind {
             // note request: flags, polyphony, typical polyphony, tone
             1 => tone(body.get(8..)?),
@@ -112,7 +106,7 @@ pub fn tune(d: &[u8]) -> Option<(BTreeMap<u16, ToneDescription>, Vec<MusicEvent>
     }
     let mut events = Vec::new();
     let mut o = header;
-    while let Some(w) = be32(d, o) {
+    while let Some(w) = try_be32(d, o) {
         if w == 0x6000_0000 {
             break;
         }
@@ -143,7 +137,7 @@ pub fn tune(d: &[u8]) -> Option<(BTreeMap<u16, ToneDescription>, Vec<MusicEvent>
             _ => match w >> 28 {
                 // extended note: a note number, or 8.8 above 127
                 9 => {
-                    let w2 = be32(d, o + 4)?;
+                    let w2 = try_be32(d, o + 4)?;
                     let p = w & 0xffff;
                     events.push(MusicEvent::Note {
                         part: ((w >> 16) & 0xfff) as u16,
@@ -154,7 +148,7 @@ pub fn tune(d: &[u8]) -> Option<(BTreeMap<u16, ToneDescription>, Vec<MusicEvent>
                     o += 8;
                 }
                 0xa => {
-                    let w2 = be32(d, o + 4)?;
+                    let w2 = try_be32(d, o + 4)?;
                     events.push(MusicEvent::Controller {
                         part: ((w >> 16) & 0xfff) as u16,
                         controller: (w & 0xffff) as u16,
@@ -182,8 +176,8 @@ pub struct Ssai {
 }
 
 fn knobs(d: &[u8]) -> Vec<(u32, i32)> {
-    let n = be32(d, 4).unwrap_or(0) as usize;
-    (0..n.min(64)).filter_map(|k| Some((be32(d, 8 + 8 * k)?, be32(d, 12 + 8 * k)? as i32))).collect()
+    let n = try_be32(d, 4).unwrap_or(0) as usize;
+    (0..n.min(64)).filter_map(|k| Some((try_be32(d, 8 + 8 * k)?, try_be32(d, 12 + 8 * k)? as i32))).collect()
 }
 
 pub fn ssai(d: &[u8]) -> Option<Ssai> {
@@ -222,15 +216,15 @@ pub fn ssai(d: &[u8]) -> Option<Ssai> {
     let mut samples = BTreeMap::new();
     for (s, zk) in descs {
         let fmt = &d[s..s + 4];
-        let (bits, rate, id) = (be16(d, s + 6)?, be32(d, s + 8)?, u32::from(be16(d, s + 12)?));
-        let (offset, count) = (be32(d, s + 14)? as usize, be32(d, s + 18)? as usize);
+        let (bits, rate, id) = (try_be16(d, s + 6)?, try_be32(d, s + 8)?, u32::from(try_be16(d, s + 12)?));
+        let (offset, count) = (try_be32(d, s + 14)? as usize, try_be32(d, s + 18)? as usize);
         inst.zones.push(Zone {
-            loop_type: be32(d, s + 22)?,
-            loop_start: be32(d, s + 26)?,
-            loop_end: be32(d, s + 30)?,
-            normal: be32(d, s + 34)? as u8,
-            low: be32(d, s + 38)? as u8,
-            high: be32(d, s + 42)? as u8,
+            loop_type: try_be32(d, s + 22)?,
+            loop_start: try_be32(d, s + 26)?,
+            loop_end: try_be32(d, s + 30)?,
+            normal: try_be32(d, s + 34)? as u8,
+            low: try_be32(d, s + 38)? as u8,
+            high: try_be32(d, s + 42)? as u8,
             rate,
             knobs: zk,
             sample: String::new(),

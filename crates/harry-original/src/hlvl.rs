@@ -5,6 +5,8 @@
 use harry_core::level::{Level, LevelSprite, SIZE, SPRITES};
 use harry_core::physics::Physics;
 
+use crate::bytes::be16s;
+
 /// Size of an `Hlvl` resource.
 pub const LEN: usize = 76_168;
 
@@ -25,14 +27,10 @@ const BG_SET: usize = 0x120fe;
 const PHYSICS_SET: usize = 0x12100;
 const PHYSICS: usize = 0x12102;
 
-fn r16(d: &[u8], o: usize) -> i16 {
-    i16::from_be_bytes([d[o], d[o + 1]])
-}
-
 /// Read a word and clear it in `rest` (it is decoded).
 fn take(d: &[u8], rest: &mut [u8], o: usize) -> i16 {
     rest[o..o + 2].fill(0);
-    r16(d, o)
+    be16s(d, o)
 }
 
 fn w16(d: &mut [u8], o: usize, v: i16) {
@@ -58,10 +56,10 @@ pub fn read(d: &[u8]) -> Result<Level, BadSize> {
         let s = LevelSprite {
             present,
             flags,
-            id: r16(d, o + 2),
-            info: [r16(d, o + 4), r16(d, o + 6), r16(d, o + 8), r16(d, o + 10)],
-            v: r16(d, o + 12),
-            h: r16(d, o + 14),
+            id: be16s(d, o + 2),
+            info: [be16s(d, o + 4), be16s(d, o + 6), be16s(d, o + 8), be16s(d, o + 10)],
+            v: be16s(d, o + 12),
+            h: be16s(d, o + 14),
         };
         // keep the raw entry unless it is exactly what we decode
         if d[o] <= 1 {

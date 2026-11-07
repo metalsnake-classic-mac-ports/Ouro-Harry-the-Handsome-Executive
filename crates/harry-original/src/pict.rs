@@ -1,6 +1,8 @@
 //! QuickDraw pictures (PICT version 2) with one packed pixmap or bitmap -
 //! all the game's pictures are of that kind.
 
+use crate::bytes::be16;
+
 /// A decoded picture.
 pub struct Picture {
     pub width: usize,
@@ -17,10 +19,6 @@ pub struct Picture {
 #[derive(Debug, thiserror::Error)]
 #[error("no packed pixmap or bitmap found in the picture")]
 pub struct NoImage;
-
-fn be16(d: &[u8], o: usize) -> u16 {
-    u16::from_be_bytes([d[o], d[o + 1]])
-}
 
 /// PackBits (Inside Macintosh: Imaging, `UnpackBits`).
 pub fn unpack_bits(src: &[u8], len: usize) -> Vec<u8> {

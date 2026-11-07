@@ -3,6 +3,8 @@
 
 use std::collections::BTreeMap;
 
+use crate::bytes::{be16, be32};
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("not a MacBinary file")]
@@ -11,14 +13,6 @@ pub enum Error {
     BadFork(&'static str),
     #[error("resource {0} {1} not found")]
     Missing(String, i16),
-}
-
-fn be16(d: &[u8], o: usize) -> u16 {
-    u16::from_be_bytes([d[o], d[o + 1]])
-}
-
-fn be32(d: &[u8], o: usize) -> u32 {
-    u32::from_be_bytes([d[o], d[o + 1], d[o + 2], d[o + 3]])
 }
 
 /// The two forks of a MacBinary (I/II) file.

@@ -2,9 +2,7 @@
 //! uses their masks as collision regions, and a few as pictures (the
 //! meters' rounded ends).
 
-fn be16(d: &[u8], o: usize) -> u16 {
-    u16::from_be_bytes([d[o], d[o + 1]])
-}
+use crate::bytes::be16;
 
 pub struct ColorIcon {
     pub width: usize,

@@ -3,6 +3,8 @@
 //! `BlitEncFaceNoClip` reads them: 0 end, 1 next row, 2 copy n pixels
 //! (padded to 4 bytes), 3 skip n pixels.
 
+use crate::bytes::{be16s, be32};
+
 pub struct Face {
     /// Bounds (top, left, bottom, right) and the second rect of the header.
     pub bounds: [i16; 4],
@@ -17,16 +19,12 @@ pub struct Face {
 #[error("bad HrSp face: {0}")]
 pub struct BadFace(&'static str);
 
-fn be16(d: &[u8], o: usize) -> i16 {
-    i16::from_be_bytes([d[o], d[o + 1]])
-}
-
 pub fn decode(d: &[u8]) -> Result<Face, BadFace> {
     if d.len() < 16 {
         return Err(BadFace("too short"));
     }
-    let bounds = [be16(d, 0), be16(d, 2), be16(d, 4), be16(d, 6)];
-    let rect2 = [be16(d, 8), be16(d, 10), be16(d, 12), be16(d, 14)];
+    let bounds = [be16s(d, 0), be16s(d, 2), be16s(d, 4), be16s(d, 6)];
+    let rect2 = [be16s(d, 8), be16s(d, 10), be16s(d, 12), be16s(d, 14)];
     let width = (bounds[3] - bounds[1]) as usize;
     let height = (bounds[2] - bounds[0]) as usize;
     let mut pixels = vec![None; width * height];
@@ -34,7 +32,7 @@ pub fn decode(d: &[u8]) -> Result<Face, BadFace> {
     let mut x = 0;
     let mut p = 16;
     while p + 4 <= d.len() {
-        let word = u32::from_be_bytes([d[p], d[p + 1], d[p + 2], d[p + 3]]);
+        let word = be32(d, p);
         p += 4;
         let (op, n) = (word >> 24, (word & 0xff_ffff) as usize);
         match op {
