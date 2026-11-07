@@ -806,7 +806,7 @@ fn main() -> Result<()> {
                     l.extend(o.draw(&mut c, &key_name));
                 } else if paused && let Some(p) = data.pictures.get(&4921) {
                     // Pause: PICT 4921 at (128, 192), over the game area's middle
-                    c.draw_image(p, (0, 0, p.width, p.height), 128, 192);
+                    c.draw_picture(p, 128, 192);
                     // its "Press CAPS LOCK To Resume" (rows 64–82) when
                     // something else goes on
                     let hint = if focus_paused {

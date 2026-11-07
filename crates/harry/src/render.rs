@@ -125,11 +125,32 @@ impl Canvas {
         }
     }
 
-    pub fn fill(&mut self, x: usize, y: usize, w: usize, h: usize, c: u8) {
-        for yy in y..(y + h).min(self.height) {
-            for xx in x..(x + w).min(self.width) {
-                self.pixels[yy * self.width + xx] = c;
+    /// A whole image at screen (x, y) (see `draw_image`).
+    pub fn draw_picture(&mut self, img: &Image, x: usize, y: usize) {
+        self.draw_image(img, (0, 0, img.width, img.height), x, y);
+    }
+
+    /// Fill the rectangle at (x, y), `w` × `h`, clipped to the screen.
+    pub fn fill(&mut self, x: i32, y: i32, w: i32, h: i32, c: u8) {
+        let (x0, y0) = (x.max(0), y.max(0));
+        let (x1, y1) = ((x + w).min(self.width as i32), (y + h).min(self.height as i32));
+        for yy in y0..y1 {
+            for xx in x0..x1 {
+                self.pixels[yy as usize * self.width + xx as usize] = c;
             }
+        }
+    }
+
+    /// `FrameRect`: the 1-px border of (l, t) – (r, b), right and bottom
+    /// exclusive, clipped.
+    pub fn frame_rect(&mut self, l: i32, t: i32, r: i32, b: i32, c: u8) {
+        for x in l..r {
+            self.set(x, t, c);
+            self.set(x, b - 1, c);
+        }
+        for y in t..b {
+            self.set(l, y, c);
+            self.set(r - 1, y, c);
         }
     }
 
@@ -218,9 +239,9 @@ fn draw_face(c: &mut Canvas, view: (i16, i16), face: &harry_data::Face, s: &Spri
 pub fn draw(data: &GameData, game: &Game) -> Canvas {
     let mut c = Canvas::new(SCREEN_WIDTH, SCREEN_HEIGHT, BLACK);
     if let Some(screen) = data.pictures.get(&129) {
-        c.draw_image(screen, (0, 0, screen.width, screen.height), 0, 0);
+        c.draw_picture(screen, 0, 0);
     }
-    c.fill(AREA as usize, AREA as usize, AREA_SIZE as usize, AREA_SIZE as usize, BLACK);
+    c.fill(AREA, AREA, AREA_SIZE, AREA_SIZE, BLACK);
     let Some(ring) = draw_area(data, game) else { return c };
     copy_area(&mut c, &ring, game);
     draw_inventory(&mut c, data, game);
@@ -273,13 +294,7 @@ fn draw_inventory(c: &mut Canvas, data: &GameData, game: &Game) {
     let g = &game.g;
     let face = |c: &mut Canvas, id: i16, x: i32, y: i32| {
         if let Some(f) = data.faces.get(&id) {
-            for yy in 0..f.image.height {
-                for xx in 0..f.image.width {
-                    if let Some(p) = f.image.get(xx, yy) {
-                        c.set(x + xx as i32, y + yy as i32, p);
-                    }
-                }
-            }
+            c.draw_icon(&f.image, x, y);
         }
     };
     for (slot, &(id, _)) in g.inventory.iter().enumerate() {
@@ -291,7 +306,7 @@ fn draw_inventory(c: &mut Canvas, data: &GameData, game: &Game) {
         if g.cur_slot == slot as i16 {
             face(c, 1002, x + 4, y + 4);
         } else {
-            c.fill(x as usize, y as usize, 44, 44, BLACK);
+            c.fill(x, y, 44, 44, BLACK);
         }
         face(c, 1001, x, y);
         face(c, item_face(id), x + 4, y + 4);
@@ -349,7 +364,7 @@ pub fn inventory_counts(game: &Game) -> Vec<(f32, f32, String)> {
 /// cicn 200 at ((H + 32) / 8 − 4 · from, …), its middle on his tile.
 pub fn draw_map(c: &mut Canvas, data: &GameData, game: &Game) {
     let grey = harry_data::clut8().iter().position(|p| *p == [0x44, 0x44, 0x44]).unwrap_or(BLACK as usize) as u8;
-    c.fill(AREA as usize, AREA as usize, AREA_SIZE as usize, AREA_SIZE as usize, grey);
+    c.fill(AREA, AREA, AREA_SIZE, AREA_SIZE, grey);
     let (ph, pv) = (i32::from(game.g.player_pos.0), i32::from(game.g.player_pos.1));
     let middle = (0x500..0xb40).contains(&ph) && (0x500..0xb40).contains(&pv);
     let (oh, ov) = if middle { (8, 8) } else { (if ph < 0x800 { 0 } else { 16 }, if pv < 0x800 { 0 } else { 16 }) };
@@ -360,7 +375,7 @@ pub fn draw_map(c: &mut Canvas, data: &GameData, game: &Game) {
             let seen = game.track.cells[(h * 128 + v) as usize] != 0;
             let fg = game.level.fg_tile(h, v) as i16;
             if !seen || fg >= 56 {
-                c.fill(x as usize, y as usize, 4, 4, BLACK);
+                c.fill(x, y, 4, 4, BLACK);
             } else if (0..32).contains(&fg)
                 && let Some(t) = tiles
             {

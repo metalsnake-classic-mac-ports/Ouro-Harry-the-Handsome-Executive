@@ -10,7 +10,7 @@
 //! dialogs (a message, the question before a game is given up).
 
 use harry_core::sound::{Channel, RATE, SoundEvent};
-use harry_data::{GameData, Image};
+use harry_data::GameData;
 
 use crate::render::Canvas;
 use crate::text::{Face, Fonts, Line};
@@ -232,18 +232,18 @@ impl Menu {
     pub fn draw(&self, data: &GameData, fonts: &Fonts) -> (Canvas, Vec<Line>) {
         let mut c = Canvas::new(640, 480, BLACK);
         if let Some(p) = data.pictures.get(&130) {
-            c.draw_image(p, (0, 0, p.width, p.height), 0, 0);
+            c.draw_picture(p, 0, 0);
         }
         if self.instructions {
             c.fill(16, 16, 448, 448, BLACK);
             if let Some(p) = data.pictures.get(&132) {
-                c.draw_image(p, (0, 0, p.width, p.height), 38, 41);
+                c.draw_picture(p, 38, 41);
             }
         }
         if let Some(b) = self.pressed
             && let Some(p) = data.pictures.get(&(4901 + b as i16))
         {
-            c.draw_image(p, (0, 0, p.width, p.height), LEFT as usize, BUTTONS[b].0 as usize);
+            c.draw_picture(p, LEFT as usize, BUTTONS[b].0 as usize);
         }
         let mut lines = Vec::new();
         if let Some(cr) = &self.credits {
@@ -260,28 +260,17 @@ impl Menu {
 /// two black ones around the content.
 fn frame(c: &mut Canvas, l: i32, t: i32, w: i32, h: i32) {
     for (k, colour) in [(1, BLACK), (2, BLACK), (3, WHITE), (4, BLACK)] {
-        for x in l - k..l + w + k {
-            c.set(x, t - k, colour);
-            c.set(x, t + h + k - 1, colour);
-        }
-        for y in t - k..t + h + k {
-            c.set(l - k, y, colour);
-            c.set(l + w + k - 1, y, colour);
-        }
+        c.frame_rect(l - k, t - k, l + w + k, t + h + k, colour);
     }
 }
 
 fn draw_credits(c: &mut Canvas, data: &GameData, cr: &Credits) {
     let (l, t) = CREDITS_AT;
     let (w, h) = CREDITS_SIZE;
-    for y in t..t + h {
-        for x in l..l + w {
-            c.set(x, y, WHITE);
-        }
-    }
+    c.fill(l, t, w, h, WHITE);
     frame(c, l, t, w, h);
     if let Some(p) = data.pictures.get(&4804) {
-        draw_at(c, p, l, t);
+        c.draw_icon(p, l, t);
     }
     let Some(p) = data.pictures.get(&4803) else { return };
     let (cl, ct, cr_, cb) = CREDITS_CLIP;
@@ -297,16 +286,6 @@ fn draw_credits(c: &mut Canvas, data: &GameData, cr: &Credits) {
             }
             if let Some(px) = p.get(x as usize, row as usize) {
                 c.set(l + cl + x, t + y, px);
-            }
-        }
-    }
-}
-
-fn draw_at(c: &mut Canvas, p: &Image, x: i32, y: i32) {
-    for yy in 0..p.height {
-        for xx in 0..p.width {
-            if let Some(px) = p.get(xx, yy) {
-                c.set(x + xx as i32, y + yy as i32, px);
             }
         }
     }
@@ -334,11 +313,7 @@ pub fn message_box(c: &mut Canvas, fonts: &Fonts, text: &str) -> Vec<Line> {
     }
     let h = rows.len() as i32 * LINE + 20;
     let (l, t) = ((640 - W) / 2, (480 - h) / 2);
-    for y in t..t + h {
-        for x in l..l + W {
-            c.set(x, y, WHITE);
-        }
-    }
+    c.fill(l, t, W, h, WHITE);
     frame(c, l, t, W, h);
     rows.into_iter()
         .enumerate()

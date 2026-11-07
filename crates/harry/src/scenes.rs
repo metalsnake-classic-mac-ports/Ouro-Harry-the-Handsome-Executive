@@ -12,7 +12,7 @@ use harry_data::{GameData, Image};
 use crate::render::Canvas;
 
 /// The game area (`DAT_1006748c`): (16, 16) – (464, 464).
-const AREA: (usize, usize, usize, usize) = (16, 16, 448, 448);
+const AREA: (i32, i32, i32, i32) = (16, 16, 448, 448);
 const BLACK: u8 = 255;
 
 /// One step of a sequence.
@@ -139,7 +139,7 @@ impl Scenes {
                     for (col, &c) in line.iter().enumerate() {
                         if 0 < c && c < 17 {
                             let (h, v, c) = (col as i32 * 32 + 32, row as i32 * 32 + 32, i32::from(c));
-                            frame_rect(&mut self.image, h - c, v - c, h + c, v + c);
+                            self.image.frame_rect(h - c, v - c, h + c, v + c, BLACK);
                         }
                     }
                 }
@@ -218,7 +218,7 @@ impl Scenes {
                 return false;
             }
             Step::BlackScreen => {
-                let (w, h) = (self.image.width, self.image.height);
+                let (w, h) = (self.image.width as i32, self.image.height as i32);
                 self.image.fill(0, 0, w, h, BLACK);
                 return false;
             }
@@ -226,13 +226,13 @@ impl Scenes {
                 if let Some(p) = data.world_pictures.get(&pict) {
                     let x = ((448 - p.width as i32) >> 1) + 16;
                     let y = (448 - p.height as i32) >> 1;
-                    draw_at(&mut self.image, p, x, y);
+                    self.image.draw_icon(p, x, y);
                 }
                 return false;
             }
             Step::Whole(pict) => {
                 if let Some(p) = data.world_pictures.get(&pict) {
-                    draw_at(&mut self.image, p, 0, 0);
+                    self.image.draw_icon(p, 0, 0);
                     self.texts = false;
                 }
                 return false;
@@ -257,29 +257,6 @@ impl Scenes {
             }
         };
         true
-    }
-}
-
-/// `FrameRect` in black: the rectangle's 1-px border (right and bottom
-/// exclusive).
-fn frame_rect(c: &mut Canvas, l: i32, t: i32, r: i32, b: i32) {
-    for x in l..r {
-        c.set(x, t, BLACK);
-        c.set(x, b - 1, BLACK);
-    }
-    for y in t..b {
-        c.set(l, y, BLACK);
-        c.set(r - 1, y, BLACK);
-    }
-}
-
-fn draw_at(c: &mut Canvas, p: &Image, x: i32, y: i32) {
-    for yy in 0..p.height {
-        for xx in 0..p.width {
-            if let Some(px) = p.get(xx, yy) {
-                c.set(x + xx as i32, y + yy as i32, px);
-            }
-        }
     }
 }
 

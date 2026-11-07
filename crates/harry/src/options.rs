@@ -308,7 +308,7 @@ impl Screen {
         // the selected row on dark red, as the inventory marks its slot
         let red = harry_data::clut8().iter().position(|p| *p == [0x88, 0, 0]).unwrap_or(255) as u8;
         let t = row_top(self.selected);
-        c.fill(32, t as usize, 416, ROW as usize, red);
+        c.fill(32, t, 416, ROW, red);
         let white = [255; 3];
         let grey = [0xbb; 3];
         let label = |x: f32, y: i32, text: &str, face: Face, color: [u8; 3]| Line {
