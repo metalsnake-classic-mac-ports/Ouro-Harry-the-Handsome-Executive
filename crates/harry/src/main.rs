@@ -341,61 +341,8 @@ fn main() -> Result<()> {
     let save_path = sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok().map(|d| d.join("Harry Save.hrsg"));
     let mut have_save = false;
     let fonts = text::Fonts::load();
-    let mut score = ScoreShown::default();
     if let Some((out, frames)) = screenshot {
-        // HARRY_SAVE=<file>: continue from that record first
-        if let Some(sg) = std::env::var_os("HARRY_SAVE").and_then(|p| std::fs::read(p).ok()).map(|b| SaveGame::from_bytes(&b)) {
-            game.continue_game(&sg, &data.levels, &assets);
-        }
-        // HARRY_INV=id:count,… fills the inventory (for testing), the
-        // first item selected, half the ammunition
-        if let Ok(inv) = std::env::var("HARRY_INV") {
-            for (slot, item) in inv.split(',').enumerate().take(game.g.inventory.len()) {
-                if let Some((id, n)) = item.split_once(':').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))) {
-                    game.g.inventory[slot] = (id, n);
-                }
-            }
-            game.g.cur_slot = 0;
-            game.g.ammo = harry_core::keys::Ammo { staple: 50, badass: 100, shrapnel: 2 };
-        }
-        let mut shown = None;
-        for _ in 0..frames {
-            if shown.is_some() {
-                break;
-            }
-            let mut show = |b: &Balloon| {
-                shown = balloon::place(b, &data, &fonts);
-                shown.is_some()
-            };
-            game.frame(&KeyMap::default(), &assets, &mut show, &mut || false);
-            score.step(game.g.score);
-        }
-        if std::env::var_os("HARRY_DEBUG").is_some() {
-            for &i in &game.world.sprites.list {
-                let r = game.world.rec(i);
-                eprintln!("{} at {:?} face {} task {:?} b8b {} layer {}", r.kind, r.at, r.face, r.task, r.b8b, r.layer);
-            }
-            eprintln!("view {:?}", game.view.corner);
-        }
-        let (mut image, lines) = picture(&data, &game, &score, shown.as_ref());
-        // HARRY_MAP=1 shows the map, =all with every tile seen (for testing)
-        if let Ok(m) = std::env::var("HARRY_MAP") {
-            if m == "all" {
-                game.track.cells.fill(1);
-            }
-            render::draw_map(&mut image, &data, &game);
-        }
-        let mut rgb = vec![0u8; image.width * image.height * 3];
-        image.to_rgb24(&clut8(), &mut rgb);
-        // the text at 1:1 on the picture
-        let overlay = fonts.draw(&lines, image.width, image.height);
-        for (p, o) in rgb.as_chunks_mut::<3>().0.iter_mut().zip(overlay.as_chunks::<4>().0) {
-            for k in 0..3 {
-                p[k] = ((u32::from(p[k]) * (255 - u32::from(o[3])) + u32::from(o[k]) * u32::from(o[3])) / 255) as u8;
-            }
-        }
-        render::write_bmp(Path::new(&out), image.width, image.height, &rgb)?;
-        return Ok(());
+        return write_screenshot(&data, &assets, &fonts, game, &out, frames);
     }
 
     let sdl = sdl3::init()?;
@@ -407,22 +354,12 @@ fn main() -> Result<()> {
         .position_centered()
         .build()?;
     let mut events = sdl.event_pump()?;
-    let mut canvas = window.into_canvas();
+    let canvas = window.into_canvas();
     let creator = canvas.texture_creator();
-    let mut texture =
-        creator.create_texture_streaming(PixelFormat::RGB24, render::SCREEN_WIDTH as u32, render::SCREEN_HEIGHT as u32)?;
-    texture.set_scale_mode(ScaleMode::Nearest);
-    // whole multiples of the picture, or as large as the window allows
-    let apply_display = |canvas: &mut sdl3::render::WindowCanvas, s: &options::Settings| {
-        let mode = if s.integer_scaling { SDL_LOGICAL_PRESENTATION_INTEGER_SCALE } else { SDL_LOGICAL_PRESENTATION_LETTERBOX };
-        let _ = canvas.set_logical_size(render::SCREEN_WIDTH as u32, render::SCREEN_HEIGHT as u32, mode);
-        let _ = canvas.window_mut().set_fullscreen(s.fullscreen);
-    };
-    apply_display(&mut canvas, &settings);
+    let mut display = Display::new(canvas, &creator)?;
+    display.apply(&settings);
     mixer.set_volume(settings.volume);
     mixer.set_music_volume(settings.music_volume);
-    let palette = clut8();
-    let mut rgb = vec![0u8; render::SCREEN_WIDTH * render::SCREEN_HEIGHT * 3];
     let mut next = Instant::now();
     // a balloon being shown and since when (the game waits meanwhile)
     let mut shown: Option<(balloon::Shown, Instant)> = None;
@@ -477,7 +414,7 @@ fn main() -> Result<()> {
         sc.then = Some((menu_screen(&m), then));
         (m, sc)
     };
-    let mut text_texture: Option<(sdl3::render::Texture, Vec<text::Line>, (u32, u32))> = None;
+    let mut score = ScoreShown::default();
     // HARRY_STATS: loop timing once a second
     let stats = std::env::var_os("HARRY_STATS").is_some();
     let (mut loops, mut frames_run, mut busy, mut stat_start) = (0u32, 0u32, Duration::ZERO, Instant::now());
@@ -491,7 +428,7 @@ fn main() -> Result<()> {
         let mut opt_event: Option<options::Event> = None;
         let mut give_up = false;
         for mut e in events.poll_iter() {
-            e.convert_coords(&canvas);
+            e.convert_coords(&display.canvas);
             let menu_live = scene.is_none() && in_menu.is_some();
             match e {
                 Event::Quit { .. } => break 'run,
@@ -569,7 +506,7 @@ fn main() -> Result<()> {
                         _ if sc == settings.pause_key && sc != Scancode::CapsLock => pause_toggled = !pause_toggled,
                         _ if sc == settings.fullscreen_key => {
                             settings.fullscreen = !settings.fullscreen;
-                            apply_display(&mut canvas, &settings);
+                            display.apply(&settings);
                             if let Some(p) = &settings_path {
                                 let _ = settings.save(p);
                             }
@@ -622,7 +559,7 @@ fn main() -> Result<()> {
             && let Some(o) = &opts
         {
             settings = o.settings.clone();
-            apply_display(&mut canvas, &settings);
+            display.apply(&settings);
             mixer.set_volume(settings.volume);
             mixer.set_music_volume(settings.music_volume);
             if e == options::Event::Done {
@@ -852,44 +789,7 @@ fn main() -> Result<()> {
                 lines.clear();
             }
         }
-        image.to_rgb24(&palette, &mut rgb);
-        // the gamma fades: toward black
-        if dark > 0 {
-            for c in &mut rgb {
-                *c = (u32::from(*c) * (256 - dark.clamp(0, 256)) as u32 / 256) as u8;
-            }
-        }
-        let w = render::SCREEN_WIDTH;
-        texture.with_lock(None, |buf: &mut [u8], pitch: usize| {
-            for (row, line) in rgb.chunks_exact(w * 3).enumerate() {
-                buf[row * pitch..row * pitch + w * 3].copy_from_slice(line);
-            }
-        })?;
-        // the texts at the window's resolution (made again only when they change)
-        let (ow, oh) = canvas.output_size()?;
-        let k = (ow as f32 / w as f32).min(oh as f32 / render::SCREEN_HEIGHT as f32);
-        let k = if settings.integer_scaling { k.floor().max(1.0) } else { k };
-        let size = ((w as f32 * k) as u32, (render::SCREEN_HEIGHT as f32 * k) as u32);
-        if text_texture.as_ref().is_none_or(|(_, l, s)| *l != lines || *s != size) {
-            let rgba = fonts.draw(&lines, size.0 as usize, size.1 as usize);
-            let mut t = creator.create_texture_streaming(PixelFormat::ABGR8888, size.0, size.1)?;
-            t.set_blend_mode(sdl3::render::BlendMode::Blend);
-            t.with_lock(None, |buf: &mut [u8], pitch: usize| {
-                let row = size.0 as usize * 4;
-                for (y, line) in rgba.chunks_exact(row).enumerate() {
-                    buf[y * pitch..y * pitch + row].copy_from_slice(line);
-                }
-            })?;
-            text_texture = Some((t, lines, size));
-        }
-        canvas.clear();
-        canvas.copy(&texture, None, None)?;
-        if let Some((t, _, _)) = &mut text_texture {
-            let b = (255 * (256 - dark.clamp(0, 256)) / 256) as u8;
-            t.set_color_mod(b, b, b);
-            canvas.copy(t, None, None)?;
-        }
-        canvas.present();
+        display.present(&image, lines, dark, &fonts, settings.integer_scaling)?;
         if stats {
             loops += 1;
             busy += loop_start.elapsed();
@@ -901,6 +801,142 @@ fn main() -> Result<()> {
         let wake = if scene.is_some() || in_menu.is_some() { tick } else { next };
         std::thread::sleep(wake.saturating_duration_since(Instant::now()).min(FRAME));
     }
+    Ok(())
+}
+
+/// The window: the picture as a texture scaled to it, the texts drawn at
+/// its resolution on top.
+struct Display<'a> {
+    canvas: sdl3::render::WindowCanvas,
+    creator: &'a sdl3::render::TextureCreator<sdl3::video::WindowContext>,
+    texture: sdl3::render::Texture<'a>,
+    /// The texts' texture, its lines and size (made again only when they
+    /// change).
+    text: Option<(sdl3::render::Texture<'a>, Vec<text::Line>, (u32, u32))>,
+    palette: [[u8; 3]; 256],
+    rgb: Vec<u8>,
+}
+
+impl<'a> Display<'a> {
+    fn new(
+        canvas: sdl3::render::WindowCanvas,
+        creator: &'a sdl3::render::TextureCreator<sdl3::video::WindowContext>,
+    ) -> Result<Display<'a>> {
+        let mut texture =
+            creator.create_texture_streaming(PixelFormat::RGB24, render::SCREEN_WIDTH as u32, render::SCREEN_HEIGHT as u32)?;
+        texture.set_scale_mode(ScaleMode::Nearest);
+        let rgb = vec![0u8; render::SCREEN_WIDTH * render::SCREEN_HEIGHT * 3];
+        Ok(Display { canvas, creator, texture, text: None, palette: clut8(), rgb })
+    }
+
+    /// Whole multiples of the picture, or as large as the window allows;
+    /// full screen or not.
+    fn apply(&mut self, s: &options::Settings) {
+        let mode = if s.integer_scaling { SDL_LOGICAL_PRESENTATION_INTEGER_SCALE } else { SDL_LOGICAL_PRESENTATION_LETTERBOX };
+        let _ = self.canvas.set_logical_size(render::SCREEN_WIDTH as u32, render::SCREEN_HEIGHT as u32, mode);
+        let _ = self.canvas.window_mut().set_fullscreen(s.fullscreen);
+    }
+
+    /// Show the picture and its texts, `dark` of 256 toward black (the
+    /// gamma fades).
+    fn present(&mut self, image: &render::Canvas, lines: Vec<text::Line>, dark: i32, fonts: &text::Fonts, integer_scaling: bool) -> Result<()> {
+        image.to_rgb24(&self.palette, &mut self.rgb);
+        if dark > 0 {
+            for c in &mut self.rgb {
+                *c = (u32::from(*c) * (256 - dark.clamp(0, 256)) as u32 / 256) as u8;
+            }
+        }
+        let w = render::SCREEN_WIDTH;
+        let rgb = &self.rgb;
+        self.texture.with_lock(None, |buf: &mut [u8], pitch: usize| {
+            for (row, line) in rgb.chunks_exact(w * 3).enumerate() {
+                buf[row * pitch..row * pitch + w * 3].copy_from_slice(line);
+            }
+        })?;
+        let (ow, oh) = self.canvas.output_size()?;
+        let k = (ow as f32 / w as f32).min(oh as f32 / render::SCREEN_HEIGHT as f32);
+        let k = if integer_scaling { k.floor().max(1.0) } else { k };
+        let size = ((w as f32 * k) as u32, (render::SCREEN_HEIGHT as f32 * k) as u32);
+        if self.text.as_ref().is_none_or(|(_, l, s)| *l != lines || *s != size) {
+            let rgba = fonts.draw(&lines, size.0 as usize, size.1 as usize);
+            let mut t = self.creator.create_texture_streaming(PixelFormat::ABGR8888, size.0, size.1)?;
+            t.set_blend_mode(sdl3::render::BlendMode::Blend);
+            t.with_lock(None, |buf: &mut [u8], pitch: usize| {
+                let row = size.0 as usize * 4;
+                for (y, line) in rgba.chunks_exact(row).enumerate() {
+                    buf[y * pitch..y * pitch + row].copy_from_slice(line);
+                }
+            })?;
+            self.text = Some((t, lines, size));
+        }
+        self.canvas.clear();
+        self.canvas.copy(&self.texture, None, None)?;
+        if let Some((t, _, _)) = &mut self.text {
+            let b = (255 * (256 - dark.clamp(0, 256)) / 256) as u8;
+            t.set_color_mod(b, b, b);
+            self.canvas.copy(t, None, None)?;
+        }
+        self.canvas.present();
+        Ok(())
+    }
+}
+
+/// `--screenshot`: the frames run without a window, the picture (with its
+/// texts) written as a BMP.
+fn write_screenshot(data: &GameData, assets: &Assets, fonts: &text::Fonts, mut game: Game, out: &str, frames: usize) -> Result<()> {
+    let mut score = ScoreShown::default();
+    // HARRY_SAVE=<file>: continue from that record first
+    if let Some(sg) = std::env::var_os("HARRY_SAVE").and_then(|p| std::fs::read(p).ok()).map(|b| SaveGame::from_bytes(&b)) {
+        game.continue_game(&sg, &data.levels, assets);
+    }
+    // HARRY_INV=id:count,… fills the inventory (for testing), the
+    // first item selected, half the ammunition
+    if let Ok(inv) = std::env::var("HARRY_INV") {
+        for (slot, item) in inv.split(',').enumerate().take(game.g.inventory.len()) {
+            if let Some((id, n)) = item.split_once(':').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))) {
+                game.g.inventory[slot] = (id, n);
+            }
+        }
+        game.g.cur_slot = 0;
+        game.g.ammo = harry_core::keys::Ammo { staple: 50, badass: 100, shrapnel: 2 };
+    }
+    let mut shown = None;
+    for _ in 0..frames {
+        if shown.is_some() {
+            break;
+        }
+        let mut show = |b: &Balloon| {
+            shown = balloon::place(b, data, &fonts);
+            shown.is_some()
+        };
+        game.frame(&KeyMap::default(), assets, &mut show, &mut || false);
+        score.step(game.g.score);
+    }
+    if std::env::var_os("HARRY_DEBUG").is_some() {
+        for &i in &game.world.sprites.list {
+            let r = game.world.rec(i);
+            eprintln!("{} at {:?} face {} task {:?} b8b {} layer {}", r.kind, r.at, r.face, r.task, r.b8b, r.layer);
+        }
+        eprintln!("view {:?}", game.view.corner);
+    }
+    let (mut image, lines) = picture(data, &game, &score, shown.as_ref());
+    // HARRY_MAP=1 shows the map, =all with every tile seen (for testing)
+    if let Ok(m) = std::env::var("HARRY_MAP") {
+        if m == "all" {
+            game.track.cells.fill(1);
+        }
+        render::draw_map(&mut image, data, &game);
+    }
+    let mut rgb = vec![0u8; image.width * image.height * 3];
+    image.to_rgb24(&clut8(), &mut rgb);
+    // the text at 1:1 on the picture
+    let overlay = fonts.draw(&lines, image.width, image.height);
+    for (p, o) in rgb.as_chunks_mut::<3>().0.iter_mut().zip(overlay.as_chunks::<4>().0) {
+        for k in 0..3 {
+            p[k] = ((u32::from(p[k]) * (255 - u32::from(o[3])) + u32::from(o[k]) * u32::from(o[3])) / 255) as u8;
+        }
+    }
+    render::write_bmp(Path::new(&out), image.width, image.height, &rgb)?;
     Ok(())
 }
 
