@@ -238,7 +238,7 @@ fn debug_keys(h: &mut Harry, g: &mut PlayerGlobals, k: &KeyMap, rng: &mut Random
         get_item(g, item::SODA_CAN);
     }
     if k.down(code::F4) {
-        get_item(g, item::DEBUG_ITEM);
+        get_item(g, item::DOOR_KEYS[2]);
     }
     if k.down(code::F3) {
         get_item(g, item::CAFFEINE_PILL);

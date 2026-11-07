@@ -413,7 +413,7 @@ fn collider(h: &mut Harry, g: &mut PlayerGlobals, other: &mut Sprite, physics: &
 /// The key that opens a locked door: item 11399 − the door's info #0.
 fn door_key(level: &Level, door: &Sprite) -> i16 {
     let info = level.entry(door.level_index).map_or(0, |e| e.info[0]);
-    (0x2c87 - i32::from(info)) as i16
+    (i32::from(crate::inventory::item::DOOR_KEYS[0]) - i32::from(info)) as i16
 }
 
 /// Unlock a locked door with the selected item if it is its key: the

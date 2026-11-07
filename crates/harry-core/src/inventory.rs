@@ -9,8 +9,10 @@ pub mod item {
     /// Opens the gate (collider 9800).
     pub const GATE_KEY: i16 = 11199;
     pub const STAPLE_GUN: i16 = 11299;
-    /// 11397: an item only the debug keys give (F4).
-    pub const DEBUG_ITEM: i16 = 11397;
+    /// The door keys: a locked door opens with 11399 − its info #0, so
+    /// `DOOR_KEYS[info]`. Levels hold them, `UpLevel` takes them away; the
+    /// debug key F4 gives 11397.
+    pub const DOOR_KEYS: [i16; 3] = [11399, 11398, 11397];
     pub const CAFFEINE_PILL: i16 = 11499;
     pub const BADASS: i16 = 11599;
     pub const MYSTERY_VIAL: i16 = 11699;

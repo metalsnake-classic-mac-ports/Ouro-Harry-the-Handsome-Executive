@@ -553,7 +553,7 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
 - With the debug flag (`gDebug`, cleared at start, never set in the
   shipped game): F1 comfort 144, F2 staple gun + 100 staples, F12 comfort
   0, `=` an explosion within ±64 px of Harry (not during his blast
-  cooldown, +0x96), F13 soda can, F4 item 11397, F3 caffeine pill.
+  cooldown, +0x96), F13 soda can, F4 the door key 11397, F3 caffeine pill.
 - Shift (0x38) + `=` (0x18) + key code 0x74 held together, with a sound:
   player scale 1.0 ↔ 2.0 (`scale0/1` = 0x200) - the README's "Command
   Shift +" Easter egg. 0x74 is not Command (0x37). Test in SheepShaver
@@ -1509,7 +1509,7 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
 - **`UpLevel`** (`Game::up_level`): `CheckGameEvents` calls it at the
   end of a frame in which the level counter changed; the game loop goes
   on in the next level. It plays 4800 (`_DAT_10065b54`, volume 10),
-  shows `EndLevelEffect`, removes the debug items 11397–11399 (select,
+  shows `EndLevelEffect`, removes the door keys 11397–11399 (select,
   use up, until none is left), and ends the loop with `Win` when the
   counter is past the world's levels (Hwld +0x1c6: 15 in Episode 1).
   Otherwise the outro picture (level +0x1207e); counter −255 means the
@@ -1673,7 +1673,8 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
 - 12 000 cases match; 12 of 12 mutations caught.
 - **Door** (any `air`; nothing for open doors 902 / 912 / 922 / 932):
   walking into a closed or locked door: a locked one opens with its key
-  selected (item 11399 − the door's info #0: sound 240, the key used up,
+  selected (item 11399 − the door's info #0: the door keys 11399, 11398,
+  11397 for info 0, 1, 2; sound 240, the key used up,
   door and level entry become the closed kind, +0x8a set), else a remark
   (205) at most every 25 frames (`t28`); then `DoorSeparate` (Harry back
   to his side, judged by his centre, from his fix position) and his speed

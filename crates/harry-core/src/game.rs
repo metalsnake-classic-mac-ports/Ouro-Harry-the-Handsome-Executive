@@ -552,7 +552,7 @@ impl Game {
 
     /// `UpLevel`, which `CheckGameEvents` calls when the level counter
     /// changed (after a frame that ended with `FrameEnd::LevelDone`;
-    /// `levels` are the world's). The jingle 4800; the debug items
+    /// `levels` are the world's). The jingle 4800; the door keys
     /// 11397–11399 go; past the last level the game is won. Otherwise
     /// (counter −255: the level after the one before) the score grows by
     /// (level − 1) × 5000, the state is kept as the level's start, every
@@ -572,7 +572,7 @@ impl Game {
             again = false;
             for s in 0..SLOTS {
                 let (id, n) = g.inventory[s];
-                if (item::DEBUG_ITEM..=item::DEBUG_ITEM + 2).contains(&id) && n > 0 {
+                if item::DOOR_KEYS.contains(&id) && n > 0 {
                     switch_item(g, s as i16);
                     remove_item(g, s as i16);
                     again = true;
