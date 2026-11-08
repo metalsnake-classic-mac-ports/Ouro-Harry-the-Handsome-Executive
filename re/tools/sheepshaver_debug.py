@@ -1,7 +1,10 @@
 """Put a copy of the original game with its debug mode on into SheepShaver's
 shared folder (the Mac's "Unix" disk), as the folder "Harry Debug": the
-application patched, its data files beside it. The installed game and the
-disks stay as they are.
+application patched, its data files beside it, and the script
+"Harry Debug Switch" (re/tools/harry_debug_switch.applescript, as a Script
+Editor text file: open it there and save it as an application) that turns the
+debug mode of any copy of Harry 1.0.1 on or off on the Mac itself. The
+installed game and the disks stay as they are.
 
 The patch: `InitAppGlobals` (PPC 0x10001374) clears `gDebug` with
 `li r3, 0; lwz r4, gDebug(RTOC); stb r3, 0(r4)` at 0x1000138c; the port
@@ -64,6 +67,10 @@ def main():
         n, t, c, fl, d, r = macbinary(os.path.join(work, "installed", f))
         write_mac_file(os.path.join(out, n), t, c, fl, d, r)
         print(f"{n}: {t.decode('mac_roman')}/{c.decode('mac_roman')}")
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "harry_debug_switch.applescript")
+    text = open(script, encoding="ascii").read().replace("\n", "\r").encode("mac_roman")
+    write_mac_file(os.path.join(out, "Harry Debug Switch"), b"TEXT", b"ToyS", 0, text, b"")
+    print("Harry Debug Switch: TEXT/ToyS")
     print("written to", out)
 
 

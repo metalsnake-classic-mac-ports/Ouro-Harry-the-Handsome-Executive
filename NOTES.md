@@ -562,7 +562,12 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   SheepShaver's shared folder ("Unix" disk, folder "Harry Debug"): one
   byte, `InitAppGlobals`' `li r3, 0` before `stb r3, gDebug` (0x1000138c,
   data fork offset 0x298f) made `li r3, 1`; checked in systemless (the
-  menu's line shows).
+  menu's line shows). On the Mac itself, `re/tools/harry_debug_switch.applescript`
+  (AppleScript 1.4, Mac OS 9; the tool above puts it beside the copy as a
+  Script Editor text file, to be saved as an application) switches that
+  byte between 0 and 1 in any copy, after checking the 16 bytes around it;
+  its logic was tested with osascript on the data fork (0 → 1 → 0, other
+  files refused), not yet in Mac OS 9.
 - Shift (0x38) + `=` (0x18) + key code 0x74 held together, with a sound:
   player scale 1.0 ↔ 2.0 (`scale0/1` = 0x200) - the README's "Command
   Shift +" Easter egg. 0x74 is not Command (0x37). Test in SheepShaver
