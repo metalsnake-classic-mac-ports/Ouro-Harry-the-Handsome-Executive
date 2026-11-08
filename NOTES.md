@@ -2157,7 +2157,9 @@ the PowerPC emulation (e-z-g's fix, in the `ouro` build since
 `ouro-macemu` (next to this repository, built by
 `ouro-tools/build-emulators.sh`), Performa ROM `ouro-tools/roms/PERFORMA.ROM`, the System 7.5 + Sound
 Manager 3.1 boot disk with `Harry Instruments` in Extensions
-(`ouro-tools/systems/system75-sound-harry.dsk`); in `re/work/emu`:
+(`ouro-tools/systems/system75-sound-harry.dsk`; since 2026-11-08 also the
+File System Manager 1.2, so the shared folder `re/work/emu/shared`
+shows as "Unix" - see the ouro-tools README); in `re/work/emu`:
 `harry.dsk` (100 MB HFS) with the installer, `harry-installed.dsk` =
 after installation, `basilisk.prefs`. 64 MB RAM, 640 × 480 × 8. Clicks
 must be press - pause - release (cliclick `dd`/`du` with 100–150 ms),
