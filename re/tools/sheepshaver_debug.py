@@ -1,9 +1,8 @@
 """Put a copy of the original game with its debug mode on into SheepShaver's
 shared folder (the Mac's "Unix" disk), as the folder "Harry Debug": the
-application patched, its data files beside it, and the script
-"Harry Debug Switch" (re/tools/harry_debug_switch.applescript, as a Script
-Editor text file: open it there and save it as an application) that turns the
-debug mode of any copy of Harry 1.0.1 on or off on the Mac itself. The
+application patched, its data files beside it, and, when built
+(re/tools/debug-switch/build.sh), the program "Harry Debug Switch" that turns
+the debug mode of any copy of Harry 1.0.1 on or off on the Mac itself. The
 installed game and the disks stay as they are.
 
 The patch: `InitAppGlobals` (PPC 0x10001374) clears `gDebug` with
@@ -67,10 +66,13 @@ def main():
         n, t, c, fl, d, r = macbinary(os.path.join(work, "installed", f))
         write_mac_file(os.path.join(out, n), t, c, fl, d, r)
         print(f"{n}: {t.decode('mac_roman')}/{c.decode('mac_roman')}")
-    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "harry_debug_switch.applescript")
-    text = open(script, encoding="ascii").read().replace("\n", "\r").encode("mac_roman")
-    write_mac_file(os.path.join(out, "Harry Debug Switch"), b"TEXT", b"ToyS", 0, text, b"")
-    print("Harry Debug Switch: TEXT/ToyS")
+    switch = os.path.join(work, "debug-switch", "Harry Debug Switch.bin")
+    if os.path.exists(switch):
+        _, t, c, fl, d, r = macbinary(switch)
+        write_mac_file(os.path.join(out, "Harry Debug Switch"), t, c, fl, d, r)
+        print("Harry Debug Switch: APPL/HDbS")
+    else:
+        print("no Harry Debug Switch: build it with re/tools/debug-switch/build.sh")
     print("written to", out)
 
 

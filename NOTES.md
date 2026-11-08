@@ -562,12 +562,25 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   SheepShaver's shared folder ("Unix" disk, folder "Harry Debug"): one
   byte, `InitAppGlobals`' `li r3, 0` before `stb r3, gDebug` (0x1000138c,
   data fork offset 0x298f) made `li r3, 1`; checked in systemless (the
-  menu's line shows). On the Mac itself, `re/tools/harry_debug_switch.applescript`
-  (AppleScript 1.4, Mac OS 9; the tool above puts it beside the copy as a
-  Script Editor text file, to be saved as an application) switches that
-  byte between 0 and 1 in any copy, after checking the 16 bytes around it;
-  its logic was tested with osascript on the data fork (0 → 1 → 0, other
-  files refused), not yet in Mac OS 9.
+  menu's line shows). The 68k build has gDebug at A5-data address $7f1a
+  (`clr.b $7f1a.l` opens `InitAppGlobals`, CODE 1 resource offset 0x1490;
+  read with `tst.b` in `CheckGameLoopKeys` and elsewhere): `st.b
+  $7f1a.l` (opcode `4239` → `50f9`, same length, the relocated address
+  untouched) turns it on.
+  **On the Mac itself:** `re/tools/debug-switch` (C, built with Retro68 by
+  its `build.sh` into `re/work/debug-switch/Harry Debug Switch.bin`; 68k,
+  System 7 to Mac OS 9) asks for the application, shows both parts' state
+  (on / off / mixed / not found) and switches both: the data fork byte, and
+  CODE 1 through the Resource Manager (the resource is protected: the bit
+  goes off for the write and back on). It refuses a running program (the
+  Process Manager's list) and files whose bytes are not exactly one of the
+  two forms. `sheepshaver_debug.py` puts it beside the patched copy.
+  Tested: in Basilisk II (System 7.5) on, 68k Harry's menu shows the line,
+  off again - data fork and every resource's data byte-identical to the
+  original (only the Resource Manager's runtime fields in the map and the
+  reserved header area differ); itself and the installer refused. In
+  SheepShaver (Mac OS 9.0.4) the PPC-only copy shows "mixed"; off: no line
+  in PPC Harry's menu, on: the line.
 - Shift (0x38) + `=` (0x18) + key code 0x74 held together, with a sound:
   player scale 1.0 ↔ 2.0 (`scale0/1` = 0x200) - the README's "Command
   Shift +" Easter egg. 0x74 is not Command (0x37). Test in SheepShaver
