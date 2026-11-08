@@ -15,6 +15,9 @@
  * A part is changed only when its bytes are exactly one of the two forms,
  * so other versions are left alone. NOTES.md, "Cheats / Easter eggs".
  *
+ * After a switch the program quits; after Cancel or a refused file it asks
+ * for the next one. README.txt goes beside it.
+ *
  * Build: re/tools/debug-switch/build.sh (Retro68, ouro-tools/retro68-build).
  */
 
@@ -141,8 +144,10 @@ static Boolean Running(const FSSpec *spec)
     return false;
 }
 
-static void SwitchFile(FSSpec *spec)
+/* Switches one file; true when it was switched (then the program quits). */
+static Boolean SwitchFile(FSSpec *spec)
 {
+    Boolean switched = false;
     short dataRef = 0, resRef = -1, oldRes = CurResFile();
     Handle code = NULL;
     int ppc = kMissing, m68k = kMissing, want;
@@ -152,7 +157,7 @@ static void SwitchFile(FSSpec *spec)
 
     if (Running(spec)) {
         Say("That program is running. Quit it first.");
-        return;
+        return false;
     }
     err = FSpOpenDF(spec, fsRdWrPerm, &dataRef);
     if (err == noErr)
@@ -238,8 +243,9 @@ static void SwitchFile(FSSpec *spec)
             goto done;
         }
     }
-    Say(want ? "Debug mode is now on. Keys in the game: F1 comfort 144, F2 staple gun, F3 caffeine, F4 a door key, F11 next level, F12 comfort 0, F13 soda can, = explosion, ` held: through walls."
+    Say(want ? "Debug mode is now on. Keys in the game: F1 comfort 144, F2 staple gun, F3 caffeine, F4 a door key, F11 next level, F12 comfort 0, F13 soda can, = explosion, ` held: through walls. More in README.txt."
              : "Debug mode is now off.");
+    switched = true;
 
 done:
     if (code != NULL)
@@ -249,6 +255,7 @@ done:
     UseResFile(oldRes);
     if (dataRef != 0)
         FSClose(dataRef);
+    return switched;
 }
 
 int main(void)
@@ -268,7 +275,8 @@ int main(void)
         StandardGetFile(NULL, 1, types, &reply);
         if (!reply.sfGood)
             break;
-        SwitchFile(&reply.sfFile);
+        if (SwitchFile(&reply.sfFile))
+            break;
     }
     return 0;
 }

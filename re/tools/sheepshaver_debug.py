@@ -71,6 +71,9 @@ def main():
         _, t, c, fl, d, r = macbinary(switch)
         write_mac_file(os.path.join(out, "Harry Debug Switch"), t, c, fl, d, r)
         print("Harry Debug Switch: APPL/HDbS")
+        _, t, c, fl, d, r = macbinary(os.path.join(work, "debug-switch", "README.txt.bin"))
+        write_mac_file(os.path.join(out, "Harry Debug Switch README"), t, c, fl, d, r)
+        print("Harry Debug Switch README: TEXT/ttxt")
     else:
         print("no Harry Debug Switch: build it with re/tools/debug-switch/build.sh")
     print("written to", out)

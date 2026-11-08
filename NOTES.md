@@ -574,7 +574,12 @@ soda can, 11999 power of the swivel (charged; fires a player shot costing
   CODE 1 through the Resource Manager (the resource is protected: the bit
   goes off for the write and back on). It refuses a running program (the
   Process Manager's list) and files whose bytes are not exactly one of the
-  two forms. `sheepshaver_debug.py` puts it beside the patched copy.
+  two forms; after a switch it quits, after Cancel or a refused file it
+  asks again. `README.txt` beside it (for players: use, the debug keys,
+  the bytes for a hex editor / ResEdit) goes onto the disk image as a
+  SimpleText document with a 'styl' resource for Monaco 9
+  (`readme_bin.py`), so its tables line up. `sheepshaver_debug.py` puts
+  both beside the patched copy.
   Tested: in Basilisk II (System 7.5) on, 68k Harry's menu shows the line,
   off again - data fork and every resource's data byte-identical to the
   original (only the Resource Manager's runtime fields in the map and the
