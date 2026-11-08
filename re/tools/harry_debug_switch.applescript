@@ -11,7 +11,7 @@
 
 property codeStart : 10637 -- data fork offset 0x298c, counted from 1
 -- 38 60 00 ?? 80 82 87 e4 98 64 00 00 80 a2 87 e0
-property expected : {56, 96, 0, -1, 128, 130, 135, 228, 152, 100, 0, 0, 128, 162, 135, 224}
+property codePattern : {56, 96, 0, -1, 128, 130, 135, 228, 152, 100, 0, 0, 128, 162, 135, 224}
 
 on run
 	set f to choose file with prompt "Choose Harry the Handsome Executive 1.0.1:"
@@ -32,23 +32,23 @@ on switchDebug(f)
 		return
 	end try
 	try
-		set flag to debugFlag(fh)
-		if flag is -1 then
+		set curFlag to debugFlag(fh)
+		if curFlag is -1 then
 			close access fh
 			display dialog "This is not Harry 1.0.1 for PowerPC: the code to patch is not there. Nothing was changed." buttons {"OK"} default button 1 with icon stop
 			return
 		end if
-		if flag is 1 then
-			set state to "on"
-			set other to "Turn off"
+		if curFlag is 1 then
+			set modeName to "on"
+			set switchLabel to "Turn off"
 		else
-			set state to "off"
-			set other to "Turn on"
+			set modeName to "off"
+			set switchLabel to "Turn on"
 		end if
-		set answer to button returned of (display dialog "Harry's debug mode is " & state & "." buttons {"Cancel", other} default button 2)
-		write (ASCII character (1 - flag)) to fh starting at codeStart + 3
+		set pressedButton to button returned of (display dialog "Harry's debug mode is " & modeName & "." buttons {"Cancel", switchLabel} default button 2)
+		write (ASCII character (1 - curFlag)) to fh starting at codeStart + 3
 		close access fh
-		if flag is 1 then
+		if curFlag is 1 then
 			display dialog "Debug mode is now off." buttons {"OK"} default button 1
 		else
 			display dialog "Debug mode is now on. Keys: F1 comfort 144, F2 staple gun, F3 caffeine, F4 a door key, F11 next level, F12 comfort 0, F13 soda can, = explosion, ` held: through walls." buttons {"OK"} default button 1
@@ -62,20 +62,20 @@ end switchDebug
 -- 0 or 1 when the code is there, otherwise -1.
 on debugFlag(fh)
 	try
-		set b to read fh from codeStart for 16
+		set codeBytes to read fh from codeStart for 16
 	on error
 		return -1
 	end try
-	if (count b) is not 16 then return -1
+	if (count codeBytes) is not 16 then return -1
 	repeat with i from 1 to 16
-		set want to item i of expected
-		set got to ASCII number (character i of b)
-		if want is -1 then
-			if got is not 0 and got is not 1 then return -1
-			set flag to got
-		else if got is not want then
+		set wantByte to item i of codePattern
+		set gotByte to ASCII number (character i of codeBytes)
+		if wantByte is -1 then
+			if gotByte is not 0 and gotByte is not 1 then return -1
+			set curFlag to gotByte
+		else if gotByte is not wantByte then
 			return -1
 		end if
 	end repeat
-	return flag
+	return curFlag
 end debugFlag
