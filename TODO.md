@@ -25,6 +25,12 @@ git history.
 - [ ] Fan datasets: graphics in higher resolution and with more animation steps, sounds,
       levels and worlds with higher limits, a config file in the format shared by the
       ports; loading from the pack library (server side later)
+- [ ] Keys on a modern menu page (rule 9): the actions with their keys, any key, a key
+      in use swapped, saved at once - as S.C.Out's keys page; the original's own key
+      limits noted in NOTES.md / BUGS.md, not kept
+- [ ] Gamepad (rule 10, decided 2026-11-12): stick / d-pad and buttons for Harry's
+      actions, set on the keys page; the menus by gamepad too. Maybe later shared by all
+      ports in a common Ouro framework
 
 ## The original's bugs
 - [ ] Watch them with the `ouro-harry-repro` saves (systemless: `re/tools/sl_repro.py`, values
