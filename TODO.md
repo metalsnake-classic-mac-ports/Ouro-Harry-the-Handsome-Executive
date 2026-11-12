@@ -11,6 +11,21 @@ git history.
       save files
 - [ ] `IntroLevel`'s text card for levels without a title picture (needed for fan worlds)
 
+## The rules for all ports (`../CLAUDE.md`, "How every port plays", 2026-11-12)
+- [ ] Deaths instead of a game over: a death counter where the original shows how Harry
+      fares; dying has no bad effect
+- [ ] Level selection in the main menu instead of the warp dialog: every level with name,
+      thumbnail (start view), done mark, best / first / latest time, deaths; looks the same
+      in every Ouro port, with Harry's decoration
+- [ ] Continue: the exact state saved when quitting; "Continue" first in the main menu
+- [ ] Rewind: a snapshot every few seconds, forks, a timeline with screenshots; the copier
+      saves (the list of saves above) appear in it, marked as manual saves
+- [ ] Game speed apart from the frame rate: the picture at the display's rate, the game at
+      30 frames a second; sprites drawn between game frames
+- [ ] Fan datasets: graphics in higher resolution and with more animation steps, sounds,
+      levels and worlds with higher limits, a config file in the format shared by the
+      ports; loading from the pack library (server side later)
+
 ## The original's bugs
 - [ ] Watch them with the `ouro-harry-repro` saves (systemless: `re/tools/sl_repro.py`, values
       with `re/tools/sl_peek.py`; then SheepShaver for what systemless may draw wrong) and note
