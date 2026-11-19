@@ -25,6 +25,13 @@ git history.
 - [ ] Fan datasets: graphics in higher resolution and with more animation steps, sounds,
       levels and worlds with higher limits, a config file in the format shared by the
       ports; loading from the pack library (server side later)
+- [ ] The original's own fan files as datasets (decided 2026-11-19): a custom world
+      (`Hwld`, e.g. the ~27 in the fan archive) or a replaced data file (`Hrdt`:
+      InvertedHARRY's `Harry Graphics`) added in the game library (ouro-framework) goes
+      through the extract tool's conversion and is kept as an Ouro fan dataset (its config
+      file filled from the world's info) in the settings folder; also by the extract tool
+      on the command line. Harry is the only Ouro port so far whose original took such
+      files (Quagmire, Sammy and S.C.Out had none)
 - [ ] Keys on a modern menu page (rule 9): the actions with their keys, any key, a key
       in use swapped, saved at once - as S.C.Out's keys page; the original's own key
       limits noted in NOTES.md / BUGS.md, not kept
