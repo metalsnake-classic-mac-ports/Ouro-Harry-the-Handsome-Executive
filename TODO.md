@@ -42,9 +42,10 @@ git history.
 - [ ] Keep naming globals (`re/ghidra/globals.txt`) and sprite fields (`re/ghidra/sprite.txt`)
 
 ## Release
-- [ ] ouro-ui / ouro-play come by path from `../ouro-framework` (since 2026-11-20): the
-      Homebrew build from the tarball fails until they come as a git dependency (see
-      ouro-framework's TODO); the next release waits for that
+- [ ] Next release: ouro-ui / ouro-play come by path from `../ouro-framework` (since
+      2026-11-20); the Homebrew formula brings the framework's archive as a resource
+      (ouro-framework's RELEASING.md, tried with S.C.Out's archive); needs ouro-framework
+      on GitHub with its tag first
 - [ ] Homebrew bottles for Intel Macs, as for S.C.Out
 - [ ] Build and test on Windows and Linux (the Linux bottle builds; not played on Linux or
       Windows yet)
