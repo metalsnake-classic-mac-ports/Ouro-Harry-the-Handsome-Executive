@@ -34,6 +34,7 @@ mod render;
 mod scenes;
 mod script;
 mod text;
+mod theme;
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -338,7 +339,13 @@ fn main() -> Result<()> {
     let level: usize = args.get(2).and_then(|s| s.parse::<usize>().ok()).map_or(0, |n| n.clamp(1, data.levels.len()) - 1);
     let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.subsec_nanos() | 1);
     let game = app::start_game(&data, &assets, level, PlayerGlobals::new_game(), seed);
-    let save_path = sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok().map(|d| d.join("Harry Save.hrsg"));
+    // the saved game, the records and the kept game: beside the settings
+    // (HARRY_SETTINGS: a test's folder), else in the preference folder
+    let folder = match std::env::var_os("HARRY_SETTINGS") {
+        Some(p) => PathBuf::from(p).parent().map(PathBuf::from),
+        None => sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok(),
+    };
+    let save_path = folder.map(|d| d.join("Harry Save.hrsg"));
     let fonts = text::Fonts::load();
     if let Some((out, frames)) = screenshot {
         if level_map {
@@ -530,7 +537,7 @@ fn write_screenshot(data: &GameData, assets: &Assets, fonts: &text::Fonts, mut g
         }
         eprintln!("view {:?}", game.view.corner);
     }
-    let (mut image, lines) = picture(data, &game, &score, shown.as_ref());
+    let (mut image, lines) = picture(data, &game, &score, shown.as_ref(), 0);
     // HARRY_MAP=1 shows the map, =all with every tile seen (for testing)
     if let Ok(m) = std::env::var("HARRY_MAP") {
         if m == "all" {
@@ -605,8 +612,9 @@ impl ScoreShown {
 }
 
 /// The picture of a frame and its texts: the panel's level name and score
-/// (Helvetica 9 at (483, 118), the score bold at (483, 141)) and a balloon.
-fn picture(data: &GameData, game: &Game, score: &ScoreShown, shown: Option<&balloon::Shown>) -> (render::Canvas, Vec<text::Line>) {
+/// (Helvetica 9 at (483, 118), the score bold at (483, 141)), the deaths
+/// (the port's, rule 1: in the score's box, at its right) and a balloon.
+fn picture(data: &GameData, game: &Game, score: &ScoreShown, shown: Option<&balloon::Shown>, deaths: u32) -> (render::Canvas, Vec<text::Line>) {
     let mut image = render::draw(data, game);
     let grey = |v: u16| [(v >> 8) as u8; 3];
     let mut lines = vec![
@@ -625,6 +633,14 @@ fn picture(data: &GameData, game: &Game, score: &ScoreShown, shown: Option<&ball
             face: text::Face::HelveticaBold,
             color: grey(score.grey.max(32000)),
             text: score.value.to_string(),
+        },
+        text::Line {
+            x: 556.0,
+            baseline: 141.0,
+            size: 9.0,
+            face: text::Face::Helvetica,
+            color: grey(32000),
+            text: format!("Deaths: {deaths}"),
         },
     ];
     lines.extend(render::inventory_counts(game).into_iter().map(|(x, baseline, text)| text::Line {

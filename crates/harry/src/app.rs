@@ -1,12 +1,33 @@
 //! The game as the window runs it: the main menu, the sequences between
-//! levels, the game with its pause, map, balloons, options and the
-//! question before it is given up. `App::step` takes one pass of the main
-//! loop's input (the events, the keys held, the time); `App::compose`
-//! makes the picture. Nothing here touches the window, so the tests drive
-//! it with made-up events and time.
+//! levels, the game with its pause, map, balloons and options. `App::step`
+//! takes one pass of the main loop's input (the events, the keys held, the
+//! time); `App::compose` makes the picture. Nothing here touches the
+//! window, so the tests drive it with made-up events and time.
+//!
+//! The Ouro ports' rules on top of the original (`../CLAUDE.md`):
+//!
+//! 1. Deaths, not game over: when comfort or favor run out the level
+//!    starts again - from the last copier save in it, else from its start
+//!    - after the original's `EndLevelEffect`; the panel counts the deaths.
+//! 3. The level selection (the main menu's box, or L) with the records
+//!    (`records.json`): a run is from the level's start to its exit,
+//!    deaths included; its time counts the game's frames (30 a second).
+//! 4. Continue: Escape in the game or quitting keeps the game
+//!    (`continue.json`, the snapshots in `continue/`); the menu's
+//!    Continue plays on exactly there. The original's question before a
+//!    game is given up goes: nothing is lost.
+//! 5. Rewind: a snapshot every 5 seconds of play; Backspace (or Timeline in
+//!    the menu's box) shows them as a tree.
+//! 6. A copier save is a snapshot too, marked in the timeline.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+
+use ouro_play::records::{Records, clock};
+use ouro_play::rewind::Rewind;
+use serde::{Deserialize, Serialize};
 
 use harry_core::frame::PlayerGlobals;
 use harry_core::game::{Assets, Balloon, FrameEnd, Game, UpLevel};
@@ -17,7 +38,30 @@ use sdl3::event::Event;
 use sdl3::keyboard::{Keycode, Mod, Scancode};
 use sdl3::sys::keycode::SDL_KMOD_NONE;
 
-use crate::{FRAME, ScoreShown, TICK, audio, balloon, key_name, mac_code, mac_seconds, menu, options, picture, render, scenes, text};
+use crate::{FRAME, ScoreShown, TICK, audio, balloon, key_name, mac_code, mac_seconds, menu, options, picture, render, scenes, text, theme};
+
+/// The game's frames a second; a snapshot every 5 seconds, an hour of them
+/// kept whole.
+const RATE: u32 = 30;
+const SNAPSHOT_EVERY: u64 = 5 * RATE as u64;
+const SNAPSHOTS: usize = 720;
+/// The format of Continue's file and the snapshots (raised when [`Snap`]
+/// or the core's state changes so an older file cannot be read).
+const FORMAT: u32 = 1;
+const SCREEN: ouro_ui::Rect = ouro_ui::Rect::new(0, 0, 640, 480);
+
+/// What Continue and a snapshot keep: the core's game and what the port
+/// counts beside it.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Snap {
+    level: usize,
+    game: Game,
+    deaths: u32,
+    run_frames: u32,
+    run_deaths: u32,
+    /// The game's frames played (when the next snapshot is due)
+    frames: u64,
+}
 
 /// What the main loop reads besides the events.
 #[derive(Clone, Copy, Default)]
@@ -33,10 +77,17 @@ pub enum Screen {
     /// A sequence between frames (fades, pictures); the main menu after it,
     /// else the game.
     Scene { scenes: scenes::Scenes, then_menu: Option<menu::Menu> },
-    /// The main menu, perhaps with the options over it.
-    Menu { menu: menu::Menu, options: Option<options::Screen> },
+    /// The main menu, perhaps with the options or a page over it.
+    Menu { menu: menu::Menu, options: Option<options::Screen>, page: Option<MenuPage> },
     /// The game; it waits while something is over it.
     Game(Overlay),
+}
+
+/// The port's pages over the main menu.
+pub enum MenuPage {
+    Levels(ouro_ui::levels::Levels),
+    /// The kept game's snapshots
+    Timeline(ouro_ui::timeline::Timeline),
 }
 
 /// What can be over the game (one at a time; a new one replaces the one
@@ -45,8 +96,8 @@ pub enum Overlay {
     None,
     /// The options (Command-I).
     Options(options::Screen),
-    /// The question before the game is given up (Escape).
-    Confirm,
+    /// The snapshots (Backspace); the game waits.
+    Timeline(ouro_ui::timeline::Timeline),
     /// ShowMap, open since then.
     Map(Instant),
     /// A balloon, shown since then.
@@ -89,6 +140,21 @@ pub struct App<'a> {
     pub display_changed: bool,
     /// Game frames run (for `HARRY_STATS`).
     pub frames_run: u32,
+    /// SDL's preference folder: the records, Continue's game (none in
+    /// tests).
+    folder: Option<PathBuf>,
+    records: Records,
+    rewind: Rewind<Snap>,
+    /// Deaths in this game; the run of this level: its frames and deaths;
+    /// the game's frames played.
+    deaths: u32,
+    run_frames: u32,
+    run_deaths: u32,
+    frames: u64,
+    /// A game is under way (kept when it is left).
+    in_game: bool,
+    /// The level selection's start views.
+    previews: RefCell<HashMap<usize, render::Canvas>>,
 }
 
 /// Command-I (Control-I off the Mac) in the game: the options, the game
@@ -132,6 +198,7 @@ impl<'a> App<'a> {
     ) -> App<'a> {
         mixer.set_volume(settings.volume);
         mixer.set_music_volume(settings.music_volume);
+        let folder = save_path.as_ref().and_then(|p| p.parent()).map(PathBuf::from);
         let mut app = App {
             data,
             assets,
@@ -155,18 +222,195 @@ impl<'a> App<'a> {
             map_cooldown: 0,
             display_changed: false,
             frames_run: 0,
+            records: Records::load(folder.as_ref().map(|d| d.join("records.json")), RATE),
+            folder,
+            rewind: Rewind::new(SNAPSHOT_EVERY, SNAPSHOTS),
+            deaths: 0,
+            run_frames: 0,
+            run_deaths: 0,
+            frames: 0,
+            in_game: direct,
+            previews: RefCell::new(HashMap::new()),
         };
         app.screen = if direct {
             let scenes = scenes::Scenes::new(app.start_screen(), true, scenes::game_start(&app.game.level, true, &data.world));
             Screen::Scene { scenes, then_menu: None }
         } else {
-            let m = menu::Menu::new();
+            let m = app.new_menu();
             let mut scenes = scenes::Scenes::new(app.start_screen(), true, Vec::new());
             // main: SetMusic(600), the menu
             scenes.then = Some((app.menu_screen(&m), vec![scenes::Step::Music(600), scenes::Step::FadeIn(8)]));
             Screen::Scene { scenes, then_menu: Some(m) }
         };
         app
+    }
+
+    fn continue_file(&self) -> Option<PathBuf> {
+        self.folder.as_ref().map(|d| d.join("continue.json"))
+    }
+
+    fn snapshots_folder(&self) -> Option<PathBuf> {
+        self.folder.as_ref().map(|d| d.join("continue"))
+    }
+
+    /// The main menu, its box offering Continue and Timeline when a game is
+    /// kept.
+    fn new_menu(&self) -> menu::Menu {
+        let mut m = menu::Menu::new();
+        m.kept = self.continue_file().is_some_and(|p| p.exists());
+        m.snapshots = self.snapshots_folder().is_some_and(|d| d.join("index.json").exists());
+        m
+    }
+
+    fn snap(&self) -> Snap {
+        Snap { level: self.level, game: self.game.clone(), deaths: self.deaths, run_frames: self.run_frames, run_deaths: self.run_deaths, frames: self.frames }
+    }
+
+    fn apply(&mut self, s: Snap) {
+        self.level = s.level;
+        self.game = s.game;
+        self.deaths = s.deaths;
+        self.run_frames = s.run_frames;
+        self.run_deaths = s.run_deaths;
+        self.frames = s.frames;
+        self.score = ScoreShown::default();
+        self.in_game = true;
+    }
+
+    /// A new game (from the menu or the level selection): the counters
+    /// from 0, no snapshots.
+    fn begin(&mut self, level: usize) {
+        self.level = level;
+        self.game = start_game(self.data, self.assets, level, PlayerGlobals::new_game(), self.game.rng.seed);
+        self.deaths = 0;
+        self.run_frames = 0;
+        self.run_deaths = 0;
+        self.frames = 0;
+        self.rewind.clear();
+        self.in_game = true;
+    }
+
+    /// The game under way kept for Continue (rule 4).
+    fn keep(&mut self) {
+        if !self.in_game {
+            return;
+        }
+        let (Some(file), Some(dir)) = (self.continue_file(), self.snapshots_folder()) else { return };
+        if let Err(e) = ouro_play::saved::save(&file, FORMAT, &self.snap()) {
+            eprintln!("{}: {e}", file.display());
+        }
+        if let Err(e) = self.rewind.save(&dir) {
+            eprintln!("{}: {e}", dir.display());
+        }
+    }
+
+    /// The kept game is done with (won).
+    fn forget(&mut self) {
+        self.in_game = false;
+        if let Some(f) = self.continue_file() {
+            let _ = std::fs::remove_file(f);
+        }
+        if let Some(d) = self.snapshots_folder() {
+            let _ = std::fs::remove_dir_all(d);
+        }
+    }
+
+    /// The kept snapshots (unless they are in memory already).
+    fn load_snapshots(&mut self) {
+        if !self.rewind.is_empty() {
+            return;
+        }
+        if let Some(d) = self.snapshots_folder() {
+            match Rewind::load(&d, SNAPSHOT_EVERY, SNAPSHOTS) {
+                Ok(r) => self.rewind = r,
+                Err(e) => eprintln!("{}: {e}", d.display()),
+            }
+        }
+    }
+
+    /// Continue: the kept game, if there is one that can be read.
+    fn load_kept(&mut self) -> bool {
+        let Some(file) = self.continue_file() else { return false };
+        let Some(snap) = ouro_play::saved::load::<Snap>(&file, ouro_play::saved::only(FORMAT)) else { return false };
+        self.rewind = Rewind::new(SNAPSHOT_EVERY, SNAPSHOTS);
+        self.load_snapshots();
+        self.apply(snap);
+        true
+    }
+
+    /// From the game as it is (Continue, rewind): its music, a fade in.
+    fn resume(&mut self, now: Instant) {
+        let scenes = scenes::Scenes::new(render::draw(self.data, &self.game), self.faded, scenes::resume(&self.game.level));
+        self.screen = Screen::Scene { scenes, then_menu: None };
+        self.tick = now;
+    }
+
+    /// Play on from snapshot `k`.
+    fn rewind_to(&mut self, k: usize, now: Instant) {
+        if let Some(s) = self.rewind.restore(k) {
+            self.apply(s);
+            self.resume(now);
+        }
+    }
+
+    /// The timeline's line about the game now.
+    fn snapshot_info(&self) -> String {
+        format!(
+            "Level {} {}   {}   {} {}",
+            self.level + 1,
+            self.game.level.name,
+            clock(self.run_frames, RATE),
+            self.deaths,
+            if self.deaths == 1 { "death" } else { "deaths" }
+        )
+    }
+
+    /// A snapshot now; `manual`: a copier save (rule 6).
+    fn take_snapshot(&mut self, manual: bool) {
+        let picture = theme::half_png(&render::draw(self.data, &self.game));
+        let (snap, frames) = (self.snap(), self.frames);
+        if manual {
+            let info = format!("Copier save   {}", self.snapshot_info());
+            self.rewind.save_point(frames, &snap, picture, info);
+        } else {
+            let info = self.snapshot_info();
+            self.rewind.take(frames, &snap, picture, info);
+        }
+    }
+
+    /// Level `level`'s start view (the level selection's preview).
+    fn preview(&self, level: usize) -> render::Canvas {
+        self.previews
+            .borrow_mut()
+            .entry(level)
+            .or_insert_with(|| render::draw(self.data, &start_game(self.data, self.assets, level, PlayerGlobals::new_game(), 1)))
+            .clone()
+    }
+
+    /// Rule 1: after a death the level again, from the last copier save
+    /// in it (the record the original continues from), else from its
+    /// start (its meters, score, ammunition and items as it began).
+    fn restart_after_death(&mut self, now: Instant) {
+        let screen = render::draw(self.data, &self.game);
+        let current = self.game.counter.current;
+        let mut save = self.game.session.save.clone();
+        if !(save.copier && save.level == current) {
+            let st = &self.game.level_start;
+            save.copier = false;
+            save.level = current;
+            save.world = self.game.session.world_id;
+            save.world_name = self.game.session.world_name.clone();
+            (save.score, save.comfort, save.surface, save.favor) = (st.score, st.comfort, st.surface, st.favor);
+            (save.ammo, save.inventory) = (st.ammo, st.inventory);
+        }
+        if let Some(missing) = self.game.continue_game(&save, &self.data.levels, self.assets)
+            && !missing.is_empty()
+        {
+            eprintln!("level {current}: not ported yet: {missing:?}");
+        }
+        let scenes = scenes::Scenes::new(screen, self.faded, scenes::after_death(&self.game.level, &self.data.world));
+        self.screen = Screen::Scene { scenes, then_menu: None };
+        self.tick = now;
     }
 
     /// The game's screen with the game area white (under a level's start).
@@ -189,7 +433,7 @@ impl<'a> App<'a> {
 
     /// To the main menu from the screen shown: fade out, the menu, fade in.
     fn back_to_menu(&mut self, screen: render::Canvas, steps: Vec<scenes::Step>, now: Instant) {
-        let m = menu::Menu::new();
+        let m = self.new_menu();
         let mut steps = steps;
         steps.push(scenes::Step::FadeOut(8));
         let mut scenes = scenes::Scenes::new(screen, self.faded, steps);
@@ -241,26 +485,67 @@ impl<'a> App<'a> {
         let mut pressed = false;
         let mut action: Option<menu::Action> = None;
         let mut opt_event: Option<options::Event> = None;
-        let mut give_up = false;
+        // the game left (Escape): kept, the main menu
+        let mut leave = false;
+        // play on from this snapshot
+        let mut rewind: Option<usize> = None;
         for e in events {
             let in_game = matches!(self.screen, Screen::Game(_));
             match e {
-                Event::Quit { .. } => return false,
+                Event::Quit { .. } => {
+                    self.keep();
+                    return false;
+                }
                 Event::Window { win_event: sdl3::event::WindowEvent::FocusLost, .. } => self.focus_paused = true,
                 // a key or a click ends the pause of a lost focus (and does
                 // nothing else)
                 Event::KeyDown { .. } | Event::MouseButtonDown { .. } if self.focus_paused && in_game => self.focus_paused = false,
                 Event::MouseButtonDown { x, y, .. } => {
                     pressed = true;
+                    let (x, y) = (x as i32, y as i32);
+                    let levels = data.levels.len();
+                    let tree = self.rewind.tree();
                     if let Some(o) = self.options_mut() {
-                        opt_event = opt_event.or(o.click(x as i32, y as i32));
-                    } else if let Screen::Menu { menu, .. } = &mut self.screen {
-                        menu.mouse_down(x as i32, y as i32);
+                        opt_event = opt_event.or(o.mouse(x, y, true));
+                    } else {
+                        match &mut self.screen {
+                            Screen::Menu { page: Some(MenuPage::Levels(l)), .. } => {
+                                if let Some(ouro_ui::levels::Choice::Take(k)) = l.mouse(x, y, true, levels, SCREEN) {
+                                    jump = Some(k);
+                                }
+                            }
+                            Screen::Menu { page: Some(MenuPage::Timeline(t)), .. } | Screen::Game(Overlay::Timeline(t)) => {
+                                if let Some(ouro_ui::timeline::Choice::Play(k)) = t.mouse(x, y, true, &tree, SCREEN) {
+                                    rewind = Some(k);
+                                }
+                            }
+                            Screen::Menu { menu, .. } => action = action.or(menu.mouse_down(x, y)),
+                            _ => {}
+                        }
                     }
                 }
                 Event::MouseMotion { x, y, .. } => {
-                    if let Screen::Menu { menu, .. } = &mut self.screen {
-                        menu.mouse_move(x as i32, y as i32);
+                    let (x, y) = (x as i32, y as i32);
+                    let levels = data.levels.len();
+                    let tree = self.rewind.tree();
+                    if let Some(o) = self.options_mut() {
+                        o.mouse(x, y, false);
+                    } else {
+                        match &mut self.screen {
+                            Screen::Menu { page: Some(MenuPage::Levels(l)), .. } => {
+                                l.mouse(x, y, false, levels, SCREEN);
+                            }
+                            Screen::Menu { page: Some(MenuPage::Timeline(t)), .. } | Screen::Game(Overlay::Timeline(t)) => {
+                                t.mouse(x, y, false, &tree, SCREEN);
+                            }
+                            Screen::Menu { menu, .. } => menu.mouse_move(x, y),
+                            _ => {}
+                        }
+                    }
+                }
+                Event::MouseWheel { y, .. } => {
+                    if let Screen::Menu { page: Some(MenuPage::Levels(l)), .. } = &mut self.screen {
+                        l.wheel(y.round() as i32, data.levels.len(), SCREEN);
                     }
                 }
                 Event::MouseButtonUp { x, y, .. } => {
@@ -268,22 +553,47 @@ impl<'a> App<'a> {
                         action = action.or(menu.mouse_up(x as i32, y as i32));
                     }
                 }
-                Event::KeyDown { scancode: Some(sc), repeat: false, .. } if matches!(self.screen, Screen::Game(Overlay::Confirm)) => {
-                    match sc {
-                        Scancode::Return | Scancode::KpEnter | Scancode::Y => {
-                            self.screen = Screen::Game(Overlay::None);
-                            give_up = true;
-                        }
-                        Scancode::Escape | Scancode::N => {
-                            self.screen = Screen::Game(Overlay::None);
-                            self.next = now;
-                        }
-                        _ => {}
-                    }
-                }
                 Event::KeyDown { scancode: Some(sc), repeat: false, .. } if self.options().is_some() => {
                     if let Some(o) = self.options_mut() {
                         opt_event = opt_event.or(o.key(sc, mac_code(sc)));
+                    }
+                }
+                // the level selection and the timeline (over the menu or the game)
+                Event::KeyDown { scancode: Some(sc), .. }
+                    if matches!(self.screen, Screen::Menu { page: Some(_), .. } | Screen::Game(Overlay::Timeline(_))) =>
+                {
+                    let levels = data.levels.len();
+                    let tree = self.rewind.tree();
+                    let Some(k) = theme::ui_key(sc) else { continue };
+                    match &mut self.screen {
+                        Screen::Menu { page: page @ Some(MenuPage::Levels(_)), .. } => {
+                            let Some(MenuPage::Levels(l)) = page else { continue };
+                            match l.key(k, levels, SCREEN) {
+                                Some(ouro_ui::levels::Choice::Take(n)) => jump = Some(n),
+                                Some(ouro_ui::levels::Choice::Back) => *page = None,
+                                None => {}
+                            }
+                        }
+                        Screen::Menu { page: page @ Some(MenuPage::Timeline(_)), .. } => {
+                            let Some(MenuPage::Timeline(t)) = page else { continue };
+                            match t.key(k, &tree) {
+                                Some(ouro_ui::timeline::Choice::Play(n)) => rewind = Some(n),
+                                Some(ouro_ui::timeline::Choice::Back) => *page = None,
+                                None => {}
+                            }
+                        }
+                        Screen::Game(o @ Overlay::Timeline(_)) => {
+                            let Overlay::Timeline(t) = o else { continue };
+                            match t.key(k, &tree) {
+                                Some(ouro_ui::timeline::Choice::Play(n)) => rewind = Some(n),
+                                Some(ouro_ui::timeline::Choice::Back) => {
+                                    *o = Overlay::None;
+                                    self.next = now;
+                                }
+                                None => {}
+                            }
+                        }
+                        _ => {}
                     }
                 }
                 Event::KeyDown { scancode: Some(sc), repeat: false, .. }
@@ -298,9 +608,9 @@ impl<'a> App<'a> {
                     } else if let Some(c) =
                         Keycode::from_scancode(sc, SDL_KMOD_NONE, false).and_then(|k| char::from_u32(k as u32)).filter(char::is_ascii_lowercase)
                     {
-                        m.key(c);
-                    } else if matches!(sc, Scancode::Return | Scancode::KpEnter) {
-                        m.key('\r');
+                        action = action.or(m.key(c));
+                    } else if let Some(k) = theme::ui_key(sc) {
+                        action = action.or(m.arrow(k));
                     }
                 }
                 Event::KeyDown { scancode: Some(sc), keymod, repeat: false, .. } => {
@@ -315,8 +625,15 @@ impl<'a> App<'a> {
                     let scene = matches!(self.screen, Screen::Scene { .. });
                     match sc {
                         _ if scene && sc != self.settings.fullscreen_key => pressed = true,
-                        // CheckGameLoopKeys: Escape asks before the game is given up
-                        Scancode::Escape if in_game => self.screen = Screen::Game(Overlay::Confirm),
+                        // CheckGameLoopKeys: Escape asks before the game is given
+                        // up; the port keeps it instead (rule 4)
+                        Scancode::Escape if in_game => leave = true,
+                        // the timeline (rule 5); the game waits
+                        Scancode::Backspace if in_game => {
+                            let mut view = ouro_ui::timeline::Timeline::default();
+                            view.open(&self.rewind.tree(), self.rewind.current());
+                            self.screen = Screen::Game(Overlay::Timeline(view));
+                        }
                         // Command-I: the options
                         Scancode::I if in_game && keymod.intersects(options_mod()) => {
                             self.screen = Screen::Game(Overlay::Options(options::Screen::new(self.settings.clone())));
@@ -338,9 +655,13 @@ impl<'a> App<'a> {
             }
         }
         if let Some(n) = jump {
-            self.level = n;
-            self.game = start_game(data, self.assets, self.level, PlayerGlobals::new_game(), self.game.rng.seed);
-            self.show_game_start(false, now);
+            // F7 / F8, or a level of the level selection: a game from it
+            let from_menu = matches!(self.screen, Screen::Menu { .. });
+            self.begin(n);
+            self.show_game_start(from_menu, now);
+        }
+        if let Some(k) = rewind {
+            self.rewind_to(k, now);
         }
         if let Screen::Scene { scenes: sc, then_menu } = &mut self.screen {
             sc.music_faded = self.music_faded;
@@ -358,7 +679,7 @@ impl<'a> App<'a> {
             if sc.done() {
                 self.faded = sc.dark >= 256;
                 self.screen = match then_menu.take() {
-                    Some(menu) => Screen::Menu { menu, options: None },
+                    Some(menu) => Screen::Menu { menu, options: None, page: None },
                     None => Screen::Game(Overlay::None),
                 };
                 self.next = now;
@@ -392,12 +713,28 @@ impl<'a> App<'a> {
                 }
             }
             Some(menu::Action::NewGame) => {
-                self.level = 0;
-                self.game = start_game(data, self.assets, self.level, PlayerGlobals::new_game(), self.game.rng.seed);
+                self.begin(0);
                 self.show_game_start(true, now);
             }
-            // ContinueGame: the save list is to come; the game saved in
-            // this session goes on (a copier save without the story)
+            Some(menu::Action::Levels) => {
+                let mut l = ouro_ui::levels::Levels::default();
+                l.select(self.level.min(data.levels.len() - 1), SCREEN);
+                if let Screen::Menu { page, .. } = &mut self.screen {
+                    *page = Some(MenuPage::Levels(l));
+                }
+            }
+            Some(menu::Action::Timeline) => {
+                self.load_snapshots();
+                let mut view = ouro_ui::timeline::Timeline::default();
+                view.open(&self.rewind.tree(), self.rewind.current());
+                if let Screen::Menu { page, .. } = &mut self.screen {
+                    *page = Some(MenuPage::Timeline(view));
+                }
+            }
+            // Continue (rule 4): the game kept when it was left
+            Some(menu::Action::Continue) if self.load_kept() => self.resume(now),
+            // else ContinueGame with the record saved in this session (a
+            // copier save without the story)
             Some(menu::Action::Continue) => {
                 // HARRY_SAVE=<file> continues from that record instead (for
                 // testing, e.g. the saves of `ouro-harry-repro`)
@@ -415,10 +752,15 @@ impl<'a> App<'a> {
                     self.show_game_start(!sg.copier, now);
                 }
             }
-            Some(menu::Action::Quit) => return false,
+            Some(menu::Action::Quit) => {
+                self.keep();
+                return false;
+            }
             None => {}
         }
-        if give_up {
+        if leave {
+            self.keep();
+            self.in_game = false;
             self.back_to_menu(render::draw(data, &self.game), Vec::new(), now);
         }
         // the map closes with its key once 12 ticks have passed
@@ -477,6 +819,8 @@ impl<'a> App<'a> {
         self.game.audio.playing = self.mixer.playing();
         let end = self.game.frame(keys, self.assets, &mut show, &mut save);
         self.frames_run += 1;
+        self.frames += 1;
+        self.run_frames += 1;
         // CheckGameLoopKeys: the map key (not again for 6 passes)
         self.map_cooldown = self.map_cooldown.saturating_sub(1);
         if keys.down(self.settings.map_key) && self.map_cooldown == 0 {
@@ -492,8 +836,19 @@ impl<'a> App<'a> {
             self.screen = Screen::Game(Overlay::Balloon(b, now));
         }
         match end {
-            FrameEnd::Running => {}
+            FrameEnd::Running => {
+                // a copier save is a snapshot of its own (rule 6)
+                if self.game.session.save_pending && self.game.session.save.copier {
+                    self.take_snapshot(true);
+                } else if self.rewind.due(self.frames) {
+                    self.take_snapshot(false);
+                }
+            }
             FrameEnd::LevelDone => {
+                // the level's run (rule 3)
+                self.records.add(self.level as i32 + 1, self.run_frames, self.run_deaths);
+                self.run_frames = 0;
+                self.run_deaths = 0;
                 // the screen as the level ended, under the sequence
                 let (screen, old) = (render::draw(data, &self.game), self.game.level.clone());
                 let heard = self.game.sounds.len();
@@ -510,21 +865,19 @@ impl<'a> App<'a> {
                         self.screen = Screen::Scene { scenes, then_menu: None };
                         self.tick = now;
                     }
-                    // after Win the main menu
-                    (UpLevel::Won, _) => self.back_to_menu(screen, scenes::win(&data.world), now),
+                    // after Win the main menu; the game is over
+                    (UpLevel::Won, _) => {
+                        self.forget();
+                        self.back_to_menu(screen, scenes::win(&data.world), now);
+                    }
                 }
             }
+            // GameLoop's end (the original: EndLevelEffect, the main menu,
+            // AskToContinue): the level again (rule 1)
             FrameEnd::Died => {
-                // GameLoop's end: EndLevelEffect when comfort or favor is gone
-                let screen = render::draw(data, &self.game);
-                let mut steps = Vec::new();
-                if self.game.g.comfort < 1 || self.game.g.favor < 1 {
-                    steps.push(scenes::Step::EndLevel);
-                }
-                // then the main menu (AskToContinue is to come with the save
-                // list; the menu's Continue goes on from the game saved in
-                // this session)
-                self.back_to_menu(screen, steps, now);
+                self.deaths += 1;
+                self.run_deaths += 1;
+                self.restart_after_death(now);
             }
         }
         if std::mem::take(&mut self.game.session.save_pending) {
@@ -546,40 +899,74 @@ impl<'a> App<'a> {
         match &self.screen {
             Screen::Scene { scenes: sc, .. } => {
                 // the sequence's picture; the panel's texts when it shows them
-                let lines = if sc.texts { picture(data, &self.game, &self.score, None).1 } else { Vec::new() };
+                let lines = if sc.texts { picture(data, &self.game, &self.score, None, self.deaths).1 } else { Vec::new() };
                 (sc.image.clone(), lines, sc.dark)
             }
-            Screen::Menu { menu, options } => {
-                let (mut c, mut l) = menu.draw(data, fonts);
+            Screen::Menu { menu, options, page } => {
+                let look = theme::Look { fonts };
                 if let Some(o) = options {
-                    l = o.draw(&mut c, &key_name);
+                    let mut c = render::Canvas::new(640, 480, 255);
+                    let l = o.draw(&mut c, &look, &key_name);
+                    return (c, l, dark);
                 }
-                (c, l, dark)
+                match page {
+                    Some(MenuPage::Levels(levels)) => {
+                        let mut c = render::Canvas::new(640, 480, 255);
+                        let rows: Vec<_> = data
+                            .levels
+                            .iter()
+                            .enumerate()
+                            .map(|(k, l)| ouro_ui::levels::Row { number: Some(k as i32 + 1), name: l.name.clone(), done: self.records.done(k as i32 + 1), locked: false })
+                            .collect();
+                        let k = levels.selected.min(data.levels.len() - 1);
+                        let preview = self.preview(k);
+                        let l = levels.draw(&look, &mut c, SCREEN, "Levels", &rows, &self.records.lines(k as i32 + 1), |c, r| theme::scaled_into(c, r, &preview));
+                        (c, l, dark)
+                    }
+                    Some(MenuPage::Timeline(view)) => self.timeline_picture(view, &look, dark),
+                    None => {
+                        let (c, l) = menu.draw(data, fonts);
+                        (c, l, dark)
+                    }
+                }
             }
             Screen::Game(overlay) => {
                 let shown = match overlay {
                     Overlay::Balloon(b, _) => Some(b),
                     _ => None,
                 };
-                let (mut c, mut l) = picture(data, &self.game, &self.score, shown);
+                if let Overlay::Timeline(view) = overlay {
+                    return self.timeline_picture(view, &theme::Look { fonts }, dark);
+                }
+                let (mut c, mut l) = picture(data, &self.game, &self.score, shown, self.deaths);
                 if let Overlay::Options(o) = overlay {
-                    // over the game area; the panel's texts stay
-                    l.extend(o.draw(&mut c, &key_name));
+                    // over the whole screen; the game waits
+                    c = render::Canvas::new(640, 480, 255);
+                    l = o.draw(&mut c, &theme::Look { fonts }, &key_name);
                 } else if self.paused
                     && let Some(p) = data.pictures.get(&4921)
                 {
                     self.draw_pause(&mut c, &mut l, p);
                 }
-                match overlay {
-                    Overlay::Map(_) => render::draw_map(&mut c, data, &self.game),
-                    Overlay::Confirm => {
-                        l.extend(menu::message_box(&mut c, fonts, "Are you sure you want to abort this game?\n\nReturn: yes      Escape: no"))
-                    }
-                    _ => {}
+                if let Overlay::Map(_) = overlay {
+                    render::draw_map(&mut c, data, &self.game);
                 }
                 (c, l, dark)
             }
         }
+    }
+
+    /// The timeline over the whole screen: the chosen snapshot's picture.
+    fn timeline_picture(&self, view: &ouro_ui::timeline::Timeline, look: &theme::Look, dark: i32) -> (render::Canvas, Vec<text::Line>, i32) {
+        let mut c = render::Canvas::new(640, 480, 255);
+        let chosen = view.chosen.and_then(|k| self.rewind.get(k)).and_then(|n| theme::from_png(&n.picture));
+        let info = view.chosen.map(|k| self.rewind.info(k)).unwrap_or_default();
+        let l = view.draw(look, &mut c, SCREEN, &self.rewind.tree(), self.rewind.current(), &info, |c, r| {
+            if let Some(p) = &chosen {
+                theme::scaled_into(c, r, p);
+            }
+        });
+        (c, l, dark)
     }
 
     /// Pause: PICT 4921 at (128, 192), over the game area's middle, with its
@@ -616,13 +1003,19 @@ impl<'a> App<'a> {
     pub fn describe(&self) -> String {
         match &self.screen {
             Screen::Scene { .. } => "scene".into(),
-            Screen::Menu { options, .. } => if options.is_some() { "menu+options" } else { "menu" }.into(),
+            Screen::Menu { options, page, .. } => match (options, page) {
+                (Some(_), _) => "menu+options",
+                (None, Some(MenuPage::Levels(_))) => "menu+levels",
+                (None, Some(MenuPage::Timeline(_))) => "menu+timeline",
+                (None, None) => "menu",
+            }
+            .into(),
             Screen::Game(o) => {
                 let paused = if self.paused { "+paused" } else { "" };
                 match o {
                     Overlay::None => format!("game{paused}"),
                     Overlay::Options(_) => format!("game+options{paused}"),
-                    Overlay::Confirm => format!("game+confirm{paused}"),
+                    Overlay::Timeline(_) => format!("game+timeline{paused}"),
                     Overlay::Map(_) => format!("game{paused}+map"),
                     Overlay::Balloon(..) => format!("game{paused}+balloon"),
                 }
@@ -731,13 +1124,15 @@ mod tests {
         d.run(Duration::from_secs(1));
         assert!(frames(&d) >= f + 29, "the game runs at 30 frames a second ({} in a second)", frames(&d) - f);
 
-        // Escape asks; No goes on
-        d.press(Scancode::Escape, Mod::NOMOD);
-        assert_eq!(d.app.describe(), "game+confirm");
+        // Backspace: the timeline (a snapshot at the start), the game waits;
+        // Escape goes on
+        d.press(Scancode::Backspace, Mod::NOMOD);
+        assert_eq!(d.app.describe(), "game+timeline");
+        assert!(!d.app.rewind.is_empty(), "a snapshot at the level's start");
         let f = frames(&d);
         d.run(Duration::from_millis(500));
-        assert_eq!(frames(&d), f, "the game waits for the answer");
-        d.press(Scancode::N, Mod::NOMOD);
+        assert_eq!(frames(&d), f, "the game waits");
+        d.press(Scancode::Escape, Mod::NOMOD);
         d.run(Duration::from_millis(500));
         assert_eq!(d.app.describe(), "game");
         assert!(frames(&d) > f);
@@ -791,14 +1186,96 @@ mod tests {
         assert_eq!(d.app.game.counter.current, 2);
         d.until_game(Duration::from_secs(60));
 
-        // Escape, Return: the game is given up, back to the menu
+        // Escape: the game is left (kept for Continue), back to the menu;
+        // L the level selection, Escape back
         d.press(Scancode::Escape, Mod::NOMOD);
-        d.press(Scancode::Return, Mod::NOMOD);
         assert_eq!(d.app.describe(), "scene");
         d.run(Duration::from_secs(3));
         assert_eq!(d.app.describe(), "menu");
+        d.press(Scancode::L, Mod::NOMOD);
+        assert_eq!(d.app.describe(), "menu+levels");
+        d.press(Scancode::Escape, Mod::NOMOD);
+        assert_eq!(d.app.describe(), "menu");
         // Escape in the menu quits
         assert!(!d.press(Scancode::Escape, Mod::NOMOD));
+    }
+
+    /// A game kept as JSON plays on exactly as the one it was made from
+    /// (Continue and rewind keep the core's state so).
+    #[test]
+    fn a_kept_game_plays_on_the_same() {
+        let Ok(data) = harry_data::pack::read(crate::BUNDLED) else { return };
+        let loaded = crate::Loaded::new(&data).unwrap();
+        let face_bounds = |f: i16| data.faces.get(&f).map_or([0; 4], |x| x.bounds);
+        let assets = loaded.assets(&face_bounds);
+        let mut game = start_game(&data, &assets, 2, PlayerGlobals::new_game(), 7);
+        let b = game.prefs.bindings;
+        let keys = [b.left, b.right, b.scoot, b.inch, b.kick];
+        let held = |f: usize| {
+            let mut k = KeyMap::default();
+            k.press(keys[f / 13 % keys.len()]);
+            k
+        };
+        let mut no_balloon = |_: &Balloon| false;
+        let mut save = || true;
+        for f in 0..300 {
+            game.frame(&held(f), &assets, &mut no_balloon, &mut save);
+        }
+        let json = serde_json::to_vec(&game).unwrap();
+        eprintln!("a game as JSON: {} bytes", json.len());
+        let packed = miniz_oxide_size(&json);
+        eprintln!("deflated: {packed} bytes");
+        let mut copy: Game = serde_json::from_slice(&json).unwrap();
+        for f in 300..700 {
+            game.frame(&held(f), &assets, &mut no_balloon, &mut save);
+            copy.frame(&held(f), &assets, &mut no_balloon, &mut save);
+        }
+        assert_eq!(serde_json::to_vec(&game).unwrap(), serde_json::to_vec(&copy).unwrap());
+    }
+
+    fn miniz_oxide_size(json: &[u8]) -> usize {
+        let mut r: ouro_play::rewind::Rewind<serde_json::Value> = ouro_play::rewind::Rewind::new(1, 1);
+        r.take(0, &serde_json::from_slice(json).unwrap(), Vec::new(), String::new());
+        r.get(0).unwrap().state.as_ref().unwrap().len()
+    }
+
+    /// Rule 1: a death starts the level again (no game over), counted;
+    /// rule 3: the level selection starts a level.
+    #[test]
+    fn a_death_starts_the_level_again() {
+        let Ok(data) = harry_data::pack::read(crate::BUNDLED) else { return };
+        let loaded = crate::Loaded::new(&data).unwrap();
+        let face_bounds = |f: i16| data.faces.get(&f).map_or([0; 4], |x| x.bounds);
+        let assets = loaded.assets(&face_bounds);
+        let fonts = text::Fonts::load();
+        let t0 = Instant::now();
+        let game = start_game(&data, &assets, 0, PlayerGlobals::new_game(), 1);
+        let app = App::new(&data, &assets, &fonts, options::Settings::default(), None, None, audio::Mixer::silent(&data), game, 0, false, t0);
+        let mut d = Driver { app, now: t0, input: Input::default(), steps: 0 };
+        d.run(Duration::from_secs(3));
+        // the level selection: level 3
+        d.press(Scancode::L, Mod::NOMOD);
+        d.press(Scancode::Down, Mod::NOMOD);
+        d.press(Scancode::Down, Mod::NOMOD);
+        d.press(Scancode::Return, Mod::NOMOD);
+        d.until_game(Duration::from_secs(120));
+        assert_eq!(d.app.game.counter.current, 3);
+        let score = d.app.game.g.score;
+        // comfort gone: Harry dies
+        d.app.game.g.comfort = 0;
+        // the meter runs down, Harry's death takes 110 frames
+        for _ in 0..100 {
+            if d.app.deaths > 0 {
+                break;
+            }
+            d.run(Duration::from_millis(100));
+        }
+        assert_eq!(d.app.deaths, 1);
+        assert_eq!(d.app.describe(), "scene", "EndLevelEffect and the level's start");
+        d.until_game(Duration::from_secs(120));
+        assert_eq!((d.app.game.counter.current, d.app.game.g.comfort, d.app.game.g.score), (3, 72, score), "the level again as it began");
+        let (_, lines, _) = d.app.compose();
+        assert!(lines.iter().any(|l| l.text == "Deaths: 1"));
     }
 
     #[test]

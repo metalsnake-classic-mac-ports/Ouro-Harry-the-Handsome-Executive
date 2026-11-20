@@ -11,6 +11,10 @@ name = "ouro-harry"
 path = "src/main.rs"
 
 [dependencies]
+serde.workspace = true
+serde_json.workspace = true
+ouro-ui.workspace = true
+ouro-play.workspace = true
 harry-core.workspace = true
 harry-data.workspace = true
 anyhow.workspace = true

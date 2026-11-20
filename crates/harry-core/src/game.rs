@@ -108,7 +108,7 @@ fn wrap_draws(pos: (i16, i16), size: (i16, i16), origin: (i32, i32), unscaled: b
 pub const PLAYER_FACES: Face = 1101;
 
 /// The preferences a frame reads.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Prefs {
     /// prefs +8: the scroll mode (`view::mode`); above 2 also keeps a
     /// message balloon that did not fit pending.
@@ -147,6 +147,7 @@ pub struct Assets<'a> {
 }
 
 /// The state of a level being played.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Game {
     pub world: World,
     pub level: Level,
@@ -201,14 +202,14 @@ pub struct Game {
 /// One meter as last drawn: the value's strip `len` px long (from x 473;
 /// 0 or less: none) and, if `end`, the rounded end (cicn 10135 + meter) at
 /// x 473 + `len`, 1 px below the strip's top.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MeterDraw {
     pub len: i16,
     pub end: bool,
 }
 
 /// What lasts the whole session: the saved-game record and the world.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Session {
     /// The record (`_DAT_10065b60`); saves change parts of it.
     pub save: SaveGame,
@@ -245,7 +246,7 @@ impl Default for Session {
 /// `PTR_DAT_10065b10`, score `_DAT_10065af0`, ammunition `_DAT_10065ae0` /
 /// `…adc` / `…ad8`, the inventory copy at `_DAT_10065ac0`. A new game
 /// starts with 72 / 72 / 72, no score, no ammunition, no items.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LevelStart {
     pub score: i32,
     pub comfort: i16,
@@ -282,7 +283,7 @@ impl LevelStart {
 }
 
 /// How `UpLevel` ended.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum UpLevel {
     /// The next level is set up and the game loop goes on.
     Next,
@@ -297,7 +298,7 @@ type BalloonCall = (bool, i16, (i16, i16));
 /// text, mode)`), with what the frontend needs to place it: the sprite's
 /// `at` (v, h), the view's corner (v, h) and Harry's top-left (h, v) at
 /// that moment.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Balloon {
     pub text: BalloonText,
     pub mode: i16,
@@ -311,7 +312,7 @@ pub struct Balloon {
 pub type ShowBalloonFn<'a> = dyn FnMut(&Balloon) -> bool + 'a;
 
 /// What a frame ended with.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FrameEnd {
     Running,
     /// The level counter changed (`UpLevel`).

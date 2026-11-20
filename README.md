@@ -33,19 +33,25 @@ You need Rust (via [rustup](https://rustup.rs)) and SDL3
     cargo run --release -p harry
 
 `ouro-harry [pack.zip] [level]` plays the game: main menu (New Game,
-Continue Game, Instructions, Options, Credits, Quit), the story, the levels,
-music and sound; a level number starts it at once. A data pack on the
+Continue Game, Instructions, Options, Credits, Quit, and a box with
+Continue, Levels and Timeline), the story, the levels, music and sound; a
+level number starts it at once. As in every Ouro port, dying costs no game
+(the level starts again; the panel counts your deaths), any level can be
+chosen in the level selection (L, with your best, first and latest time),
+Esc or quitting keeps the game for Continue, and Backspace rewinds: it
+shows the snapshots (one every 5 seconds, and each copier save) as a
+timeline to play on from. A data pack on the
 command line, in `HARRY_DATA`, or as `ouro-harry-data.zip` next to the
 program or in the current folder replaces the built-in one. Default keys
 as on the Mac: ← → turn, ↓ scoot, ↑ inch, Space
 kick, Control select item, Option (Alt) use item, 1–4 pick a weapon or the
 swivel, Tab the map, Caps Lock pause; Command (or Ctrl) + I opens the
-options during a game, F11 switches to full screen, Esc asks before giving
-up the game. The game pauses when its window loses the focus. Keys,
+options during a game, F11 switches to full screen, Esc leaves the game
+(it is kept), Backspace shows the timeline. The game pauses when its window loses the focus. Keys,
 scaling (whole pixels or free), full screen, volumes and saving between
 levels are set in the options, which are saved in SDL's preference folder
 (macOS: `~/Library/Application Support/MetalSnake/Ouro Harry`), with the
-saved game. F8 / F7 jump to the next / previous level (for testing).
+records and the kept game. F8 / F7 jump to the next / previous level (for testing).
 `ouro-harry --screenshot out.bmp [level] [frames]` runs the frames
 without a window and writes the picture; with `HARRY_SAVE=<file>` it, and
 Continue Game, start from that saved game.

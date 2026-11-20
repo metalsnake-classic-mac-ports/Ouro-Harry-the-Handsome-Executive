@@ -35,7 +35,7 @@ pub const WEAPON_OFFSETS: [(i16, i16); 36] = [
 ];
 
 /// What the held weapon needs to know about Harry.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Holder {
     /// `atV`, `atH`.
     pub at: (i16, i16),
@@ -46,7 +46,7 @@ pub struct Holder {
 }
 
 /// The held weapon sprite.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct HeldWeapon {
     /// (v, h).
     pub pos: (i16, i16),
@@ -66,7 +66,7 @@ pub struct HeldWeapon {
 
 /// A shot sprite to create (`SATNewSprite` with `SetupPlayerShotSprite`,
 /// then this speed).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct NewShot {
     /// 0 staple / shrapnel pellet, 1 B.A.D.A.S.S., 4 soda can, 10 the
     /// power of the swivel (made by `keys`).
@@ -77,7 +77,7 @@ pub struct NewShot {
 }
 
 /// Sounds and explosions of the weapon.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum WeaponEvent {
     Sound(i16),
     /// `STPlay3DSound` at the shot's `pos` (v, h).
@@ -198,7 +198,7 @@ fn make_new_shot(w: &HeldWeapon, g: &PlayerGlobals, rng: &mut Random, shots: &mu
 }
 
 /// The face of a shot sprite.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ShotFace {
     #[default]
     None,
@@ -209,7 +209,7 @@ pub enum ShotFace {
 }
 
 /// A player shot sprite.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Shot {
     pub kind: i16,
     /// (v, h).

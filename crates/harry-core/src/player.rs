@@ -12,7 +12,7 @@ pub const HOT_RECT: Rect = [22, 22, 42, 42];
 pub const KICK_HOT_RECT: Rect = [0, 0, 64, 64];
 
 /// The player sprite's fields the collision code uses.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Player {
     pub body: Body,
     /// 0–35, the direction of travel.
@@ -33,7 +33,7 @@ impl Player {
 }
 
 /// The globals `HitPlayerTileSprite` reads and writes.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TileState {
     /// A foreground wall was hit this frame (`PTR_DAT_10065e58`).
     pub wall_contact: bool,
@@ -64,7 +64,7 @@ pub struct Masks {
 }
 
 /// Sounds the tile reactions ask for.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TileSound {
     /// `Ouch`: one of three voice samples (picked with `SATRand(100)`
     /// unless a voice is playing or caffeine works).

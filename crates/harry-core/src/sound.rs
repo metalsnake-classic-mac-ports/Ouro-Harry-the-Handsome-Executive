@@ -14,7 +14,7 @@
 use crate::effect::pe_distance;
 
 /// What the original keeps a sound's channel for.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Channel {
     /// Any free channel.
     Effect,
@@ -28,7 +28,7 @@ pub enum Channel {
     Charge,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SoundEvent {
     /// Play `snd` `id` with these volumes (0x100 = full) and rate; the
     /// game's `handle` for it (never 0).
@@ -51,7 +51,7 @@ pub enum SoundEvent {
 }
 
 /// A sound that plays: its handle, `snd` and channel.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Voice {
     pub handle: u32,
     pub id: i16,
@@ -59,7 +59,7 @@ pub struct Voice {
 }
 
 /// The sounds that play.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Playing(pub Vec<Voice>);
 
 impl Playing {
@@ -96,7 +96,7 @@ impl Playing {
 
 /// A slot of `STPlayDynamicSound`'s table (`_DAT_10065d34`, 16 of 0x18
 /// bytes): a sound whose stereo position moves.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct DynamicSound {
     pub used: bool,
     pub handle: u32,
@@ -108,7 +108,7 @@ pub struct DynamicSound {
 
 /// The game's side of the sound: what plays, the handles the routines ask
 /// about, the dynamic sounds.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Audio {
     pub playing: Playing,
     /// `gVoiceChannel` (the last voice) and `_DAT_10068aa4` (the last

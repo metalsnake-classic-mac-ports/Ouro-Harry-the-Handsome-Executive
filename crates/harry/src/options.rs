@@ -1,10 +1,10 @@
-//! The settings and the options screen: the port's own screen in place of
-//! the original's preferences dialog (DITL 6900–6903). From it: the camera
-//! mode, saving between levels, the sound volume and the keys; the
-//! original's speed options (reduce frame rate, line skipping, interlace,
-//! compatible drawing, system tasks) are left out, the display options
-//! (scaling, full screen) are new. Saved as text in SDL's preference
-//! folder.
+//! The settings and the options screen: the Ouro ports' options and keys
+//! pages (ouro-ui, rule 9) in place of the original's preferences dialog
+//! (DITL 6900–6903). From it: the camera mode, saving between levels, the
+//! sound and music volumes and the keys; the original's speed options
+//! (reduce frame rate, line skipping, interlace, compatible drawing,
+//! system tasks) are left out, the display options (scaling, full screen)
+//! are new. Saved as text in SDL's preference folder.
 
 use std::path::Path;
 
@@ -13,7 +13,7 @@ use harry_core::view::mode;
 use sdl3::keyboard::Scancode;
 
 use crate::render::Canvas;
-use crate::text::{Face, Line};
+use crate::text::Line;
 
 /// What the player chose.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -138,66 +138,53 @@ impl Settings {
     }
 }
 
-/// The rows of the screen.
+/// The options page's rows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Row {
+enum Opt {
     Camera,
     Autosave,
     Volume,
     MusicVolume,
     Scaling,
     Fullscreen,
-    FullscreenKey,
-    PauseKey,
-    Key(usize),
+    Keys,
     Defaults,
-    Done,
 }
 
-const ROWS: [Row; 18] = [
-    Row::Camera,
-    Row::Autosave,
-    Row::Volume,
-    Row::MusicVolume,
-    Row::Scaling,
-    Row::Fullscreen,
-    Row::Key(0),
-    Row::Key(1),
-    Row::Key(2),
-    Row::Key(3),
-    Row::Key(4),
-    Row::Key(5),
-    Row::Key(6),
-    Row::Key(7),
-    Row::FullscreenKey,
-    Row::PauseKey,
-    Row::Defaults,
-    Row::Done,
-];
+const OPTIONS: [Opt; 8] = [Opt::Camera, Opt::Autosave, Opt::Volume, Opt::MusicVolume, Opt::Scaling, Opt::Fullscreen, Opt::Keys, Opt::Defaults];
 
-/// The first row of the keys.
-const FIRST_KEY: usize = 6;
-
-/// The rows of the full screen and pause keys (after the game's keys).
-const FULLSCREEN_ROW: usize = FIRST_KEY + ACTIONS.len();
+/// The keys page's rows: the game's actions, then the port's keys.
+const FULLSCREEN_ROW: usize = ACTIONS.len();
 const PAUSE_ROW: usize = FULLSCREEN_ROW + 1;
+const KEY_ROWS: usize = PAUSE_ROW + 1;
 
-/// A row's height.
-const ROW: i32 = 19;
+/// What each key row does (the keys page's line under the list).
+const KEY_ABOUT: [&str; KEY_ROWS] = [
+    "Turn left",
+    "Turn right",
+    "Move backwards",
+    "Move forwards",
+    "Kick with the chair",
+    "Choose the next item",
+    "Use the chosen item",
+    "Show the map of the level",
+    "Switch between window and full screen",
+    "Pause (caps lock: while locked, another key: by turns)",
+];
+const KEY_NOTES: [&str; 1] = ["1-4 pick a weapon; Backspace shows the timeline; Escape leaves the game (it is kept)"];
 
-/// Where the rows are: y of each row's top; `ROW` high, from x 32 to 448.
-fn row_top(i: usize) -> i32 {
-    // a gap before the keys and before the buttons
-    let gap = if i >= FIRST_KEY { 26 } else { 0 } + if i > PAUSE_ROW { 10 } else { 0 };
-    66 + i as i32 * ROW + gap
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Page {
+    Options,
+    Keys,
 }
 
-/// The options screen over the main menu's left part.
+/// The options page (ouro-ui's, in Harry's look) and its keys page.
 pub struct Screen {
     pub settings: Settings,
-    selected: usize,
-    /// Waiting for the key of this row.
-    capture: Option<Row>,
+    page: Page,
+    options: ouro_ui::options::Options,
+    keys: ouro_ui::keys::Keys,
 }
 
 /// What happened on the screen.
@@ -209,167 +196,171 @@ pub enum Event {
     Done,
 }
 
+/// The pages cover the screen.
+const SCREEN: ouro_ui::Rect = ouro_ui::Rect::new(0, 0, 640, 480);
+
 impl Screen {
     pub fn new(settings: Settings) -> Screen {
-        Screen { settings, selected: 0, capture: None }
+        Screen { settings, page: Page::Options, options: Default::default(), keys: Default::default() }
+    }
+
+    fn rows(&self) -> Vec<ouro_ui::options::Row> {
+        use ouro_ui::options::{Row, on_off};
+        let s = &self.settings;
+        let volume = |v: u8| if v == 0 { "Off".to_string() } else { v.to_string() };
+        OPTIONS
+            .iter()
+            .map(|o| match o {
+                Opt::Camera => Row::setting("Camera Mode", CAMERAS.iter().find(|c| c.0 == s.camera).map_or("?", |c| c.1), "How the view follows Harry"),
+                Opt::Autosave => Row::setting("Save between levels", on_off(s.autosave), "The original's save at each level's start"),
+                Opt::Volume => Row::setting("Sound Volume", volume(s.volume), "The sound effects, 0 (off) to 9"),
+                Opt::MusicVolume => Row::setting("Music Volume", volume(s.music_volume), "The music, 0 (off) to 9"),
+                Opt::Scaling => Row::setting(
+                    "Scaling",
+                    if s.integer_scaling { "Whole multiples (sharp)" } else { "Fill the window" },
+                    "The picture scaled by whole multiples, or as large as the window allows",
+                ),
+                Opt::Fullscreen => Row::setting("Full Screen", on_off(s.fullscreen), "The whole screen or a window"),
+                Opt::Keys => Row::action("Keys...", "The game's keys, full screen and pause"),
+                Opt::Defaults => Row::action("Defaults", "Camera, saving, volumes and display as at first (the keys stay)"),
+            })
+            .collect()
+    }
+
+    fn bindings(&self, key_name: &dyn Fn(i16) -> String) -> Vec<ouro_ui::keys::Binding> {
+        let mut b = self.settings.clone();
+        (0..KEY_ROWS)
+            .map(|k| {
+                let (action, key) = match k {
+                    FULLSCREEN_ROW => ("Full Screen", b.fullscreen_key.name().to_string()),
+                    PAUSE_ROW => ("Pause", b.pause_key.name().to_string()),
+                    a => (ACTIONS[a], key_name(*binding(&mut b, a))),
+                };
+                ouro_ui::keys::Binding { action: action.into(), key, pad: String::new(), about: KEY_ABOUT[k].into() }
+            })
+            .collect()
     }
 
     /// A key pressed (`code`: its Mac key code, if it has one).
     pub fn key(&mut self, sc: Scancode, code: Option<i16>) -> Option<Event> {
-        if let Some(row) = self.capture.take() {
-            if sc == Scancode::Escape {
-                return None;
-            }
-            let Row::Key(a) = row else {
-                // the full screen and pause keys: any key the game and the
-                // other one do not use
-                let b = self.settings.bindings;
-                let used = [b.left, b.right, b.scoot, b.inch, b.kick, b.select_item, b.use_item, self.settings.map_key];
-                let other = if row == Row::PauseKey { self.settings.fullscreen_key } else { self.settings.pause_key };
-                if code.is_some_and(|c| used.contains(&c)) || sc == other {
-                    return None;
-                }
-                if row == Row::PauseKey {
-                    self.settings.pause_key = sc;
-                } else {
-                    self.settings.fullscreen_key = sc;
-                }
-                return Some(Event::Changed);
-            };
-            let code = code?;
-            // a key bound elsewhere swaps with this one
-            let s = &mut self.settings;
-            let old = *binding(s, a);
-            for k in 0..ACTIONS.len() {
-                if k != a && *binding(s, k) == code {
-                    *binding(s, k) = old;
-                }
-            }
-            *binding(s, a) = code;
-            return Some(Event::Changed);
+        if self.page == Page::Keys && self.keys.waiting {
+            self.keys.done();
+            return if sc == Scancode::Escape { None } else { self.set_key(self.keys.selected, sc, code) };
         }
-        match sc {
-            Scancode::Up => self.selected = (self.selected + ROWS.len() - 1) % ROWS.len(),
-            Scancode::Down => self.selected = (self.selected + 1) % ROWS.len(),
-            Scancode::Left => return self.change(-1),
-            Scancode::Right => return self.change(1),
-            Scancode::Return | Scancode::KpEnter | Scancode::Space => return self.activate(),
-            Scancode::Escape => return Some(Event::Done),
-            _ => {}
-        }
-        None
-    }
-
-    /// A click at (x, y): selects the row and does what Return does.
-    pub fn click(&mut self, x: i32, y: i32) -> Option<Event> {
-        if self.capture.is_some() || !(32..448).contains(&x) {
-            return None;
-        }
-        let i = (0..ROWS.len()).find(|&i| (row_top(i)..row_top(i) + ROW).contains(&y))?;
-        self.selected = i;
-        self.activate()
-    }
-
-    fn activate(&mut self) -> Option<Event> {
-        match ROWS[self.selected] {
-            row @ (Row::Key(_) | Row::FullscreenKey | Row::PauseKey) => {
-                self.capture = Some(row);
-                None
+        let key = crate::theme::ui_key(sc)?;
+        match self.page {
+            Page::Options => {
+                let choice = self.options.key(key, &self.rows())?;
+                self.options_choice(choice)
             }
-            Row::Defaults => {
-                self.settings = Settings::default();
-                Some(Event::Changed)
+            Page::Keys => {
+                let choice = self.keys.key(key, KEY_ROWS)?;
+                self.keys_choice(choice)
             }
-            Row::Done => Some(Event::Done),
-            _ => self.change(1),
         }
     }
 
-    fn change(&mut self, by: i32) -> Option<Event> {
+    /// The mouse at (x, y); `click`: its button went down.
+    pub fn mouse(&mut self, x: i32, y: i32, click: bool) -> Option<Event> {
+        match self.page {
+            Page::Options => {
+                let choice = self.options.mouse(x, y, click, &self.rows(), 0, SCREEN)?;
+                self.options_choice(choice)
+            }
+            Page::Keys => {
+                let choice = self.keys.mouse(x, y, click, KEY_ROWS, KEY_NOTES.len(), SCREEN)?;
+                self.keys_choice(choice)
+            }
+        }
+    }
+
+    fn options_choice(&mut self, choice: ouro_ui::options::Choice) -> Option<Event> {
+        use ouro_ui::options::Choice;
+        let (row, by) = match choice {
+            Choice::Back => return Some(Event::Done),
+            Choice::Change(k, by) => (OPTIONS[k], by),
+            Choice::Take(k) => (OPTIONS[k], 1),
+        };
         let s = &mut self.settings;
-        match ROWS[self.selected] {
-            Row::Camera => {
+        match row {
+            Opt::Camera => {
                 let i = CAMERAS.iter().position(|c| c.0 == s.camera).unwrap_or(0) as i32;
                 s.camera = CAMERAS[(i + by).rem_euclid(CAMERAS.len() as i32) as usize].0;
             }
-            Row::Autosave => s.autosave = !s.autosave,
-            Row::Volume => s.volume = (i32::from(s.volume) + by).clamp(0, 9) as u8,
-            Row::MusicVolume => s.music_volume = (i32::from(s.music_volume) + by).clamp(0, 9) as u8,
-            Row::Scaling => s.integer_scaling = !s.integer_scaling,
-            Row::Fullscreen => s.fullscreen = !s.fullscreen,
-            _ => return None,
+            Opt::Autosave => s.autosave = !s.autosave,
+            // 9 and on goes round to off, as a click steps on
+            Opt::Volume => s.volume = (i32::from(s.volume) + by).rem_euclid(10) as u8,
+            Opt::MusicVolume => s.music_volume = (i32::from(s.music_volume) + by).rem_euclid(10) as u8,
+            Opt::Scaling => s.integer_scaling = !s.integer_scaling,
+            Opt::Fullscreen => s.fullscreen = !s.fullscreen,
+            Opt::Keys => {
+                self.page = Page::Keys;
+                self.keys = Default::default();
+                return None;
+            }
+            Opt::Defaults => {
+                let d = Settings::default();
+                *s = Settings { bindings: s.bindings, map_key: s.map_key, fullscreen_key: s.fullscreen_key, pause_key: s.pause_key, ..d };
+            }
         }
         Some(Event::Changed)
     }
 
-    /// Draw over the menu's left part (the game area); the texts.
-    pub fn draw(&self, c: &mut Canvas, key_name: &dyn Fn(i16) -> String) -> Vec<Line> {
-        c.fill(16, 16, 448, 448, 255);
-        // the selected row on dark red, as the inventory marks its slot
-        let red = harry_data::clut8().iter().position(|p| *p == [0x88, 0, 0]).unwrap_or(255) as u8;
-        let t = row_top(self.selected);
-        c.fill(32, t, 416, ROW, red);
-        let white = [255; 3];
-        let grey = [0xbb; 3];
-        let label = |x: f32, y: i32, text: &str, face: Face, color: [u8; 3]| Line {
-            x,
-            baseline: (y + 13) as f32,
-            size: 12.0,
-            face,
-            color,
-            text: text.to_string(),
-        };
-        let mut lines = vec![
-            Line { x: 40.0, baseline: 50.0, size: 18.0, face: Face::HelveticaBold, color: white, text: "Preferences".into() },
-            label(40.0, row_top(FIRST_KEY) - 23, "Keys", Face::HelveticaBold, white),
-        ];
-        let s = &self.settings;
-        let mut b = s.clone();
-        for (i, row) in ROWS.iter().enumerate() {
-            let y = row_top(i);
-            let colour = if i == self.selected { white } else { grey };
-            let (name, value) = match *row {
-                Row::Camera => ("Camera Mode", CAMERAS.iter().find(|c| c.0 == s.camera).map_or("?", |c| c.1).to_string()),
-                Row::Autosave => ("Save between levels", on_off(s.autosave)),
-                Row::Volume => ("Sound Volume", if s.volume == 0 { "Off".into() } else { s.volume.to_string() }),
-                Row::MusicVolume => ("Music Volume", if s.music_volume == 0 { "Off".into() } else { s.music_volume.to_string() }),
-                Row::Scaling => ("Scaling", if s.integer_scaling { "Whole multiples (sharp)".into() } else { "Fill the window".into() }),
-                Row::Fullscreen => ("Full Screen", on_off(s.fullscreen)),
-                Row::FullscreenKey => (
-                    "Full Screen Key",
-                    if self.capture == Some(*row) { "Press a key… (Escape: keep)".into() } else { s.fullscreen_key.name().to_string() },
-                ),
-                Row::PauseKey => (
-                    "Pause Key",
-                    if self.capture == Some(*row) { "Press a key… (Escape: keep)".into() } else { s.pause_key.name().to_string() },
-                ),
-                Row::Key(a) => (
-                    ACTIONS[a],
-                    if self.capture == Some(*row) { "Press a key… (Escape: keep)".into() } else { key_name(*binding(&mut b, a)) },
-                ),
-                Row::Defaults => ("Default Settings", String::new()),
-                Row::Done => ("Done", String::new()),
-            };
-            lines.push(label(48.0, y, name, Face::HelveticaBold, colour));
-            if !value.is_empty() {
-                let shown = if i == self.selected && !matches!(row, Row::Key(_) | Row::FullscreenKey | Row::PauseKey) { format!("<  {value}  >") } else { value };
-                lines.push(label(230.0, y, &shown, Face::Helvetica, colour));
+    fn keys_choice(&mut self, choice: ouro_ui::keys::Choice) -> Option<Event> {
+        match choice {
+            // the page waits for the key now
+            ouro_ui::keys::Choice::Change(_) => None,
+            ouro_ui::keys::Choice::Defaults => {
+                let d = Settings::default();
+                let s = &mut self.settings;
+                (s.bindings, s.map_key, s.fullscreen_key, s.pause_key) = (d.bindings, d.map_key, d.fullscreen_key, d.pause_key);
+                Some(Event::Changed)
+            }
+            ouro_ui::keys::Choice::Back => {
+                self.page = Page::Options;
+                self.options.selected = OPTIONS.iter().position(|&o| o == Opt::Keys).unwrap_or(0);
+                None
             }
         }
-        lines.push(Line {
-            x: 40.0,
-            baseline: 458.0,
-            size: 10.0,
-            face: Face::Helvetica,
-            color: grey,
-            text: "Up / Down: choose     Left / Right: change     Return: set a key     Escape: done".into(),
-        });
-        lines
     }
-}
 
-fn on_off(b: bool) -> String {
-    if b { "On".into() } else { "Off".into() }
+    /// The key of row `row`: a game key swaps with one that has it; the
+    /// full screen and pause keys take any key the game and the other one
+    /// do not use. Backspace (0x33, the timeline) is no game key.
+    fn set_key(&mut self, row: usize, sc: Scancode, code: Option<i16>) -> Option<Event> {
+        let s = &mut self.settings;
+        if row >= FULLSCREEN_ROW {
+            let b = s.bindings;
+            let used = [b.left, b.right, b.scoot, b.inch, b.kick, b.select_item, b.use_item, s.map_key];
+            let other = if row == PAUSE_ROW { s.fullscreen_key } else { s.pause_key };
+            if code.is_some_and(|c| used.contains(&c)) || sc == other || sc == Scancode::Backspace {
+                return None;
+            }
+            if row == PAUSE_ROW {
+                s.pause_key = sc;
+            } else {
+                s.fullscreen_key = sc;
+            }
+            return Some(Event::Changed);
+        }
+        let code = code.filter(|&c| c != 0x33 && Some(sc) != Some(s.fullscreen_key) && sc != s.pause_key)?;
+        let old = *binding(s, row);
+        for k in 0..ACTIONS.len() {
+            if k != row && *binding(s, k) == code {
+                *binding(s, k) = old;
+            }
+        }
+        *binding(s, row) = code;
+        Some(Event::Changed)
+    }
+
+    /// The page over the whole screen; its texts.
+    pub fn draw(&self, c: &mut Canvas, look: &crate::theme::Look, key_name: &dyn Fn(i16) -> String) -> Vec<Line> {
+        match self.page {
+            Page::Options => self.options.draw(look, c, SCREEN, "Preferences", &self.rows(), &[]),
+            Page::Keys => self.keys.draw(look, c, SCREEN, &self.bindings(key_name), &KEY_NOTES),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -398,18 +389,33 @@ mod tests {
         assert_eq!(Settings::load(&path), Settings::default());
     }
 
+    /// To the keys page and onto row `row`.
+    fn keys_page(row: usize) -> Screen {
+        let mut sc = Screen::new(Settings::default());
+        sc.options.selected = OPTIONS.iter().position(|&o| o == Opt::Keys).unwrap();
+        assert_eq!(sc.key(Scancode::Return, None), None);
+        assert_eq!(sc.page, Page::Keys);
+        sc.keys.selected = row;
+        sc
+    }
+
     #[test]
     fn a_key_bound_twice_swaps() {
-        let mut sc = Screen::new(Settings::default());
         // the kick row: Return, then the Up arrow (the inch key)
-        sc.selected = FIRST_KEY + 4;
+        let mut sc = keys_page(4);
         assert_eq!(sc.key(Scancode::Return, None), None);
         assert_eq!(sc.key(Scancode::Up, Some(0x7E)), Some(Event::Changed));
         assert_eq!((sc.settings.bindings.kick, sc.settings.bindings.inch), (0x7E, 0x31));
-        // Escape while waiting keeps the key
+        // Escape while waiting keeps the key; Backspace is the timeline's
         sc.key(Scancode::Return, None);
         assert_eq!(sc.key(Scancode::Escape, None), None);
+        sc.key(Scancode::Return, None);
+        assert_eq!(sc.key(Scancode::Backspace, Some(0x33)), None);
         assert_eq!(sc.settings.bindings.kick, 0x7E);
+        // Escape on the page: back to the options
+        sc.key(Scancode::Escape, None);
+        assert_eq!(sc.page, Page::Options);
+        assert_eq!(sc.key(Scancode::Escape, None), Some(Event::Done));
     }
 
     #[test]
@@ -424,13 +430,15 @@ mod tests {
         sc.key(Scancode::Down, None);
         sc.key(Scancode::Left, None);
         assert_eq!(sc.settings.volume, 8);
-        assert_eq!(sc.click(100, row_top(ROWS.len() - 1) + 5), Some(Event::Done));
+        sc.key(Scancode::Down, None);
+        sc.key(Scancode::Down, None);
+        assert_eq!(sc.key(Scancode::Space, None), Some(Event::Changed));
+        assert!(!sc.settings.integer_scaling);
     }
 
     #[test]
     fn the_full_screen_key_takes_any_key_the_game_does_not_use() {
-        let mut sc = Screen::new(Settings::default());
-        sc.selected = FULLSCREEN_ROW;
+        let mut sc = keys_page(FULLSCREEN_ROW);
         sc.key(Scancode::Return, None);
         // Space kicks: refused
         assert_eq!(sc.key(Scancode::Space, Some(0x31)), None);
@@ -442,8 +450,7 @@ mod tests {
 
     #[test]
     fn the_pause_key_takes_any_key_the_game_and_full_screen_do_not_use() {
-        let mut sc = Screen::new(Settings::default());
-        sc.selected = PAUSE_ROW;
+        let mut sc = keys_page(PAUSE_ROW);
         sc.key(Scancode::Return, None);
         // F11 is the full screen key, ← turns: refused
         assert_eq!(sc.key(Scancode::F11, None), None);
@@ -454,7 +461,7 @@ mod tests {
         assert_eq!(sc.key(Scancode::P, Some(0x23)), Some(Event::Changed));
         assert_eq!(sc.settings.pause_key, Scancode::P);
         // and the full screen key cannot take it then
-        sc.selected = FULLSCREEN_ROW;
+        sc.keys.selected = FULLSCREEN_ROW;
         sc.key(Scancode::Return, None);
         assert_eq!(sc.key(Scancode::P, Some(0x23)), None);
     }
@@ -464,26 +471,23 @@ mod tests {
 mod picture {
     use super::*;
 
-    /// With HARRY_SCENE_DUMP=<dir>: the screen over the menu with its texts.
+    /// With HARRY_SCENE_DUMP=<dir>: the options and keys pages with their texts.
     #[test]
     fn dump_the_screen() {
         let Ok(dir) = std::env::var("HARRY_SCENE_DUMP") else { return };
-        let data = harry_data::pack::read(crate::BUNDLED).unwrap();
         let fonts = crate::text::Fonts::load();
-        let menu = crate::menu::Menu::new();
-        let (mut c, _) = menu.draw(&data, &fonts);
+        let look = crate::theme::Look { fonts: &fonts };
         let mut sc = Screen::new(Settings::default());
         sc.key(Scancode::Down, None);
         sc.key(Scancode::Down, None);
-        let lines = sc.draw(&mut c, &|code| crate::key_name(code));
-        let mut rgb = vec![0; 640 * 480 * 3];
-        c.to_rgb24(&harry_data::clut8(), &mut rgb);
-        let overlay = fonts.draw(&lines, 640, 480);
-        for (p, o) in rgb.as_chunks_mut::<3>().0.iter_mut().zip(overlay.as_chunks::<4>().0) {
-            for k in 0..3 {
-                p[k] = ((u32::from(p[k]) * (255 - u32::from(o[3])) + u32::from(o[k]) * u32::from(o[3])) / 255) as u8;
+        for (name, keys) in [("options", false), ("keys", true)] {
+            if keys {
+                sc.options.selected = OPTIONS.iter().position(|&o| o == Opt::Keys).unwrap();
+                sc.key(Scancode::Return, None);
             }
+            let mut c = Canvas::new(640, 480, 255);
+            let lines = sc.draw(&mut c, &look, &|code| crate::key_name(code));
+            crate::write_picture(&std::path::Path::new(&dir).join(format!("{name}.bmp")), &c, &lines, 0, &fonts).unwrap();
         }
-        crate::render::write_bmp(&std::path::Path::new(&dir).join("options.bmp"), 640, 480, &rgb).unwrap();
     }
 }

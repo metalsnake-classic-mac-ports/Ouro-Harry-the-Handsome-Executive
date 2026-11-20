@@ -19,7 +19,7 @@ use crate::sprite::{Sprite, Task};
 use crate::tiles::{KICK_RECTS, offset, sect};
 
 /// What touching asks of the rest of the game, in order.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TouchEvent {
     /// `STPlayRegSound`.
     Sound(i16),

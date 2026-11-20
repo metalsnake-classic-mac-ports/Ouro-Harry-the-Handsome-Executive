@@ -1,11 +1,11 @@
 #!/bin/sh
 # GUI test: the game in its window, played by HARRY_SCRIPT (no accessibility
 # access needed) - the menu, its options, a new game through the story, the
-# question before giving up, the pause by caps lock and by focus loss, the
-# options over the game, the map, F8, giving up, quitting. The pictures go
-# to OUT (default: a new temporary folder) with a contact sheet
-# (sheet.bmp) to look at; the settings are a fresh file there, so the
-# user's are not used or changed.
+# timeline, the pause by caps lock and by focus loss, the options over the
+# game, the map, F8, leaving the game (kept), quitting. The pictures go to
+# OUT (default: a new temporary folder) with a contact sheet (sheet.bmp)
+# to look at; the settings, records and the kept game are fresh files
+# there, so the user's are not used or changed.
 # Usage: crates/harry/gui-test.sh [OUT]
 set -eu
 cd "$(dirname "$0")/../.."
@@ -14,13 +14,13 @@ mkdir -p "$out"
 cargo build --release -p harry
 s="3:shot=01-menu 3.5:key=P 4.5:shot=02-menu-options 5:key=Escape 6:key=N"
 for t in 8 9.5 11 12.5 14 15.5 17 18.5; do s="$s $t:key=Space"; done
-s="$s 22:shot=03-game 23:key=Escape 23.5:shot=04-confirm 24:key=N"
+s="$s 22:shot=03-game 23:key=Backspace 23.5:shot=04-timeline 24:key=Escape"
 s="$s 25:caps=on 25.5:shot=05-paused 26:caps=off 27:focus=lost 27.5:shot=06-focus-paused 28:key=Left_Shift"
 s="$s 29:key=I+cmd 29.5:shot=07-game-options 30:key=Escape"
 s="$s 31:hold=Tab 31.1:release 32:shot=08-map 32.5:hold=Tab 32.55:release 33.5:shot=09-map-closed 34:key=F8"
 for t in 36 37.5 39 40.5; do s="$s $t:key=Space"; done
-s="$s 43:shot=10-level-2 44:key=Escape 44.5:key=Return 48:shot=11-back-in-menu 49:key=Escape"
-rm -f "$out"/*.bmp "$out/settings.txt"
+s="$s 43:shot=10-level-2 44:key=Escape 48:shot=11-back-in-menu 49:key=Escape"
+rm -rf "$out"/*.bmp "$out/settings.txt" "$out/continue.json" "$out/continue" "$out/records.json"
 HARRY_SETTINGS="$out/settings.txt" HARRY_SHOTS="$out" HARRY_SCRIPT="$s" target/release/ouro-harry
 n=$(ls "$out"/[0-9]*.bmp | wc -l | tr -d ' ')
 [ "$n" = 11 ] || { echo "gui-test: $n of 11 pictures" >&2; exit 1; }

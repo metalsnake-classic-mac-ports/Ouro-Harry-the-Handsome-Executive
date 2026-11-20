@@ -22,7 +22,7 @@ use crate::physics::Speed;
 use crate::sprite::{Face, HitTask, HitTileTask, Sprite, Task};
 
 /// A setup routine (the `TV_Setup…Sprite` passed to `SATNewSprite`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Setup {
     Bonus,
     Item,
@@ -97,7 +97,7 @@ pub fn run_setup(setup: Setup, sp: &mut Sprite, rng: &mut Random, player: (i16, 
 }
 
 /// SAT's sprite records: the list (front first) and the free list.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Sprites {
     /// Every record ever made; an index is a record's identity.
     pub recs: Vec<Sprite>,
@@ -160,7 +160,7 @@ impl Sprites {
 
 /// One slot of the idle table (0x44 bytes at 0x1006dcf0): what
 /// `ActiveToIdleSprite` saves of a sprite while it is parked.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct IdleSlot {
     pub used: bool,
     /// The record while the sprite is in the list.
@@ -192,7 +192,7 @@ pub struct IdleSlot {
 pub const IDLE_SLOTS: usize = 255;
 
 /// The sprites of a level: SAT's records, the idle table and the props.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct World {
     pub sprites: Sprites,
     pub idle: Vec<IdleSlot>,

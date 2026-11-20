@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A level selection (L, or the box in the main menu): every level with its name, a
+  preview and your best, first and latest time.
+- Continue: Esc or quitting keeps the game; Continue plays on exactly there.
+- Rewind: Backspace shows a timeline of snapshots (one every 5 seconds, and each copier
+  save) to play on from.
+
+### Changed
+
+- Dying costs no game: the level starts again from its start or the last copier; the
+  panel counts your deaths. Esc no longer asks before giving up: the game is kept.
+- The options and keys are the pages shared by all Ouro ports; the music volume is set
+  there too.
+
 ### Fixed
 
 - The stapler's shot sound no longer jumps to a very low pitch now and

@@ -4,22 +4,12 @@ Open work only; what is done is in NOTES.md, BUGS.md, CHANGELOG.md and the
 git history.
 
 ## Game
-- [ ] The warp dialog
-- [ ] Saving and loading as a list of saves (decided 2026-11-03): no file dialogs; a save at a
-      copier or between levels makes a new entry with level, date and time, a screenshot;
-      continuing picks from the list. Replaces `CopierSave` / `AskToContinue` and the original's
-      save files
 - [ ] `IntroLevel`'s text card for levels without a title picture (needed for fan worlds)
 
 ## The rules for all ports (`../CLAUDE.md`, "How every port plays", 2026-11-12)
-- [ ] Deaths instead of a game over: a death counter where the original shows how Harry
-      fares; dying has no bad effect
-- [ ] Level selection in the main menu instead of the warp dialog: every level with name,
-      thumbnail (start view), done mark, best / first / latest time, deaths; looks the same
-      in every Ouro port, with Harry's decoration
-- [ ] Continue: the exact state saved when quitting; "Continue" first in the main menu
-- [ ] Rewind: a snapshot every few seconds, forks, a timeline with screenshots; the copier
-      saves (the list of saves above) appear in it, marked as manual saves
+- [ ] What counts as a run's time: for now from the level's start to its exit, deaths
+      included, the game's frames while playing (NOTES.md, "Port improvements"); confirm
+      or change
 - [ ] Game speed apart from the frame rate: the picture at the display's rate, the game at
       30 frames a second; sprites drawn between game frames
 - [ ] Fan datasets: graphics in higher resolution and with more animation steps, sounds,
@@ -32,9 +22,6 @@ git history.
       file filled from the world's info) in the settings folder; also by the extract tool
       on the command line. Harry is the only Ouro port so far whose original took such
       files (Quagmire, Sammy and S.C.Out had none)
-- [ ] Keys on a modern menu page (rule 9): the actions with their keys, any key, a key
-      in use swapped, saved at once - as S.C.Out's keys page; the original's own key
-      limits noted in NOTES.md / BUGS.md, not kept
 - [ ] Gamepad (rule 10, decided 2026-11-12): stick / d-pad and buttons for Harry's
       actions, set on the keys page; the menus by gamepad too. Maybe later shared by all
       ports in a common Ouro framework

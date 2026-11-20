@@ -11,7 +11,7 @@ use crate::physics::Speed;
 pub type Face = i16;
 
 /// A sprite's per-frame routine (`sp->task`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Task {
     Player,
     /// `HandlePlayerSpriteDeath` (not ported yet).
@@ -54,7 +54,7 @@ pub enum Task {
 }
 
 /// A sprite's collision routine (`sp->hitTask`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HitTask {
     Player,
     PlayerShot,
@@ -93,7 +93,7 @@ pub enum HitTask {
 }
 
 /// A sprite's tile collision routine (`sp->hitTileTask`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HitTileTask {
     Player,
     PlayerShot,
@@ -125,7 +125,7 @@ pub struct HitContext<'a> {
 }
 
 /// What a sprite routine asks of the rest of the game.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SpriteEvent {
     /// `STPlayRegSound`.
     Sound(i16),
@@ -186,7 +186,7 @@ impl SpriteEvent {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Sprite {
     /// The editor's object id (SAT's kind).
     pub kind: i16,

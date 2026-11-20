@@ -120,7 +120,7 @@ pub fn setup_exit(sp: &mut Sprite) {
 
 /// The level counter and the one before (`*_DAT_100659cc`,
 /// `_DAT_10068568`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LevelCounter {
     pub current: i16,
     pub previous: i16,
@@ -554,7 +554,7 @@ pub fn hit_plant(
 }
 
 /// The text of a speech balloon.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BalloonText {
     /// Text n of the world (`Hwld` + 0x3c9 + n · 256, Pascal strings).
     World(i16),

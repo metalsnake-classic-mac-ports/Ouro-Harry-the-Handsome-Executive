@@ -25,7 +25,7 @@ pub mod snd {
 const FACES: i16 = 4902;
 
 /// The boss's globals.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct BossState {
     /// `_DAT_1006c350`: 1 (150–100 points), 2 (below 100), 3 (below 50).
     pub phase: i16,

@@ -33,7 +33,7 @@ const NAME: usize = 0x5518;
 
 /// The record, decoded; `rest` keeps every byte so a record read from a
 /// file is written back unchanged.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SaveGame {
     pub world: u32,
     /// Made at a copier: position, track map and level come with it.

@@ -6,7 +6,7 @@
 //! arithmetic wraps like the original's `short` stores.
 
 /// A sprite's speed (the original's `Point speed`: v first, then h).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Speed {
     pub h: i16,
     pub v: i16,
@@ -14,7 +14,7 @@ pub struct Speed {
 
 /// The five physics values of a level (`gPhysics`, `LoadLevelPhysics`):
 /// level offset 0x12102.. when 0x12100 is set, else the defaults.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Physics {
     /// Base thrust of scoot and inch.
     pub scoot: i16,
@@ -114,7 +114,7 @@ fn friction_axis(s: i16, f: i16, gliding: bool) -> i16 {
 }
 
 /// The state `HandlePlayerGlide` reads besides the speed.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Floor {
     /// `sp->air` (jump state): friction applies at 0 and at 24–199.
     pub air: i16,

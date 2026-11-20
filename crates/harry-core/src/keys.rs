@@ -9,7 +9,7 @@ use crate::random::Random;
 
 /// The keyboard as `GetKeys` returns it: key code c is bit c & 7 of byte
 /// c >> 3.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct KeyMap(pub [u8; 16]);
 
 impl KeyMap {
@@ -60,7 +60,7 @@ pub mod code {
 
 /// The key codes of the prefs (+0x10…+0x1c), defaults from the Key
 /// Controls panel.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Bindings {
     /// Rotate left: `dir` + 1.
     pub left: i16,
@@ -119,7 +119,7 @@ pub struct KeyInput<'a> {
 }
 
 /// What `HandleKeys` asks of the rest of the game, in order.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum KeyEvent {
     /// `STPlayRegSound`.
     Sound(i16),
@@ -466,7 +466,7 @@ fn sequences(g: &mut PlayerGlobals, k: &KeyMap, rng: &mut Random, events: &mut V
 }
 
 /// Ammunition of the three guns.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Ammo {
     pub staple: i16,
     pub badass: i16,

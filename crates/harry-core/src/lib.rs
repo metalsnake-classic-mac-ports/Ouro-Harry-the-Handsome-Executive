@@ -5,6 +5,7 @@
 //! to it; see NOTES.md). One game frame is one pass of the original's main
 //! loop, 30 per second.
 
+mod big;
 pub mod air;
 pub mod blob;
 pub mod boss;

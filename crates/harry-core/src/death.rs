@@ -19,7 +19,7 @@ pub mod snd {
 }
 
 /// What the death asks of the game.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum DeathEvent {
     /// `FadeMusic(0, 1)`.
     FadeMusic,

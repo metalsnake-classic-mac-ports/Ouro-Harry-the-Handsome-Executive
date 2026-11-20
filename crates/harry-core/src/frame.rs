@@ -17,7 +17,7 @@ use crate::random::Random;
 pub const SLOTS: usize = 12;
 
 /// The game's globals around the player (NOTES.md, re/ghidra/globals.txt).
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PlayerGlobals {
     pub moves: Moves,
     pub tile: TileState,
@@ -104,7 +104,7 @@ impl PlayerGlobals {
 }
 
 /// Harry's sprite state beyond `Player`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Harry {
     pub player: Player,
     pub air: Air,
@@ -121,7 +121,7 @@ pub struct Harry {
 }
 
 /// Sounds of the frame.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FrameSound {
     Move(MoveSound),
     Air(AirSound),

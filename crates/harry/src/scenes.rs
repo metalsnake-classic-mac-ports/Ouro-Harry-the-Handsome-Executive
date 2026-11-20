@@ -311,6 +311,24 @@ fn level_music(level: &harry_core::Level) -> [Step; 2] {
     [Step::Music(level.music), Step::FadeMusic { out: false, ticks: 2 }]
 }
 
+/// Continue and rewind (the port's): from the game as it was left, its
+/// level's music and a fade in - no title card, no story.
+pub fn resume(level: &harry_core::Level) -> Vec<Step> {
+    let mut s = vec![Step::FadeMusic { out: true, ticks: 2 }];
+    s.extend(level_music(level));
+    s.push(Step::FadeIn(8));
+    s
+}
+
+/// A death (the Ouro ports' rule 1: no game over): `EndLevelEffect`,
+/// then the level again from its start or the last copier, with its
+/// title card but not its story.
+pub fn after_death(level: &harry_core::Level, world: &harry_data::WorldInfo) -> Vec<Step> {
+    let mut s = vec![Step::EndLevel];
+    s.extend(game_start(level, false, world));
+    s
+}
+
 /// `GameLoop`'s start: the music fades out; with `intro` and a story
 /// picture before the level (info #6), it scrolls between fades; then
 /// `IntroLevel` and the level's music.

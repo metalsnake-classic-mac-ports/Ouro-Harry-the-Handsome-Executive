@@ -9,7 +9,7 @@ use crate::random::Random;
 /// filler lists; 6800–6801: phone templates and names) and the index each
 /// list gave last (globals 0x10066e6c … 0x10066e7a, kept for the whole
 /// run; a list never gives the same string twice in a row).
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Words {
     pub buzz: [Vec<Vec<u8>>; 6],
     pub phone: [Vec<Vec<u8>>; 2],

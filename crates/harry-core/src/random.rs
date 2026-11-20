@@ -3,7 +3,7 @@
 
 /// QuickDraw `Random`: Park–Miller (16807, 2³¹ − 1) on `randSeed`; the
 /// result is the low 16 bits, −32768 becomes 0.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Random {
     pub seed: u32,
 }

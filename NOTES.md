@@ -2537,20 +2537,53 @@ Where the port deliberately differs from the original (the game logic in
   with a key too (the original: only a click in them); a button taken by
   key is drawn released again; Escape in the menu quits; no registration
   line under the menu. Level jumps for testing are F7 / F8 (N and P are
-  needed by the key sequences).
-- **Options.** A screen of the port's own over the menu instead of the
-  preferences dialog (`crates/harry/src/options.rs`): camera mode (the
-  dialog's four), save between levels, sound volume (off, 1–9), scaling
-  (whole multiples or filling the window), full screen and its key (F11;
-  any key the game does not use), the pause key (caps lock), the seven
-  keys
-  (Return, then the key; a key already used swaps), default settings.
+  needed by the key sequences). A box at the bottom left (the Ouro
+  ports' shared menu, ouro-ui, in Harry's look: `crates/harry/src/theme.rs`)
+  holds the port's entries: Continue (a kept game), Levels (also L),
+  Timeline (decided 2026-11-20: the picture menu and its buttons stay);
+  the CONTINUE GAME button plays on the kept game too, else, as before,
+  the record saved at a copier or a level's start in this session.
+- **Options** (rule 9). The Ouro ports' options and keys pages (ouro-ui)
+  instead of the preferences dialog (`crates/harry/src/options.rs`), over
+  the whole screen: camera mode (the dialog's four), save between
+  levels, sound and music volume (off, 1–9), scaling (whole multiples or
+  filling the window), full screen, Keys..., Defaults; the keys page: the
+  eight game keys, full screen (F11; any key the game does not use) and
+  pause (caps lock); Return, then the key; a key already used swaps;
+  Escape keeps the old one; Backspace (the timeline) is no game key.
   Left out: reduce frame rate, line skipping, interlace, more compatible
-  drawing, allow system tasks (speed options of 1997); the music volume
-  comes with the music. Saved in `settings.txt` in SDL's preference
-  folder. The defaults are the original's (`InitPrefs`: camera 1 =
-  Constant, Catch-up; sound 9, music 7; keys ← → ↓ ↑, space, control,
-  option, Tab for the map).
+  drawing, allow system tasks (speed options of 1997). Saved in
+  `settings.txt` in SDL's preference folder. The defaults are the
+  original's (`InitPrefs`: camera 1 = Constant, Catch-up; sound 9, music
+  7; keys ← → ↓ ↑, space, control, option, Tab for the map).
+- **Deaths, not game over** (rule 1, 2026-11-20). When comfort or favor
+  run out the original ends the game (`EndLevelEffect`, the menu,
+  `AskToContinue` from the last saved record). The port starts the level
+  again after `EndLevelEffect`: from the last copier save made in it
+  (the record's position, items, track map and sprite list, as the
+  original's continue does), else from the level's start (`level_start`:
+  its meters, score, ammunition and items), with the level's title card.
+  The deaths are counted in the panel, in the score's box at its right
+  ("Deaths: n").
+- **Level selection** (rule 3). Every level with its name, the screen at
+  its start and the records (`records.json`): first, best and latest
+  done run with its deaths. A run is from the level's start to its exit,
+  deaths included; its time counts the game's frames (30 a second) while
+  playing (decided for Harry 2026-11-20; open to change). A level chosen
+  there starts a new game at it (72 / 72 / 72, no items), with its story.
+- **Continue** (rule 4). Escape in the game, ⌘Q or the close box keep the
+  game (`continue.json`: the core's state and the port's counters,
+  format 1); Continue in the menu's box plays on exactly there, with the
+  level's music. The original's question before a game is given up is
+  gone: nothing is lost. Winning forgets the kept game.
+- **Rewind** (rule 5). A snapshot every 5 seconds of play (the core's
+  state as deflated JSON, about 29 KB; the screen at half size as PNG),
+  at most 720 kept whole; Backspace in the game, or Timeline in the
+  menu's box, shows them as a tree; Return plays on from one (a fork).
+  Kept with Continue in `continue/`.
+- **Copier saves in the timeline** (rule 6). A save at a copier is a
+  snapshot of its own, marked (a larger dot, "Copier save" in its line).
+  The record still goes to `Harry Save.hrsg` as the original writes it.
 - **Music fades in the game.** `FadeMusic` waits for its 24 steps: at
   Harry's death (frame 0) and the boss's the original stops for 0.4 s.
   The port fades while the game goes on (in the sequences between the
@@ -2563,10 +2596,9 @@ Where the port deliberately differs from the original (the game logic in
   by turns), and the game also pauses when its window loses focus (any
   key or click goes on; the pause picture's "Press CAPS LOCK" line then
   says what to press). No menu bar or cursor is shown.
-- **One thing over the game at a time.** The options, the question
-  before giving up, the map and a balloon each replace whatever was over
-  the game (`app::Overlay`); before, Escape over the open map left the map
-  open under the question. The frontend's states are `app::Screen`
+- **One thing over the game at a time.** The options, the timeline, the
+  map and a balloon each replace whatever was over the game
+  (`app::Overlay`). The frontend's states are `app::Screen`
   (sequence, menu, game); `app::App` runs them without the window, so its
   test plays a whole game with made-up keys and time, and
   `crates/harry/gui-test.sh` plays the same in the window

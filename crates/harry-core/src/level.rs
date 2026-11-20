@@ -14,7 +14,7 @@ pub const SPRITES: usize = 256;
 pub const NO_TILE: u16 = 0xffff;
 
 /// One entry of the level's sprite list (16 bytes in the original).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LevelSprite {
     /// Byte 0: the entry is used.
     pub present: bool,
@@ -30,7 +30,7 @@ pub struct LevelSprite {
 }
 
 /// A level.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Level {
     pub name: String,
     /// The level's number (0x12032; `CheckWorldCorruption` compares it and
@@ -48,6 +48,7 @@ pub struct Level {
     /// / after, scroll music, ripple, ...).
     pub info: [i16; 16],
     /// Kind of each background tile 0–95 (info #16–#39, nibbles).
+    #[serde(with = "crate::big")]
     pub bg_kinds: [u8; 96],
     /// Kind of the foreground tiles 32–55 (info #40–#51: bytes, high byte
     /// first, stored as kind + 1, so 0 = −1 = no collision -

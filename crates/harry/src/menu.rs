@@ -6,8 +6,14 @@
 //! left part of the screen; the credits (`FUN_10055f90`: DLOG 600, PICT
 //! 4804 with PICT 4803 scrolling in it) are a window over the menu.
 //!
+//! The port adds a box at the bottom left (the Ouro ports' rules 3-5,
+//! ouro-ui's menu in Harry's look): Continue (a game kept when the program
+//! or the game was left), Levels (the level selection), Timeline (the
+//! kept game's snapshots); arrows and Return, a click, or L for Levels.
+//! The CONTINUE GAME button plays on the kept game too.
+//!
 //! Also the boxes the port shows instead of the original's message
-//! dialogs (a message, the question before a game is given up).
+//! dialogs.
 
 use harry_core::sound::{Channel, RATE, SoundEvent};
 use harry_data::GameData;
@@ -43,6 +49,24 @@ pub enum Action {
     Continue,
     Options,
     Quit,
+    /// The level selection (the port's box, or L)
+    Levels,
+    /// The kept game's snapshots
+    Timeline,
+}
+
+/// The rows of the port's box.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Item {
+    Continue,
+    Levels,
+    Timeline,
+}
+
+/// The port's box: at the bottom left, over the chair's labels.
+fn port_area(rows: usize) -> ouro_ui::Rect {
+    let h = ouro_ui::menu::height(rows, false);
+    ouro_ui::Rect::new(28, 456 - h, 208, 456)
 }
 
 /// The credits window: DLOG 600 (200 × 285, centred on the screen), PICT
@@ -73,6 +97,10 @@ pub struct Menu {
     x_wait: u32,
     /// Sounds to play.
     pub sounds: Vec<SoundEvent>,
+    /// A game is kept (Continue), with snapshots (Timeline).
+    pub kept: bool,
+    pub snapshots: bool,
+    port: ouro_ui::menu::Menu,
 }
 
 fn play(id: i16) -> SoundEvent {
@@ -101,6 +129,61 @@ impl Menu {
             message: None,
             x_wait: 0,
             sounds: Vec::new(),
+            kept: false,
+            snapshots: false,
+            port: Default::default(),
+        }
+    }
+
+    fn items(&self) -> Vec<Item> {
+        let mut v = Vec::new();
+        if self.kept {
+            v.push(Item::Continue);
+        }
+        v.push(Item::Levels);
+        if self.kept && self.snapshots {
+            v.push(Item::Timeline);
+        }
+        v
+    }
+
+    fn take(item: Item) -> Action {
+        match item {
+            Item::Continue => Action::Continue,
+            Item::Levels => Action::Levels,
+            Item::Timeline => Action::Timeline,
+        }
+    }
+
+    /// Whether the port's box shows (not under the instructions, the
+    /// credits or a message).
+    fn port_shown(&self) -> bool {
+        !self.instructions && self.credits.is_none() && self.message.is_none()
+    }
+
+    /// Arrows and Return on the port's box.
+    pub fn arrow(&mut self, key: ouro_ui::Key) -> Option<Action> {
+        if !self.port_shown() || self.key_press.is_some() || self.tracking.is_some() {
+            return None;
+        }
+        let items = self.items();
+        let entries: Vec<_> = items.iter().map(|_| ouro_ui::menu::Entry::new("")).collect();
+        match self.port.key(key, &entries)? {
+            ouro_ui::menu::Choice::Take(k) => Some(Self::take(items[k])),
+            ouro_ui::menu::Choice::Back => None,
+        }
+    }
+
+    /// The mouse on the port's box: the row under it chosen; a click takes it.
+    fn port_mouse(&mut self, x: i32, y: i32, click: bool) -> Option<Action> {
+        if !self.port_shown() {
+            return None;
+        }
+        let items = self.items();
+        let entries: Vec<_> = items.iter().map(|_| ouro_ui::menu::Entry::new("")).collect();
+        match self.port.mouse(x, y, click, &entries, port_area(items.len()), false)? {
+            ouro_ui::menu::Choice::Take(k) => Some(Self::take(items[k])),
+            ouro_ui::menu::Choice::Back => None,
         }
     }
 
@@ -110,16 +193,17 @@ impl Menu {
 
     /// A key (a letter of the current layout, lower case; Escape and
     /// Return as '\x1b' and '\r') pressed.
-    pub fn key(&mut self, c: char) {
+    pub fn key(&mut self, c: char) -> Option<Action> {
         // a box or the credits close on any key (the port; the original's
         // credits close only with a click in them)
         if self.message.take().is_some() || self.credits.take().is_some() {
-            return;
+            return None;
         }
         if self.key_press.is_some() || self.tracking.is_some() {
-            return;
+            return None;
         }
         let button = match c {
+            'l' => return Some(Action::Levels),
             'n' => 0,
             'o' | 'r' => 1,
             'i' => 2,
@@ -130,25 +214,29 @@ impl Menu {
                 self.x_wait = 30;
                 self.sounds.push(play(MESSAGE_SOUND));
                 self.message = Some(X_MESSAGE.to_string());
-                return;
+                return None;
             }
-            _ => return,
+            _ => return None,
         };
         self.pressed = Some(button);
         self.sounds.push(play(PRESS));
         self.key_press = Some((button, 10));
+        None
     }
 
-    pub fn mouse_down(&mut self, x: i32, y: i32) {
+    pub fn mouse_down(&mut self, x: i32, y: i32) -> Option<Action> {
         if self.message.take().is_some() {
-            return;
+            return None;
+        }
+        if let Some(a) = self.port_mouse(x, y, true) {
+            return Some(a);
         }
         if self.credits.is_some() {
             let (l, t) = CREDITS_AT;
             if (l..l + CREDITS_SIZE.0).contains(&x) && (t..t + CREDITS_SIZE.1).contains(&y) {
                 self.credits = None;
             }
-            return;
+            return None;
         }
         if self.key_press.is_none()
             && let Some(b) = button_at(x, y, false)
@@ -157,9 +245,13 @@ impl Menu {
             self.pressed = Some(b);
             self.sounds.push(play(PRESS));
         }
+        None
     }
 
     pub fn mouse_move(&mut self, x: i32, y: i32) {
+        if self.tracking.is_none() {
+            self.port_mouse(x, y, false);
+        }
         let Some((b, n)) = self.tracking else { return };
         let inside = button_at(x, y, true) == Some(b);
         if inside && self.pressed.is_none() {
@@ -246,6 +338,19 @@ impl Menu {
             c.draw_picture(p, LEFT as usize, BUTTONS[b].0 as usize);
         }
         let mut lines = Vec::new();
+        if self.port_shown() {
+            let look = crate::theme::Look { fonts };
+            let entries: Vec<_> = self
+                .items()
+                .iter()
+                .map(|i| ouro_ui::menu::Entry::new(match i {
+                    Item::Continue => "Continue",
+                    Item::Levels => "Levels",
+                    Item::Timeline => "Timeline",
+                }))
+                .collect();
+            lines.extend(self.port.draw(&look, &mut c, port_area(entries.len()), None, &entries));
+        }
         if let Some(cr) = &self.credits {
             draw_credits(&mut c, data, cr);
         }
@@ -349,7 +454,7 @@ mod tests {
         let Some(data) = pack() else { return };
         let fonts = Fonts::load();
         let mut m = Menu::new();
-        m.key('n');
+        assert_eq!(m.key('n'), None);
         assert_eq!(m.sounds, [play(PRESS)]);
         let (c, _) = m.draw(&data, &fonts);
         dump(&c, "menu_new_pressed");
@@ -405,6 +510,27 @@ mod tests {
         assert!(!m.credits_open());
     }
 
+    /// The port's box: Levels alone, Continue and Timeline with a kept game.
+    #[test]
+    fn the_port_box() {
+        let Some(data) = pack() else { return };
+        let fonts = Fonts::load();
+        let mut m = Menu::new();
+        assert_eq!(m.arrow(ouro_ui::Key::Accept), Some(Action::Levels));
+        m.kept = true;
+        m.snapshots = true;
+        assert_eq!(m.arrow(ouro_ui::Key::Accept), Some(Action::Continue));
+        m.arrow(ouro_ui::Key::Up);
+        assert_eq!(m.arrow(ouro_ui::Key::Accept), Some(Action::Timeline));
+        let (c, lines) = m.draw(&data, &fonts);
+        dump(&c, "menu_port_box");
+        let levels = lines.iter().find(|l| l.text == "Levels").unwrap();
+        assert_eq!(m.mouse_down(levels.x as i32 + 2, levels.baseline as i32 - 4), Some(Action::Levels));
+        // under the instructions the box is not there
+        m.instructions = true;
+        assert_eq!(m.arrow(ouro_ui::Key::Accept), None);
+    }
+
     #[test]
     fn x_shows_its_message_and_waits_half_a_second() {
         let Some(data) = pack() else { return };
@@ -418,6 +544,7 @@ mod tests {
         dump(&c, "menu_message");
         m.key(' ');
         assert!(m.message.is_none());
+        assert_eq!(m.key('l'), Some(Action::Levels));
         m.key('x');
         assert!(m.message.is_none(), "again only after 30 ticks");
     }

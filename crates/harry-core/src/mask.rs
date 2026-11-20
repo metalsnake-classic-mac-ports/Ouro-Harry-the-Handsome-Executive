@@ -4,7 +4,7 @@
 //! (offset, intersect, empty, bounding box).
 
 /// A 1-bit mask; pixel (x, y) with x to the right, y down.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Mask {
     pub width: i32,
     pub height: i32,

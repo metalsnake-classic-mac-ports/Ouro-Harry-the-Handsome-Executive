@@ -19,7 +19,7 @@ use crate::random::Random;
 use crate::sprite::{Face, Sprite};
 
 /// One call of `BlitEncFace`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Blit {
     pub face: Face,
     pub mode: i16,
@@ -28,7 +28,7 @@ pub struct Blit {
 
 /// The draw proc a face was given at launch (`BlitEncFaceProc` for the
 /// faces no init routine changes).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Proc {
     Plain,
     NoScale,
@@ -108,7 +108,7 @@ pub fn prop_blit(face: Face, level: &Level) -> Blit {
 
 /// A second face a draw proc puts over the sprite's: at the sprite's `at`
 /// + `offset` (v, h), in `blit`'s colours.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SecondFace {
     pub offset: (i16, i16),
     pub blit: Blit,

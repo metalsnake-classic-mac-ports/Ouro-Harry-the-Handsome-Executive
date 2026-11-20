@@ -10,7 +10,7 @@ use crate::level::Level;
 use crate::random::Random;
 
 /// The sprite fields of the jump state.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Air {
     pub air: i16,
     /// Background kind under the sprite at the last `half_pipe` (+0x9c).
@@ -25,7 +25,7 @@ pub struct Air {
 }
 
 /// Sounds asked for; the original passes them in as parameters.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AirSound {
     /// Thrown off a half pipe (`HandleHalfPipe`'s sound).
     HalfPipeOut,
@@ -107,7 +107,7 @@ pub fn half_pipe(body: &mut Body, a: &mut Air, half: i16, player: bool, level: &
 }
 
 /// What `JumpScale` asks the game to do besides changing the sprite.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct JumpEffects {
     /// Fade out and centre the view on (v, h) (frame 1030 of a fall).
     pub recentre: Option<(i16, i16)>,

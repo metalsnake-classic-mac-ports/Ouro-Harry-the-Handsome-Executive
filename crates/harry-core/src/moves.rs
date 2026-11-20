@@ -14,7 +14,7 @@ pub const KICK_START: i16 = 21;
 
 /// The move globals of the original (`gScootTimer`, `gKickTimer`,
 /// `gInchTimer`, `gPoseOffset`, `gImpulse`, `gKickPower`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Moves {
     pub scoot: i16,
     pub kick: i16,
@@ -30,7 +30,7 @@ pub struct Moves {
 /// Sounds the moves ask for (`STPlayRegSound` calls); played by the
 /// frontend. The two numbers are the original's arguments (priority /
 /// volume and pitch).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MoveSound {
     /// Scooting while wet (`DoScoot` frame 17, `gWet > 0`).
     ScootWater { volume: i16 },
@@ -41,7 +41,7 @@ pub enum MoveSound {
 }
 
 /// The parts of the player's sprite `MoveChair` uses.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Chair {
     pub speed: Speed,
     /// `sp->dir`, 0–35.
@@ -53,7 +53,7 @@ pub struct Chair {
 }
 
 /// What `MoveChair` reads from the rest of the game.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct MoveInput {
     /// `gCaffeineTimer`: > 0 multiplies the thrust by 2.5.
     pub caffeine: i16,

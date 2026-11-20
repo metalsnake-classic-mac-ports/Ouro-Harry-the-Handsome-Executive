@@ -11,14 +11,14 @@ use crate::sprite::Face;
 pub const SLOTS: usize = 64;
 
 /// One prop: its point (v, h) - the object's position - and face.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Prop {
     pub at: (i16, i16),
     pub face: Face,
 }
 
 /// One table, in slot order.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Props {
     pub slots: Vec<Prop>,
 }

@@ -120,7 +120,7 @@ pub fn hit_mail_guy_tile(sp: &mut Sprite, hit: TileHit) {
 }
 
 /// The way a mail cart or a boulder runs.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Way {
     Up,
     Down,

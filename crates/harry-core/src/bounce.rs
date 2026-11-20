@@ -13,7 +13,7 @@ use crate::sprite::Sprite;
 use crate::tiles::TileHit;
 
 /// The parts of a sprite record the collision code reads and writes.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Body {
     /// SAT position (v, h).
     pub pos: (i16, i16),
@@ -568,7 +568,7 @@ pub fn rect_bounce(body: &mut Body, half: i16, bounce: i32, hot: Rect, other_at:
 /// blobs): each sprite's task of the kind clears them, so in the tile pass
 /// after the tasks only the first sprite of the kind to touch a wall / an
 /// obstacle bounces (BUGS.md "Only one robot a frame bounces off walls").
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FirstBounce {
     pub wall: bool,
     pub obstacle: bool,

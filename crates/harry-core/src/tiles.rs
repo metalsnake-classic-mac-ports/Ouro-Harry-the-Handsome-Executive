@@ -53,7 +53,7 @@ pub fn sect(a: Rect, b: Rect) -> bool {
 }
 
 /// A tile a sprite touches.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TileHit {
     /// The tile's top-left (v, h) in pixels.
     pub tile: (i16, i16),

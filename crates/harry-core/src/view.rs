@@ -18,7 +18,7 @@ pub mod mode {
 }
 
 /// The view and its scroll state.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct View {
     /// Top-left (v, h) (`_DAT_100659bc`).
     pub corner: (i16, i16),
@@ -37,7 +37,7 @@ pub struct View {
 }
 
 /// Which drawing work the view asks for.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ViewRedraw {
     /// A page scroll of mode 4 ended: redraw the game area
     /// (`uRam10072710`).

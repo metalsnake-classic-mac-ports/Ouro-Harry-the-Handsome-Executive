@@ -5,7 +5,7 @@
 /// Tiles per side.
 pub const SIZE: usize = 128;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TrackMap {
     pub cells: Vec<u8>,
     /// The tile (h, v) of Harry's last update (`sRam1007272e` /
