@@ -124,8 +124,9 @@ ouro-harry</code></pre>
   <ol>
     <li>Install <a href="https://rustup.rs">Rust</a> and SDL3. On a Mac with Homebrew:
       <pre><code>brew install sdl3</code></pre></li>
-    <li>Get the source:
-      <pre><code>git clone https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive
+    <li>Get the source, and next to it the screens all Ouro ports share:
+      <pre><code>git clone https://github.com/metalsnake-classic-mac-ports/ouro-framework
+git clone https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive
 cd Ouro-Harry-the-Handsome-Executive</code></pre></li>
     <li>Build and start the game:
       <pre><code>cargo run --release -p harry</code></pre></li>
@@ -149,7 +150,8 @@ cd Ouro-Harry-the-Handsome-Executive</code></pre></li>
       <tr><th scope="row">Caps&nbsp;Lock</th><td>Pause</td></tr>
       <tr><th scope="row">Command&nbsp;I / Ctrl&nbsp;I</th><td>Options during the game</td></tr>
       <tr><th scope="row">F11</th><td>Full screen</td></tr>
-      <tr><th scope="row">Esc</th><td>Give up the game (it asks first)</td></tr>
+      <tr><th scope="row">Backspace</th><td>Rewind: the timeline of snapshots</td></tr>
+      <tr><th scope="row">Esc</th><td>Back to the menu (the game is kept for Continue)</td></tr>
     </tbody>
   </table>
   <p>All of these can be changed in the options.</p>

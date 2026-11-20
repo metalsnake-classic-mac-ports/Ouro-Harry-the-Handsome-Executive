@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-20
+
+Built with [ouro-framework](https://github.com/metalsnake-classic-mac-ports/ouro-framework)
+0.1.0, the screens shared by all Ouro ports; building from source needs it next to
+the port (see the README).
+
 ### Added
 
 - A level selection (L, or the box in the main menu): every level with its name, a
@@ -42,5 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on focus loss; the options during a game (Command or Ctrl + I).
 - Install with Homebrew: `brew install metalsnake-classic-mac-ports/games/ouro-harry`.
 
-[unreleased]: https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive/releases/tag/v0.1.0

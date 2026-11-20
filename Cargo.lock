@@ -138,7 +138,7 @@ dependencies = [
 
 [[package]]
 name = "harry"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ab_glyph",
  "anyhow",
@@ -155,14 +155,14 @@ dependencies = [
 
 [[package]]
 name = "harry-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "harry-data"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "claxon",
  "harry-core",
@@ -173,7 +173,7 @@ dependencies = [
 
 [[package]]
 name = "harry-original"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "harry-core",
  "harry-data",
