@@ -37,6 +37,13 @@ which must sit next to it:
     cargo test
     cargo run --release -p harry
 
+Without Homebrew (older Macs, Linux, Windows) Cargo can build SDL3 itself and
+link it into the game; it needs CMake and a C compiler (on Linux also the
+development files of X11/Wayland, ALSA/PulseAudio/PipeWire; the website lists
+the packages):
+
+    cargo run --release -p harry --features sdl3/build-from-source-static
+
 `ouro-harry [pack.zip] [level]` plays the game: main menu (New Game,
 Continue Game, Instructions, Options, Credits, Quit, and a box with
 Continue, Levels and Timeline), the story, the levels, music and sound; a
