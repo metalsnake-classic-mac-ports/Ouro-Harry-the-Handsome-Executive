@@ -1,0 +1,97 @@
+# Builds the game for Windows (x64): one .exe with SDL3 and the data pack
+# built in. On a version tag the zip goes to that tag's GitHub release;
+# otherwise it is kept as a workflow artifact for testing.
+name: windows
+
+on:
+  push:
+    tags: ["v*"]
+    branches: [windows-build]
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  # the ouro-framework version this game version is built with (as in the
+  # Homebrew formula); raise it together with the game's release
+  FRAMEWORK_REF: v0.1.0
+  CRATE: harry
+  BINARY: ouro-harry
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write # to attach the zip to the release
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the game
+        uses: actions/checkout@v4
+        with:
+          path: game
+          persist-credentials: false
+
+      - name: Check out ouro-framework next to it
+        uses: actions/checkout@v4
+        with:
+          repository: metalsnake-classic-mac-ports/ouro-framework
+          ref: ${{ env.FRAMEWORK_REF }}
+          path: ouro-framework
+          persist-credentials: false
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            game/target
+          key: windows-cargo-${{ hashFiles('game/Cargo.lock') }}
+
+      # SDL3 is built from source (needs CMake, which the runner has) and
+      # linked statically; +crt-static puts the C runtime in as well, so the
+      # .exe does not need the Visual C++ redistributable
+      - name: Build
+        working-directory: game
+        env:
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: cargo build --release --locked -p "$CRATE" --features sdl3/build-from-source-static
+
+      - name: Smoke test
+        working-directory: game
+        run: ./target/release/$BINARY.exe --version
+
+      - name: List the DLLs it needs (only Windows' own may appear)
+        working-directory: game
+        shell: pwsh
+        run: |
+          python -m pip install --quiet pefile
+          python -c "import pefile,sys; pe=pefile.PE(sys.argv[1]); print('\n'.join(sorted(e.dll.decode() for e in pe.DIRECTORY_ENTRY_IMPORT)))" "target/release/$env:BINARY.exe"
+
+      - name: Pack
+        working-directory: game
+        run: |
+          version=$(./target/release/$BINARY.exe --version | awk '{print $2}')
+          name="$BINARY-$version-windows-x64"
+          mkdir "$name"
+          cp "target/release/$BINARY.exe" README.md LICENSE CHANGELOG.md "$name/"
+          7z a "../$name.zip" "$name" > /dev/null
+          echo "ZIP=$name.zip" >> "$GITHUB_ENV"
+
+      - name: Keep as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BINARY }}-windows-x64
+          path: ${{ env.ZIP }}
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1 \
+            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "$TAG" --notes "See CHANGELOG.md."
+          gh release upload "$TAG" "$ZIP" -R "$GITHUB_REPOSITORY" --clobber
