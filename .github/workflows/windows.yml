@@ -51,24 +51,22 @@ jobs:
           key: windows-cargo-${{ hashFiles('game/Cargo.lock') }}
 
       # SDL3 is built from source (needs CMake, which the runner has) and
-      # linked statically; +crt-static puts the C runtime in as well, so the
-      # .exe does not need the Visual C++ redistributable
+      # linked statically. The C runtime stays a DLL: sdl3-sys builds SDL
+      # against it (/MD), so +crt-static does not link. Its vcruntime DLLs
+      # go next to the .exe instead (Microsoft's "app-local" deployment).
       - name: Build
         working-directory: game
-        env:
-          RUSTFLAGS: -C target-feature=+crt-static
         run: cargo build --release --locked -p "$CRATE" --features sdl3/build-from-source-static
 
       - name: Smoke test
         working-directory: game
         run: ./target/release/$BINARY.exe --version
 
-      - name: List the DLLs it needs (only Windows' own may appear)
+      - name: List the DLLs it needs
         working-directory: game
-        shell: pwsh
         run: |
           python -m pip install --quiet pefile
-          python -c "import pefile,sys; pe=pefile.PE(sys.argv[1]); print('\n'.join(sorted(e.dll.decode() for e in pe.DIRECTORY_ENTRY_IMPORT)))" "target/release/$env:BINARY.exe"
+          python -c "import pefile,sys; pe=pefile.PE(sys.argv[1]); print('\n'.join(sorted(e.dll.decode().lower() for e in pe.DIRECTORY_ENTRY_IMPORT)))" "target/release/$BINARY.exe" | tee dlls.txt
 
       - name: Pack
         working-directory: game
@@ -77,6 +75,15 @@ jobs:
           name="$BINARY-$version-windows-x64"
           mkdir "$name"
           cp "target/release/$BINARY.exe" README.md LICENSE CHANGELOG.md "$name/"
+          # the Visual C++ runtime DLLs the .exe imports, from the installed
+          # Visual Studio's redistributable folder (the UCRT is part of
+          # Windows 10 and later)
+          crt=$(ls -d "/c/Program Files/Microsoft Visual Studio"/*/*/VC/Redist/MSVC/*/x64/Microsoft.VC*.CRT | sort | tail -1)
+          echo "runtime from: $crt"
+          for dll in $(grep -E '^(vcruntime|msvcp)' dlls.txt); do
+            cp "$crt/$dll" "$name/"
+          done
+          ls -l "$name"
           7z a "../$name.zip" "$name" > /dev/null
           echo "ZIP=$name.zip" >> "$GITHUB_ENV"
 
