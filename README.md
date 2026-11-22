@@ -20,10 +20,15 @@ name of these ports: the old game in a new skin.
 Work in progress, see [TODO.md](TODO.md): all 15 levels of Episode 1 play.
 
 ## Installing
-With [Homebrew](https://brew.sh) (macOS, Linux):
+With [Homebrew](https://brew.sh) (macOS, Linux on x86-64 and ARM64):
 
     brew install metalsnake-classic-mac-ports/games/ouro-harry
     ouro-harry
+
+On Windows (10 or newer, x64), download `ouro-harry-windows-x64.zip` from the
+[latest release](https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive/releases/latest), unpack it and start
+`ouro-harry.exe`. It is not signed: the first time, Windows asks you to confirm
+(More info, Run anyway).
 
 ## Building
 You need Rust (via [rustup](https://rustup.rs)) and SDL3
