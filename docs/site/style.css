@@ -222,22 +222,39 @@ code {
   font-size: 0.9em;
 }
 
-/* the build instructions per system: tabs like the buttons, the chosen
-   one pressed in and lit */
+/* Play: Install, then Build from source folded away; tabs per system
+   like the game's buttons, the chosen one pressed in and lit */
+.way { margin: 1.75rem 0 0.75rem; font-size: 1.2rem; }
+#play > .way:first-of-type { margin-top: 0.5rem; }
+.note { font-size: var(--size-small); color: var(--text-dim); }
+.build { margin-top: 1.5rem; }
+.build > summary { cursor: pointer; list-style: none; }
+.build > summary::-webkit-details-marker { display: none; }
+.build > summary .way { display: inline; margin: 0; }
+.build > summary::before { content: "\25B8\00A0"; }
+.build[open] > summary::before { content: "\25BE\00A0"; }
+.build > summary + p { margin-top: 1rem; }
 .tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem; }
+.tabs[hidden] { display: none; }
+.tabs.variants { gap: 0.4rem; margin-bottom: 1rem; }
+.tabs.variants .tab { font-size: 0.85rem; padding: 0.25rem 0.7rem; border-width: 2px; }
+.tab { font: inherit; font-size: var(--size-small); cursor: pointer; padding: 0.4rem 0.9rem; border: 3px solid; }
+.system h4, .system h5 { margin: 1.5rem 0 0.75rem; font-size: 1.05rem; }
+.tabbed .system h4, .tabbed .system h5 { display: none; }
+.system > p { margin-bottom: 1rem; }
+.way, .build > summary, .system h4, .system h5 {
+  font-style: italic;
+  text-transform: uppercase;
+  color: var(--caption);
+}
 .tab {
-  font: inherit;
-  font-size: var(--size-small);
   font-weight: 700;
   font-style: italic;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  cursor: pointer;
-  padding: 0.4rem 0.9rem;
   background: var(--granite) url("granite.png");
   color: var(--text);
   text-shadow: 1px 1px 0 #000;
-  border: 3px solid;
   border-color: #9a9a9a #262626 #262626 #9a9a9a;
 }
 .tab:hover { color: var(--caption); }
@@ -246,16 +263,7 @@ code {
   border-color: #262626 #9a9a9a #9a9a9a #262626;
   box-shadow: 0 0 10px var(--glow);
 }
-.tab:focus-visible { outline: 3px solid var(--caption); outline-offset: 3px; }
-.system h3 {
-  margin: 1.5rem 0 0.75rem;
-  font-size: 1.1rem;
-  font-style: italic;
-  text-transform: uppercase;
-  color: var(--caption);
-}
-.tabbed .system h3 { display: none; }
-.system > p { margin-bottom: 1rem; }
+.tab:focus-visible, .build > summary:focus-visible { outline: 3px solid var(--caption); outline-offset: 3px; }
 .system:focus-visible { outline: 3px solid var(--caption); outline-offset: 6px; }
 
 /* --- keys --------------------------------------------------------- */
