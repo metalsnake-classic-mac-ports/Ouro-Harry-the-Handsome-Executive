@@ -19,8 +19,8 @@
 //! (4096 × 4096) with every sprite as the game draws it. With
 //! `HARRY_STATS` set the game prints its loop timing once a second.
 //! `HARRY_SCRIPT` plays keys into the window and saves pictures
-//! (`script`; `gui-test.sh` runs a whole game that way), `HARRY_SETTINGS`
-//! keeps the settings in another file;
+//! (`script`; `gui-test.sh` runs a whole game that way), `OURO_PREFS`
+//! keeps the settings, records and saves in another folder;
 //! `cargo run -p harry --example audio_probe` shows how SDL drives the
 //! audio callback.
 
@@ -282,6 +282,20 @@ fn new_game(data: &GameData, level: usize, g: PlayerGlobals, seed: u32) -> Game 
     }
 }
 
+/// The folder for everything the game keeps (settings, records, the kept
+/// game ...): `OURO_PREFS` if set (tests, a fresh start, someone's state
+/// to look at; made if missing), else SDL's preference folder.
+fn pref_dir() -> Option<PathBuf> {
+    match std::env::var_os("OURO_PREFS") {
+        Some(dir) => {
+            let dir = PathBuf::from(dir);
+            std::fs::create_dir_all(&dir).ok()?;
+            Some(dir)
+        }
+        None => sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok(),
+    }
+}
+
 const HELP: &str = "\
 Ouro Harry: Harry the Handsome Executive (Ben Spees / Ambrosia Software,
 1997) for modern systems.
@@ -327,11 +341,9 @@ fn main() -> Result<()> {
     }
     let data = load_data(args.get(1).filter(|s| !s.is_empty()))?;
     let loaded = Loaded::new(&data)?;
-    // the settings (the options screen), in SDL's preference folder
-    // (HARRY_SETTINGS=<file>: elsewhere, e.g. for the GUI test)
-    let settings_path = std::env::var_os("HARRY_SETTINGS")
-        .map(PathBuf::from)
-        .or_else(|| sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok().map(|d| d.join("settings.txt")));
+    // the settings (the options screen), in the preference folder
+    // (OURO_PREFS=<folder>: elsewhere, e.g. for the GUI test)
+    let settings_path = pref_dir().map(|d| d.join("settings.txt"));
     let settings = settings_path.as_deref().map(options::Settings::load).unwrap_or_default();
     let face_bounds = |f: i16| data.faces.get(&f).map_or([0; 4], |x| x.bounds);
     let assets = loaded.assets(&face_bounds);
@@ -341,11 +353,7 @@ fn main() -> Result<()> {
     let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.subsec_nanos() | 1);
     let game = app::start_game(&data, &assets, level, PlayerGlobals::new_game(), seed);
     // the saved game, the records and the kept game: beside the settings
-    // (HARRY_SETTINGS: a test's folder), else in the preference folder
-    let folder = match std::env::var_os("HARRY_SETTINGS") {
-        Some(p) => PathBuf::from(p).parent().map(PathBuf::from),
-        None => sdl3::filesystem::get_pref_path("MetalSnake", "Ouro Harry").ok(),
-    };
+    let folder = pref_dir();
     let save_path = folder.map(|d| d.join("Harry Save.hrsg"));
     let fonts = text::Fonts::load();
     if let Some((out, frames)) = screenshot {

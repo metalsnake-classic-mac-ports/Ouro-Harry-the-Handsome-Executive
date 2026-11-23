@@ -21,7 +21,7 @@ s="$s 31:hold=Tab 31.1:release 32:shot=08-map 32.5:hold=Tab 32.55:release 33.5:s
 for t in 36 37.5 39 40.5; do s="$s $t:key=Space"; done
 s="$s 43:shot=10-level-2 44:key=Escape 48:shot=11-back-in-menu 49:key=Escape"
 rm -rf "$out"/*.bmp "$out/settings.txt" "$out/continue.json" "$out/continue" "$out/records.json"
-HARRY_SETTINGS="$out/settings.txt" HARRY_SHOTS="$out" HARRY_SCRIPT="$s" target/release/ouro-harry
+OURO_PREFS="$out" HARRY_SHOTS="$out" HARRY_SCRIPT="$s" target/release/ouro-harry
 n=$(ls "$out"/[0-9]*.bmp | wc -l | tr -d ' ')
 [ "$n" = 11 ] || { echo "gui-test: $n of 11 pictures" >&2; exit 1; }
 python3 -I - "$out" <<'PY'

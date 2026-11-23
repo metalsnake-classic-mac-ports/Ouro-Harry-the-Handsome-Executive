@@ -2614,7 +2614,7 @@ Where the port deliberately differs from the original (the game logic in
   (sequence, menu, game); `app::App` runs them without the window, so its
   test plays a whole game with made-up keys and time, and
   `crates/harry/gui-test.sh` plays the same in the window
-  (`HARRY_SCRIPT`, `HARRY_SHOTS`, `HARRY_SETTINGS`) and writes a contact
+  (`HARRY_SCRIPT`, `HARRY_SHOTS`, `OURO_PREFS`) and writes a contact
   sheet to look at.
 - **Registration.** The port plays as registered; the shareware limit
   after level 5 (`LevelLimit`) is left out.

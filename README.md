@@ -68,7 +68,8 @@ options during a game, F11 switches to full screen, Esc leaves the game
 scaling (whole pixels, free, or the original size), full screen, volumes and saving between
 levels are set in the options, which are saved in SDL's preference folder
 (macOS: `~/Library/Application Support/MetalSnake/Ouro Harry`), with the
-records and the kept game. F8 / F7 jump to the next / previous level (for testing).
+records and the kept game; `OURO_PREFS=<folder>` keeps them all in another
+folder instead (for tests or a fresh start). F8 / F7 jump to the next / previous level (for testing).
 `ouro-harry --screenshot out.bmp [level] [frames]` runs the frames
 without a window and writes the picture; with `HARRY_SAVE=<file>` it, and
 Continue Game, start from that saved game.
