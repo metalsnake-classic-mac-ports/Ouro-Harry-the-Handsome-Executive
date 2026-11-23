@@ -2547,8 +2547,11 @@ Where the port deliberately differs from the original (the game logic in
 - **Options** (rule 9). The Ouro ports' options and keys pages (ouro-ui)
   instead of the preferences dialog (`crates/harry/src/options.rs`), over
   the whole screen: camera mode (the dialog's four), save between
-  levels, sound and music volume (off, 1–9), scaling (whole multiples or
-  filling the window), full screen, Keys..., Defaults; the keys page: the
+  levels, sound and music volume (off, 1–9), scaling (whole multiples,
+  filling the window, or the original size: one picture pixel one point
+  of the screen, in the middle; SDL's logical size is then the window's
+  and the picture a viewport, so the mouse is taken relative to it),
+  full screen, Keys..., Defaults; the keys page: the
   eight game keys, full screen (F11; any key the game does not use) and
   pause (caps lock); Return, then the key; a key already used swaps;
   Escape keeps the old one; Backspace (the timeline) is no game key.

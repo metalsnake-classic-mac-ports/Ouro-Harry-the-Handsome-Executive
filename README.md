@@ -65,7 +65,7 @@ kick, Control select item, Option (Alt) use item, 1–4 pick a weapon or the
 swivel, Tab the map, Caps Lock pause; Command (or Ctrl) + I opens the
 options during a game, F11 switches to full screen, Esc leaves the game
 (it is kept), Backspace shows the timeline. The game pauses when its window loses the focus. Keys,
-scaling (whole pixels or free), full screen, volumes and saving between
+scaling (whole pixels, free, or the original size), full screen, volumes and saving between
 levels are set in the options, which are saved in SDL's preference folder
 (macOS: `~/Library/Application Support/MetalSnake/Ouro Harry`), with the
 records and the kept game. F8 / F7 jump to the next / previous level (for testing).

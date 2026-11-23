@@ -27,8 +27,8 @@ pub struct Settings {
     pub volume: u8,
     /// The music's volume, 0 (off) – 9 (prefs +0xe).
     pub music_volume: u8,
-    /// Integer scaling of the picture, else as large as the window allows.
-    pub integer_scaling: bool,
+    /// How the picture is scaled to the window.
+    pub scaling: Scaling,
     pub fullscreen: bool,
     /// The key that switches full screen (the port's; stored by its SDL
     /// name).
@@ -48,12 +48,52 @@ impl Default for Settings {
             autosave: true,
             volume: 9,
             music_volume: 7,
-            integer_scaling: true,
+            scaling: Scaling::Whole,
             fullscreen: false,
             fullscreen_key: Scancode::F11,
             pause_key: Scancode::CapsLock,
             bindings: Bindings { left: 0x7B, right: 0x7C, scoot: 0x7D, inch: 0x7E, kick: 0x31, select_item: 0x3B, use_item: 0x3A },
             map_key: 0x30,
+        }
+    }
+}
+
+/// How the picture is scaled to the window or the screen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Scaling {
+    /// By the largest whole multiple that fits (sharp pixels).
+    Whole,
+    /// As large as fits, keeping the shape.
+    Fill,
+    /// Not at all: one pixel of the original is one point of the screen,
+    /// in the middle (cut off if the window is smaller).
+    Original,
+}
+
+impl Scaling {
+    const ALL: [Scaling; 3] = [Scaling::Whole, Scaling::Fill, Scaling::Original];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Scaling::Whole => "Whole multiples (sharp)",
+            Scaling::Fill => "Fill the window",
+            Scaling::Original => "Original size",
+        }
+    }
+
+    /// `by` steps on, round.
+    fn step(self, by: i32) -> Scaling {
+        let i = Scaling::ALL.iter().position(|&s| s == self).unwrap_or(0) as i32;
+        Scaling::ALL[(i + by).rem_euclid(Scaling::ALL.len() as i32) as usize]
+    }
+
+    /// In the settings file: 1 whole, 0 fill (as `integer_scaling` before),
+    /// 2 original.
+    fn code(self) -> u8 {
+        match self {
+            Scaling::Fill => 0,
+            Scaling::Whole => 1,
+            Scaling::Original => 2,
         }
     }
 }
@@ -92,7 +132,12 @@ impl Settings {
                 "autosave" => s.autosave = n != 0,
                 "volume" if (0..=9).contains(&n) => s.volume = n as u8,
                 "music_volume" if (0..=9).contains(&n) => s.music_volume = n as u8,
-                "integer_scaling" => s.integer_scaling = n != 0,
+                // `integer_scaling` before 0.2.1: 1 whole, 0 fill
+                "scaling" | "integer_scaling" => {
+                    if let Some(&sc) = Scaling::ALL.iter().find(|sc| i32::from(sc.code()) == n) {
+                        s.scaling = sc;
+                    }
+                }
                 "fullscreen" => s.fullscreen = n == 1,
                 "fullscreen_key" => {
                     if let Some(sc) = Scancode::from_name(v.trim()) {
@@ -120,12 +165,12 @@ impl Settings {
 
     pub fn save(&self, path: &Path) -> std::io::Result<()> {
         let mut out = format!(
-            "camera {}\nautosave {}\nvolume {}\nmusic_volume {}\ninteger_scaling {}\nfullscreen {}\n",
+            "camera {}\nautosave {}\nvolume {}\nmusic_volume {}\nscaling {}  # 1 whole multiples, 0 fill, 2 original size\nfullscreen {}\n",
             self.camera,
             u8::from(self.autosave),
             self.volume,
             self.music_volume,
-            u8::from(self.integer_scaling),
+            self.scaling.code(),
             u8::from(self.fullscreen)
         );
         out.push_str(&format!("fullscreen_key {}\n", self.fullscreen_key.name()));
@@ -217,8 +262,8 @@ impl Screen {
                 Opt::MusicVolume => Row::setting("Music Volume", volume(s.music_volume), "The music, 0 (off) to 9"),
                 Opt::Scaling => Row::setting(
                     "Scaling",
-                    if s.integer_scaling { "Whole multiples (sharp)" } else { "Fill the window" },
-                    "The picture scaled by whole multiples, or as large as the window allows",
+                    s.scaling.name(),
+                    "The picture by whole multiples, as large as the window allows, or not scaled",
                 ),
                 Opt::Fullscreen => Row::setting("Full Screen", on_off(s.fullscreen), "The whole screen or a window"),
                 Opt::Keys => Row::action("Keys...", "The game's keys, full screen and pause"),
@@ -291,7 +336,7 @@ impl Screen {
             // 9 and on goes round to off, as a click steps on
             Opt::Volume => s.volume = (i32::from(s.volume) + by).rem_euclid(10) as u8,
             Opt::MusicVolume => s.music_volume = (i32::from(s.music_volume) + by).rem_euclid(10) as u8,
-            Opt::Scaling => s.integer_scaling = !s.integer_scaling,
+            Opt::Scaling => s.scaling = s.scaling.step(by),
             Opt::Fullscreen => s.fullscreen = !s.fullscreen,
             Opt::Keys => {
                 self.page = Page::Keys;
@@ -376,7 +421,7 @@ mod tests {
             camera: 3,
             autosave: false,
             volume: 4,
-            integer_scaling: false,
+            scaling: Scaling::Original,
             fullscreen: true,
             fullscreen_key: Scancode::F10,
             pause_key: Scancode::Pause,
@@ -433,7 +478,13 @@ mod tests {
         sc.key(Scancode::Down, None);
         sc.key(Scancode::Down, None);
         assert_eq!(sc.key(Scancode::Space, None), Some(Event::Changed));
-        assert!(!sc.settings.integer_scaling);
+        assert_eq!(sc.settings.scaling, Scaling::Fill);
+        sc.key(Scancode::Right, None);
+        assert_eq!(sc.settings.scaling, Scaling::Original);
+        sc.key(Scancode::Right, None);
+        assert_eq!(sc.settings.scaling, Scaling::Whole);
+        sc.key(Scancode::Left, None);
+        assert_eq!(sc.settings.scaling, Scaling::Original);
     }
 
     #[test]

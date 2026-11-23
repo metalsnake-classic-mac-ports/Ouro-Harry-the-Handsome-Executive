@@ -56,6 +56,7 @@ use sdl3::sys::keycode::SDL_KMOD_NONE;
 use sdl3::pixels::PixelFormat;
 use sdl3::render::ScaleMode;
 use sdl3::sys::render::{SDL_LOGICAL_PRESENTATION_INTEGER_SCALE, SDL_LOGICAL_PRESENTATION_LETTERBOX};
+use options::Scaling;
 
 /// The original's frame: 2 ticks of 1/60 s.
 const FRAME: Duration = Duration::from_micros(33_333);
@@ -408,7 +409,7 @@ fn main() -> Result<()> {
         for name in shots {
             write_picture(&shots_dir.join(format!("{name}.bmp")), &image, &lines, dark, &fonts)?;
         }
-        display.present(&image, lines, dark, &fonts, app.settings.integer_scaling)?;
+        display.present(&image, lines, dark, &fonts)?;
         if stats {
             loops += 1;
             busy += loop_start.elapsed();
@@ -433,6 +434,7 @@ struct Display<'a> {
     text: Option<(sdl3::render::Texture<'a>, Vec<text::Line>, (u32, u32))>,
     palette: [[u8; 3]; 256],
     rgb: Vec<u8>,
+    scaling: Scaling,
 }
 
 impl<'a> Display<'a> {
@@ -444,20 +446,41 @@ impl<'a> Display<'a> {
             creator.create_texture_streaming(PixelFormat::RGB24, render::SCREEN_WIDTH as u32, render::SCREEN_HEIGHT as u32)?;
         texture.set_scale_mode(ScaleMode::Nearest);
         let rgb = vec![0u8; render::SCREEN_WIDTH * render::SCREEN_HEIGHT * 3];
-        Ok(Display { canvas, creator, texture, text: None, palette: clut8(), rgb })
+        Ok(Display { canvas, creator, texture, text: None, palette: clut8(), rgb, scaling: Scaling::Whole })
     }
 
-    /// Whole multiples of the picture, or as large as the window allows;
-    /// full screen or not.
+    /// The scaling and full screen or not.
     fn apply(&mut self, s: &options::Settings) {
-        let mode = if s.integer_scaling { SDL_LOGICAL_PRESENTATION_INTEGER_SCALE } else { SDL_LOGICAL_PRESENTATION_LETTERBOX };
-        let _ = self.canvas.set_logical_size(render::SCREEN_WIDTH as u32, render::SCREEN_HEIGHT as u32, mode);
+        self.scaling = s.scaling;
         let _ = self.canvas.window_mut().set_fullscreen(s.fullscreen);
+    }
+
+    /// SDL's logical size for the scaling. Whole multiples and filling: the
+    /// picture's size, scaled by SDL. The original size: the window's size
+    /// in points (so one point is one unit), and the picture a viewport of
+    /// its size in the middle - SDL then also takes the mouse relative to
+    /// it. Set each frame, as the window's size can change.
+    fn place(&mut self) {
+        let (w, h) = (render::SCREEN_WIDTH as u32, render::SCREEN_HEIGHT as u32);
+        match self.scaling {
+            Scaling::Whole | Scaling::Fill => {
+                let mode = if self.scaling == Scaling::Whole { SDL_LOGICAL_PRESENTATION_INTEGER_SCALE } else { SDL_LOGICAL_PRESENTATION_LETTERBOX };
+                let _ = self.canvas.set_logical_size(w, h, mode);
+                self.canvas.set_viewport(None);
+            }
+            Scaling::Original => {
+                let (ww, wh) = self.canvas.window().size();
+                let _ = self.canvas.set_logical_size(ww.max(1), wh.max(1), SDL_LOGICAL_PRESENTATION_LETTERBOX);
+                let at = |window: u32, picture: u32| (window as i32 - picture as i32) / 2;
+                self.canvas.set_viewport(sdl3::rect::Rect::new(at(ww, w), at(wh, h), w, h));
+            }
+        }
     }
 
     /// Show the picture and its texts, `dark` of 256 toward black (the
     /// gamma fades).
-    fn present(&mut self, image: &render::Canvas, lines: Vec<text::Line>, dark: i32, fonts: &text::Fonts, integer_scaling: bool) -> Result<()> {
+    fn present(&mut self, image: &render::Canvas, lines: Vec<text::Line>, dark: i32, fonts: &text::Fonts) -> Result<()> {
+        self.place();
         image.to_rgb24(&self.palette, &mut self.rgb);
         if dark > 0 {
             for c in &mut self.rgb {
@@ -471,9 +494,15 @@ impl<'a> Display<'a> {
                 buf[row * pitch..row * pitch + w * 3].copy_from_slice(line);
             }
         })?;
+        // the picture's scale on the screen, for sharp texts at it
         let (ow, oh) = self.canvas.output_size()?;
         let k = (ow as f32 / w as f32).min(oh as f32 / render::SCREEN_HEIGHT as f32);
-        let k = if integer_scaling { k.floor().max(1.0) } else { k };
+        let k = match self.scaling {
+            Scaling::Whole => k.floor().max(1.0),
+            Scaling::Fill => k,
+            // pixels per point (2 on a Retina screen)
+            Scaling::Original => ow as f32 / self.canvas.window().size().0.max(1) as f32,
+        };
         let size = ((w as f32 * k) as u32, (render::SCREEN_HEIGHT as f32 * k) as u32);
         if self.text.as_ref().is_none_or(|(_, l, s)| *l != lines || *s != size) {
             let rgba = fonts.draw(&lines, size.0 as usize, size.1 as usize);
