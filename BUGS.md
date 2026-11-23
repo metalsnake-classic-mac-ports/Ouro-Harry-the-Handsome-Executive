@@ -416,10 +416,14 @@ bug was watched in the original yet; "expected" is what the code says.
   played, a bonus says nothing and `Ouch` (after halting the voices)
   and the keys' voices are skipped while any sound plays, and the
   chatter, finding "a voice", stops it with handle 0 - every sound that
-  plays. Port: kept (the game keeps the same handles).
-  **See it:** in level 1 right after the start, stand by the water
-  cooler's gurgle or walk on noisy floor until the idle chatter comes
-  (30 % of the timer's ends): the other sounds cut off. Not tried.
+  plays. The handles keep their values until the program quits, so in
+  the original it shows only until the first chatter after launch.
+  Port: fixed (a handle of 0 is "no voice"; the port's handles started
+  again at 0 with every new game, so the bug came back each time -
+  issue #1: darts, getting hurt, eating sometimes silent).
+  **See it** (original): in level 1 right after the start, stand by the
+  water cooler's gurgle or walk on noisy floor until the idle chatter
+  comes (30 % of the timer's ends): the other sounds cut off. Not tried.
 - **The 16th dynamic sound slot is never freed.** `STPlayDynamicSound`
   searches 16 slots, `UpdateDynamicSounds` and `InitDynamicSounds` only
   15: a sound in the last slot neither moves nor frees it. Harmless (it

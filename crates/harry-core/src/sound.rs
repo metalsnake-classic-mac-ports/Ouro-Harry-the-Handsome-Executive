@@ -127,7 +127,15 @@ impl Audio {
     /// Is a voice or the chatter playing (`FUN_10056de8(gVoiceChannel)`
     /// or `FUN_10056de8(_DAT_10068aa4)`)?
     pub fn voice_playing(&self) -> bool {
-        self.playing.count(self.voice) > 0 || self.playing.count(self.chatter) > 0
+        self.plays(self.voice) || self.plays(self.chatter)
+    }
+
+    /// Does the sound with this voice or chatter handle play? A handle of
+    /// 0 (no voice or chatter yet) plays nothing. Port fix: the original
+    /// asks its mixer with the 0, which counts every sound, so until Harry
+    /// first speaks and chatters, any sound silences his voices (BUGS.md).
+    pub fn plays(&self, handle: u32) -> bool {
+        handle != 0 && self.playing.count(handle) > 0
     }
 
     /// The next handle.
@@ -226,8 +234,11 @@ mod tests {
         p.apply(&play(800, Channel::Effect, 2));
         p.apply(&play(800, Channel::Effect, 4));
         assert_eq!((p.count(0), p.count(2), p.count(6), p.count_snd(800), p.count_snd(801)), (2, 1, 0, 2, 0));
-        // no voice yet: "is a voice playing" asks about everything
+        // no voice yet: nothing counts as a voice (the original counted
+        // every sound; fixed)
         let a = Audio { playing: p.clone(), ..Audio::default() };
+        assert!(!a.voice_playing());
+        let a = Audio { playing: p.clone(), voice: 2, ..Audio::default() };
         assert!(a.voice_playing());
         let a = Audio { playing: p, voice: 8, chatter: 10, ..Audio::default() };
         assert!(!a.voice_playing());

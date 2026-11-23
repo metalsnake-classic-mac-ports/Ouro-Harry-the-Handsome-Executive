@@ -865,7 +865,8 @@ impl Game {
                     self.effect(id);
                 }
                 FrameSound::Chatter(n) => {
-                    if self.audio.playing.count(self.audio.voice) > 0 {
+                    // (with no voice yet the original stopped every sound)
+                    if self.audio.plays(self.audio.voice) {
                         self.sound(SoundEvent::StopHandle(self.audio.voice));
                     }
                     if let Some(&id) = n.and_then(|n| snd::CHATTER.get(n as usize)) {
@@ -990,11 +991,12 @@ impl Game {
                 };
                 // the chatter stops a playing voice first, then asks
                 // whether the chatter plays
-                let mut after = self.audio.playing.clone();
-                if after.count(self.audio.voice) > 0 {
-                    after.apply(&SoundEvent::StopHandle(self.audio.voice));
+                // (a handle of 0 - none yet - plays nothing; BUGS.md)
+                let mut after = self.audio.clone();
+                if after.plays(after.voice) {
+                    after.playing.apply(&SoundEvent::StopHandle(after.voice));
                 }
-                let chatter_playing = after.count(self.audio.chatter) > 0;
+                let chatter_playing = after.plays(after.chatter);
                 let mut key_events = Vec::new();
                 let mut sounds: Vec<FrameSound> = Vec::new();
                 let effects = handle_player(
@@ -1332,8 +1334,8 @@ impl Game {
     }
 
     /// `Ouch`: it halts the voices, then - unless a voice or the chatter
-    /// still plays (with handle 0 before the first one: any sound) or
-    /// caffeine works - picks one of its three with the random generator.
+    /// still plays or caffeine works - picks one of its three with the
+    /// random generator.
     fn ouch(&mut self) {
         self.sound(SoundEvent::HaltVoices);
         if !self.audio.voice_playing() && self.g.caffeine == 0 {

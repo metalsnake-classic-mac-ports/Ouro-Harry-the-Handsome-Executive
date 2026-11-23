@@ -1982,7 +1982,8 @@ queue plus `STPlay3DSound` / `CalcStereoVolume` (positional stereo).
   frontend reports before each frame what still plays (`Playing`), and
   the game counts what it starts and stops within the frame as the
   mixer would. All the questions above are answered from it, with the
-  original's handles (0 at first). `Audio` keeps the dynamic slots and
+  original's handles (0 at first; the port takes 0 as "no voice", see
+  "Port improvements"). `Audio` keeps the dynamic slots and
   sends `Pan` for each move. Differences: the frontend mixes 8 sounds and
   drops the oldest effect, not the original's priority list of 16 (a
   sound it drops counts as playing until the next frame; the game never
@@ -2588,6 +2589,14 @@ Where the port deliberately differs from the original (the game logic in
   Harry's death (frame 0) and the boss's the original stops for 0.4 s.
   The port fades while the game goes on (in the sequences between the
   frames it waits as the original).
+- **Harry's voices before he first speaks** (BUGS.md). The voice and
+  chatter handles start at 0, which the original's mixer takes for
+  "every sound": until Harry has spoken and chattered once, any sound
+  silenced his ouches, his remarks on food and items, and the chatter
+  stopped every sound. The port takes a handle of 0 as "no voice"
+  (`Audio::plays`). The differential tests are not affected: they feed
+  "a voice plays" as recorded. Reported in issue #1 (darts, getting
+  hurt, eating: sometimes silent).
 - **Recordings.** A pack may bring a finished recording of a tune
   (`music/recordings/ID.wav` / `.flac`, e.g. a fan pack); it is played
   instead of the synthesized tune.

@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with the 0.2.0 release as the first.
 - Homebrew installs ready-made on Linux on ARM64 too.
 
+### Fixed
+
+- Harry's voices no longer go missing at the start of a game: getting hurt (by darts,
+  for example), eating and using items said nothing while any other sound played,
+  until Harry had chattered once (a bug of the original that the port brought back
+  with every new game).
+
 ## [0.2.0] - 2026-11-20
 
 Built with [ouro-framework](https://github.com/metalsnake-classic-mac-ports/ouro-framework)
