@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-23
+
+Built with [ouro-framework](https://github.com/metalsnake-classic-mac-ports/ouro-framework)
+0.1.0, as 0.2.0.
+
 ### Added
 
 - A ready-made Windows version (x64): `ouro-harry-windows-x64.zip` on the release page,
@@ -69,6 +74,7 @@ the port (see the README).
   on focus loss; the options during a game (Command or Ctrl + I).
 - Install with Homebrew: `brew install metalsnake-classic-mac-ports/games/ouro-harry`.
 
-[unreleased]: https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/metalsnake-classic-mac-ports/Ouro-Harry-the-Handsome-Executive/releases/tag/v0.1.0
